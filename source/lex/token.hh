@@ -22,9 +22,9 @@ namespace dcc::lex
 
         Kwu8,
         Kwi8,
-        KWu16,
-        KWi16,
-        KWu32,
+        Kwu16,
+        Kwi16,
+        Kwu32,
         Kwi32,
         Kwu64,
         Kwi64,

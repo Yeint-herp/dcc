@@ -27,11 +27,11 @@ namespace dcc::lex
                 return "u8";
             case TokenKind::Kwi8:
                 return "i8";
-            case TokenKind::KWu16:
+            case TokenKind::Kwu16:
                 return "u16";
-            case TokenKind::KWi16:
+            case TokenKind::Kwi16:
                 return "i16";
-            case TokenKind::KWu32:
+            case TokenKind::Kwu32:
                 return "u32";
             case TokenKind::Kwi32:
                 return "i32";
@@ -251,7 +251,7 @@ namespace dcc::lex
         {"f64", TokenKind::Kwf64},
         {"false", TokenKind::KwFalse},
         {"for", TokenKind::KwFor},
-        {"i16", TokenKind::KWi16},
+        {"i16", TokenKind::Kwi16},
         {"i32", TokenKind::Kwi32},
         {"i64", TokenKind::Kwi64},
         {"i8", TokenKind::Kwi8},
@@ -269,8 +269,8 @@ namespace dcc::lex
         {"struct", TokenKind::KwStruct},
         {"switch", TokenKind::KwSwitch},
         {"true", TokenKind::KwTrue},
-        {"u16", TokenKind::KWu16},
-        {"u32", TokenKind::KWu32},
+        {"u16", TokenKind::Kwu16},
+        {"u32", TokenKind::Kwu32},
         {"u64", TokenKind::Kwu64},
         {"u8", TokenKind::Kwu8},
         {"union", TokenKind::KwUnion},
