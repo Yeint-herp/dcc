@@ -231,8 +231,53 @@ namespace dcc::lex
             return *this;
         }
 
-        TokenValue(const TokenValue&) = delete;
-        TokenValue& operator=(const TokenValue&) = delete;
+        TokenValue(const TokenValue& other) noexcept : kind(other.kind)
+        {
+            switch (kind)
+            {
+                case Kind::Int:
+                    as_int = other.as_int;
+                    break;
+                case Kind::Float:
+                    as_float = other.as_float;
+                    break;
+                case Kind::String:
+                    as_string = other.as_string;
+                    break;
+                case Kind::Char:
+                    as_char = other.as_char;
+                    break;
+                case Kind::None:
+                    break;
+            }
+        }
+
+        TokenValue& operator=(const TokenValue& other) noexcept
+        {
+            if (this != &other)
+            {
+                kind = other.kind;
+
+                switch (kind)
+                {
+                    case Kind::Int:
+                        as_int = other.as_int;
+                        break;
+                    case Kind::Float:
+                        as_float = other.as_float;
+                        break;
+                    case Kind::String:
+                        as_string = other.as_string;
+                        break;
+                    case Kind::Char:
+                        as_char = other.as_char;
+                        break;
+                    case Kind::None:
+                        break;
+                }
+            }
+            return *this;
+        };
 
         TokenValue(int64_t v) noexcept : kind(Kind::Int), as_int(v) {}
         TokenValue(double v) noexcept : kind(Kind::Float), as_float(v) {}
