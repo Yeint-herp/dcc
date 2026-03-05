@@ -456,6 +456,11 @@ namespace dcc::lex
         sm::Offset start = m_pos;
         bool is_float = false;
 
+        auto munch_suffix = [&] {
+            while (!at_eof() && is_ident_body(current()))
+                advance();
+        };
+
         if (current() == '0')
         {
             char p = lookahead();
@@ -463,6 +468,7 @@ namespace dcc::lex
             {
                 m_pos += 2;
                 consume_digits(is_hex);
+                munch_suffix();
                 Token tok = make(TokenKind::IntLiteral, start);
                 tok.value = parse_literal_value(tok);
                 return tok;
@@ -471,6 +477,7 @@ namespace dcc::lex
             {
                 m_pos += 2;
                 consume_digits(is_oct);
+                munch_suffix();
                 Token tok = make(TokenKind::IntLiteral, start);
                 tok.value = parse_literal_value(tok);
                 return tok;
@@ -479,6 +486,7 @@ namespace dcc::lex
             {
                 m_pos += 2;
                 consume_digits(is_bin);
+                munch_suffix();
                 Token tok = make(TokenKind::IntLiteral, start);
                 tok.value = parse_literal_value(tok);
                 return tok;
@@ -503,6 +511,8 @@ namespace dcc::lex
 
             consume_digits(is_dec);
         }
+
+        munch_suffix();
 
         Token tok = make(is_float ? TokenKind::FloatLiteral : TokenKind::IntLiteral, start);
         tok.value = parse_literal_value(tok);
