@@ -12,7 +12,7 @@ namespace dcc::ast
     class TypeExpr;
     class Expr;
 
-    enum class PrimitiveKind : std::uint8_t
+    enum class PrimitiveKind : uint8_t
     {
         I8,
         U8,
@@ -29,7 +29,7 @@ namespace dcc::ast
         NullT,
     };
 
-    enum class Qualifier : std::uint8_t
+    enum class Qualifier : uint8_t
     {
         None = 0,
         Const = 1u << 0,
@@ -39,12 +39,12 @@ namespace dcc::ast
 
     [[nodiscard]] constexpr Qualifier operator|(Qualifier a, Qualifier b) noexcept
     {
-        return static_cast<Qualifier>(static_cast<std::uint8_t>(a) | static_cast<std::uint8_t>(b));
+        return static_cast<Qualifier>(static_cast<uint8_t>(a) | static_cast<uint8_t>(b));
     }
 
     [[nodiscard]] constexpr Qualifier operator&(Qualifier a, Qualifier b) noexcept
     {
-        return static_cast<Qualifier>(static_cast<std::uint8_t>(a) & static_cast<std::uint8_t>(b));
+        return static_cast<Qualifier>(static_cast<uint8_t>(a) & static_cast<uint8_t>(b));
     }
 
     [[nodiscard]] constexpr bool has_qualifier(Qualifier set, Qualifier q) noexcept
@@ -52,13 +52,13 @@ namespace dcc::ast
         return (set & q) != Qualifier::None;
     }
 
-    enum class Visibility : std::uint8_t
+    enum class Visibility : uint8_t
     {
         Private,
         Public
     };
 
-    enum class BinaryOp : std::uint8_t
+    enum class BinaryOp : uint8_t
     {
         Add,
         Sub,
@@ -80,7 +80,7 @@ namespace dcc::ast
         LogOr,
     };
 
-    enum class UnaryOp : std::uint8_t
+    enum class UnaryOp : uint8_t
     {
         Negate,
         BitNot,
@@ -93,7 +93,7 @@ namespace dcc::ast
         PostDec,
     };
 
-    enum class AssignOp : std::uint8_t
+    enum class AssignOp : uint8_t
     {
         Simple,
         Add,
