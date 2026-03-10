@@ -522,7 +522,98 @@ namespace dcc::parse
         std::vector<ast::Attribute> attributes;
 
         while (!check(TK::RBrace) && !at_end())
-            fields.push_back(parse_field_decl());
+        {
+            auto member_begin = loc();
+
+            auto member_vis = ast::Visibility::Private;
+            if (match(TK::KwPublic))
+                member_vis = ast::Visibility::Public;
+
+            auto saved = save();
+            bool saved_panic = m_panic;
+            bool saved_error = m_had_error;
+            m_speculative = true;
+            m_panic = false;
+            m_had_error = false;
+
+            bool is_method = false;
+            ast::StorageClass sc = ast::StorageClass::None;
+
+            if (match(TK::KwStatic))
+                sc = ast::StorageClass::Static;
+            else if (match(TK::KwExtern))
+                sc = ast::StorageClass::Extern;
+
+            auto* maybe_type = parse_type();
+            if (maybe_type && check(TK::Identifier))
+            {
+                advance();
+                is_method = check(TK::LParen);
+            }
+
+            m_speculative = false;
+            m_panic = saved_panic;
+            m_had_error = saved_error;
+            restore(saved);
+
+            if (is_method)
+            {
+                if (match(TK::KwStatic))
+                    sc = ast::StorageClass::Static;
+                else if (match(TK::KwExtern))
+                    sc = ast::StorageClass::Extern;
+
+                auto* ret_type = parse_type();
+                auto method_name = expect(TK::Identifier, "for method name").interned;
+
+                std::vector<ast::Decl*> tpl;
+                if (check(TK::LParen))
+                {
+                    auto inner_saved = save();
+                    skip_balanced(TK::LParen, TK::RParen);
+                    bool two_parens = check(TK::LParen);
+                    restore(inner_saved);
+                    if (two_parens)
+                        tpl = parse_template_param_list();
+                }
+
+                auto* method = parse_function_decl(ret_type, method_name, std::move(tpl), member_vis, member_begin, sc);
+                methods.push_back(method);
+            }
+            else
+            {
+                bool field_panic = m_panic;
+                m_panic = false;
+
+                auto* field = parse_field_decl();
+                if (field)
+                    fields.push_back(field);
+
+                if (m_panic)
+                {
+                    m_panic = false;
+                    while (!at_end() && !check(TK::RBrace))
+                    {
+                        if (previous().kind == TK::Semicolon)
+                            break;
+
+                        if (is_type_keyword(peek().kind) || peek().is(TK::Identifier) ||
+                            peek().is_one_of(TK::KwPublic, TK::KwStatic, TK::KwExtern, TK::KwConst))
+                            break;
+
+                        if (check(TK::LBrace))
+                        {
+                            skip_balanced(TK::LBrace, TK::RBrace);
+                            break;
+                        }
+
+                        advance();
+                    }
+                }
+                else
+                    m_panic = m_panic || field_panic;
+            }
+        }
 
         expect(TK::RBrace, "to close struct body");
 
@@ -543,7 +634,98 @@ namespace dcc::parse
         std::vector<ast::Attribute> attributes;
 
         while (!check(TK::RBrace) && !at_end())
-            fields.push_back(parse_field_decl());
+        {
+            auto member_begin = loc();
+
+            auto member_vis = ast::Visibility::Private;
+            if (match(TK::KwPublic))
+                member_vis = ast::Visibility::Public;
+
+            auto saved = save();
+            bool saved_panic = m_panic;
+            bool saved_error = m_had_error;
+            m_speculative = true;
+            m_panic = false;
+            m_had_error = false;
+
+            bool is_method = false;
+            ast::StorageClass sc = ast::StorageClass::None;
+
+            if (match(TK::KwStatic))
+                sc = ast::StorageClass::Static;
+            else if (match(TK::KwExtern))
+                sc = ast::StorageClass::Extern;
+
+            auto* maybe_type = parse_type();
+            if (maybe_type && check(TK::Identifier))
+            {
+                advance();
+                is_method = check(TK::LParen);
+            }
+
+            m_speculative = false;
+            m_panic = saved_panic;
+            m_had_error = saved_error;
+            restore(saved);
+
+            if (is_method)
+            {
+                if (match(TK::KwStatic))
+                    sc = ast::StorageClass::Static;
+                else if (match(TK::KwExtern))
+                    sc = ast::StorageClass::Extern;
+
+                auto* ret_type = parse_type();
+                auto method_name = expect(TK::Identifier, "for method name").interned;
+
+                std::vector<ast::Decl*> tpl;
+                if (check(TK::LParen))
+                {
+                    auto inner_saved = save();
+                    skip_balanced(TK::LParen, TK::RParen);
+                    bool two_parens = check(TK::LParen);
+                    restore(inner_saved);
+                    if (two_parens)
+                        tpl = parse_template_param_list();
+                }
+
+                auto* method = parse_function_decl(ret_type, method_name, std::move(tpl), member_vis, member_begin, sc);
+                methods.push_back(method);
+            }
+            else
+            {
+                bool field_panic = m_panic;
+                m_panic = false;
+
+                auto* field = parse_field_decl();
+                if (field)
+                    fields.push_back(field);
+
+                if (m_panic)
+                {
+                    m_panic = false;
+                    while (!at_end() && !check(TK::RBrace))
+                    {
+                        if (previous().kind == TK::Semicolon)
+                            break;
+
+                        if (is_type_keyword(peek().kind) || peek().is(TK::Identifier) ||
+                            peek().is_one_of(TK::KwPublic, TK::KwStatic, TK::KwExtern, TK::KwConst))
+                            break;
+
+                        if (check(TK::LBrace))
+                        {
+                            skip_balanced(TK::LBrace, TK::RBrace);
+                            break;
+                        }
+
+                        advance();
+                    }
+                }
+                else
+                    m_panic = m_panic || field_panic;
+            }
+        }
 
         expect(TK::RBrace, "to close union body");
 
