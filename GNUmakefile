@@ -39,7 +39,7 @@ $(CORE_OBJS): $(BUILD)/obj/%.cc.o: %.cc
 $(BINARY): $(DRIVER_OBJS) $(CORE_LIB)
 	@echo "[ld] linking $@"
 	@mkdir -p $(dir $@)
-	$(CXX) $(DRIVER_OBJS) $(CORE_LIB) -o $@
+	$(CXX) $(CXXFLAGS) $(DRIVER_OBJS) $(CORE_LIB) -o $@
 
 $(DRIVER_OBJS): $(BUILD)/obj/%.cc.o: %.cc
 	@mkdir -p $(dir $@)
