@@ -30,17 +30,18 @@ namespace dcc::sm
         return "unknown";
     }
 
-    SourceFile::SourceFile(FileId id, std::filesystem::path path, void* mapping, std::size_t size) noexcept
-        : m_id{id}, m_path{std::move(path)}, m_mapping{mapping}, m_size{size}
+    SourceFile::SourceFile(FileId id, std::filesystem::path path, void* mapping, std::size_t size, bool is_mmaped) noexcept
+        : m_id{id}, m_path{std::move(path)}, m_mapping{mapping}, m_size{size}, m_is_mmaped{is_mmaped}
     {
     }
 
     SourceFile::SourceFile(SourceFile&& o) noexcept
-        : m_id{o.m_id}, m_path{std::move(o.m_path)}, m_mapping{o.m_mapping}, m_size{o.m_size}, m_line_start{std::move(o.m_line_start)},
-          m_line_index_built{o.m_line_index_built}
+        : m_id{o.m_id}, m_path{std::move(o.m_path)}, m_mapping{o.m_mapping}, m_size{o.m_size}, m_is_mmaped{o.m_is_mmaped},
+          m_line_start{std::move(o.m_line_start)}, m_line_index_built{o.m_line_index_built}
     {
         o.m_mapping = nullptr;
         o.m_size = 0;
+        o.m_is_mmaped = false;
     }
 
     SourceFile& SourceFile::operator=(SourceFile&& o) noexcept
@@ -53,12 +54,14 @@ namespace dcc::sm
             m_path = std::move(o.m_path);
             m_mapping = o.m_mapping;
             m_size = o.m_size;
+            m_is_mmaped = o.m_is_mmaped;
             m_line_start = std::move(o.m_line_start);
             m_line_index_built = o.m_line_index_built;
+
             o.m_mapping = nullptr;
             o.m_size = 0;
+            o.m_is_mmaped = false;
         }
-
         return *this;
     }
 
@@ -69,7 +72,7 @@ namespace dcc::sm
 
     void SourceFile::close_mapping() noexcept
     {
-        if (m_mapping && m_mapping != MAP_FAILED && m_size > 0)
+        if (m_is_mmaped && m_mapping && m_mapping != MAP_FAILED && m_size > 0)
             ::munmap(m_mapping, m_size);
 
         m_mapping = nullptr;
@@ -281,7 +284,7 @@ namespace dcc::sm
         });
 
         void* ptr = sc.content.empty() ? nullptr : static_cast<void*>(sc.content.data());
-        m_files.push_back(std::make_unique<SourceFile>(id, std::filesystem::path{std::move(name)}, ptr, sc.content.size()));
+        m_files.push_back(std::make_unique<SourceFile>(id, std::filesystem::path{std::move(name)}, ptr, sc.content.size(), false));
 
         return id;
     }

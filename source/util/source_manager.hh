@@ -57,7 +57,7 @@ namespace dcc::sm
     class SourceFile
     {
     public:
-        explicit SourceFile(FileId id, std::filesystem::path path, void* mapping, std::size_t size) noexcept;
+        explicit SourceFile(FileId id, std::filesystem::path path, void* mapping, std::size_t size, bool is_mmaped = true) noexcept;
 
         SourceFile(const SourceFile&) = delete;
         SourceFile& operator=(const SourceFile&) = delete;
@@ -92,6 +92,7 @@ namespace dcc::sm
         std::filesystem::path m_path;
         void* m_mapping{nullptr};
         std::size_t m_size{};
+        bool m_is_mmaped{false};
 
         mutable std::vector<Offset> m_line_start;
         mutable bool m_line_index_built{false};
