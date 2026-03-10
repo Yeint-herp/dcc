@@ -1,5 +1,5 @@
 CXX := clang++
-CXXFLAGS := -Isource -std=c++26 -Wall -Wextra -Werror -MMD -MP
+CXXFLAGS := -Isource -std=c++26 -Wall -Wextra -Werror -MMD -MP -fsanitize=address,undefined -fno-omit-frame-pointer -g
 
 BINARY := $(abspath dcc)
 
@@ -53,7 +53,7 @@ $(TEST_OBJS): $(BUILD)/obj/%.cc.o: %.cc
 
 test: $(TEST_OBJS) $(CORE_LIB)
 	@echo "[test] running tests"
-	$(CXX) $(TEST_OBJS) $(CORE_LIB) $(GTEST_LIBS) -o $(BUILD)/test_runner
+	$(CXX) $(CXXFLAGS) $(TEST_OBJS) $(CORE_LIB) $(GTEST_LIBS) -o $(BUILD)/test_runner
 	$(BUILD)/test_runner
 
 clean:
