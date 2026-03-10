@@ -78,6 +78,7 @@ namespace dcc::parse
         std::vector<ast::ParamDecl*> parse_param_list();
         std::vector<ast::FieldInit> parse_field_init_list();
         std::vector<ast::TemplateArg> parse_template_args();
+        std::vector<si::InternedString> parse_dotted_path();
 
         ast::Pattern* parse_pattern();
         ast::MatchArm parse_match_arm();

@@ -325,6 +325,9 @@ namespace dcc::parse
 
         std::size_t i = 1;
 
+        while (peek(i).is(TK::Dot) && peek(i + 1).is(TK::Identifier))
+            i += 2;
+
         if (peek(i).is(TK::LParen))
         {
             ++i;
@@ -367,7 +370,11 @@ namespace dcc::parse
         if (is_type_keyword(peek(i).kind))
             ++i;
         else if (peek(i).is(TK::Identifier))
+        {
             ++i;
+            while (peek(i).is(TK::Dot) && peek(i + 1).is(TK::Identifier))
+                i += 2;
+        }
         else
             return false;
 
@@ -790,13 +797,91 @@ namespace dcc::parse
         auto begin = loc();
         expect(TK::KwUsing, "internal error");
 
-        auto name = expect(TK::Identifier, "for type alias name").interned;
-        expect(TK::Eq, "in using declaration");
+        bool is_export = false;
+        if (match(TK::KwPublic))
+            is_export = true;
 
-        auto* aliased = parse_type();
-        expect(TK::Semicolon, "after using declaration");
+        if (check(TK::Identifier) && check_ahead(1, TK::Eq))
+        {
+            auto name = advance().interned;
+            advance();
 
-        return m_arena.create<ast::UsingDecl>(range_from(begin), name, aliased, vis);
+            auto saved = save();
+            bool saved_panic = m_panic;
+            bool saved_error = m_had_error;
+            m_speculative = true;
+            m_panic = false;
+            m_had_error = false;
+
+            std::vector<si::InternedString> target_path;
+            bool is_dotted_symbol = false;
+
+            if (check(TK::Identifier))
+            {
+                target_path.push_back(advance().interned);
+                while (match(TK::Dot))
+                    if (check(TK::Identifier))
+                        target_path.push_back(advance().interned);
+                    else
+                        break;
+
+                if (target_path.size() > 1 && check(TK::Semicolon))
+                    is_dotted_symbol = true;
+            }
+
+            m_speculative = false;
+            m_panic = saved_panic;
+            m_had_error = saved_error;
+            restore(saved);
+
+            if (is_dotted_symbol)
+            {
+                auto path = parse_dotted_path();
+                expect(TK::Semicolon, "after using declaration");
+                return m_arena.create<ast::UsingDecl>(range_from(begin), name, m_arena.to_const_span(path), nullptr, vis, is_export);
+            }
+            else
+            {
+                auto* aliased = parse_type();
+                expect(TK::Semicolon, "after using declaration");
+                return m_arena.create<ast::UsingDecl>(range_from(begin), name, aliased, vis, is_export);
+            }
+        }
+
+        std::vector<si::InternedString> path;
+        path.push_back(expect(TK::Identifier, "in using path").interned);
+
+        while (match(TK::Dot))
+        {
+            if (check(TK::LBrace))
+            {
+                advance();
+
+                std::vector<si::InternedString> names;
+                if (!check(TK::RBrace))
+                {
+                    names.push_back(expect(TK::Identifier, "in group import").interned);
+                    while (match(TK::Comma))
+                    {
+                        if (check(TK::RBrace))
+                            break;
+
+                        names.push_back(expect(TK::Identifier, "in group import").interned);
+                    }
+                }
+
+                expect(TK::RBrace, "after group import list");
+                expect(TK::Semicolon, "after using group import");
+
+                return m_arena.create<ast::UsingDecl>(range_from(begin), m_arena.to_const_span(path), m_arena.to_const_span(names), vis, is_export);
+            }
+
+            path.push_back(expect(TK::Identifier, "in using path").interned);
+        }
+
+        expect(TK::Semicolon, "after using import");
+
+        return m_arena.create<ast::UsingDecl>(range_from(begin), m_arena.to_const_span(path), vis, is_export);
     }
 
     ast::Decl* Parser::parse_func_or_var_decl(ast::Visibility vis)
@@ -1462,6 +1547,16 @@ namespace dcc::parse
         return args;
     }
 
+    std::vector<si::InternedString> Parser::parse_dotted_path()
+    {
+        std::vector<si::InternedString> path;
+        path.push_back(expect(TK::Identifier, "in dotted path").interned);
+        while (match(TK::Dot))
+            path.push_back(expect(TK::Identifier, "in dotted path").interned);
+
+        return path;
+    }
+
     ast::Expr* Parser::parse_primary()
     {
         auto begin = loc();
@@ -1623,6 +1718,64 @@ namespace dcc::parse
         if (check(TK::Identifier))
         {
             auto name = advance().interned;
+
+            if (check(TK::Dot))
+            {
+                auto saved = save();
+                bool saved_speculative = m_speculative;
+                bool saved_panic = m_panic;
+                bool saved_error = m_had_error;
+                m_speculative = true;
+                m_panic = false;
+                m_had_error = false;
+
+                std::vector<si::InternedString> segments;
+                segments.push_back(name);
+
+                bool valid_dotted_type = true;
+                while (check(TK::Dot))
+                {
+                    advance();
+                    if (!check(TK::Identifier))
+                    {
+                        valid_dotted_type = false;
+                        break;
+                    }
+                    segments.push_back(advance().interned);
+                }
+
+                bool looks_like_type = false;
+                if (valid_dotted_type && segments.size() > 1)
+                {
+                    auto next = peek().kind;
+                    looks_like_type = next == TK::Star || next == TK::LBracket || next == TK::Identifier || next == TK::LBrace || next == TK::RParen ||
+                                      next == TK::Comma || next == TK::Semicolon || next == TK::Gt;
+                }
+
+                m_speculative = saved_speculative;
+                m_panic = saved_panic;
+                m_had_error = saved_error;
+
+                if (looks_like_type)
+                {
+                    restore(saved);
+                    std::vector<si::InternedString> real_segments;
+                    real_segments.push_back(name);
+
+                    real_segments.clear();
+                    real_segments.push_back(name);
+                    while (match(TK::Dot))
+                        if (check(TK::Identifier))
+                            real_segments.push_back(advance().interned);
+                        else
+                            break;
+
+                    return m_arena.create<ast::DottedNamedType>(range_from(begin), m_arena.to_const_span(real_segments));
+                }
+                else
+                    restore(saved);
+            }
+
             auto* named = m_arena.create<ast::NamedType>(range_from(begin), name);
 
             if (check(TK::LParen))
