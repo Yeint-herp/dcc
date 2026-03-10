@@ -290,24 +290,61 @@ namespace dcc::ast
         Visibility m_vis;
     };
 
+    enum class UsingKind : uint8_t
+    {
+        TypeAlias,
+        Import,
+        GroupImport,
+        SymbolAlias,
+    };
+
     class UsingDecl final : public Decl
     {
     public:
-        explicit constexpr UsingDecl(sm::SourceRange range, si::InternedString name, TypeExpr* aliased_type, Visibility vis = Visibility::Private) noexcept
-            : Decl{range}, m_name{name}, m_aliased{aliased_type}, m_vis{vis}
+        explicit constexpr UsingDecl(sm::SourceRange range, si::InternedString name, TypeExpr* aliased_type, Visibility vis = Visibility::Private,
+                                     bool is_export = false) noexcept
+            : Decl{range}, m_name{name}, m_aliased{aliased_type}, m_vis{vis}, m_is_export{is_export}, m_kind{UsingKind::TypeAlias}
+        {
+        }
+
+        explicit constexpr UsingDecl(sm::SourceRange range, std::span<const si::InternedString> path, Visibility vis = Visibility::Private,
+                                     bool is_export = false) noexcept
+            : Decl{range}, m_name{path.empty() ? si::InternedString{} : path[path.size() - 1]}, m_aliased{nullptr}, m_import_path{path}, m_vis{vis},
+              m_is_export{is_export}, m_kind{UsingKind::Import}
+        {
+        }
+
+        explicit constexpr UsingDecl(sm::SourceRange range, si::InternedString name, std::span<const si::InternedString> target_path, TypeExpr* aliased_type,
+                                     Visibility vis = Visibility::Private, bool is_export = false) noexcept
+            : Decl{range}, m_name{name}, m_aliased{aliased_type}, m_import_path{target_path}, m_vis{vis}, m_is_export{is_export}, m_kind{UsingKind::SymbolAlias}
+        {
+        }
+
+        explicit constexpr UsingDecl(sm::SourceRange range, std::span<const si::InternedString> base_path, std::span<const si::InternedString> imported_names,
+                                     Visibility vis = Visibility::Private, bool is_export = false) noexcept
+            : Decl{range}, m_name{}, m_aliased{nullptr}, m_import_path{base_path}, m_group_names{imported_names}, m_vis{vis}, m_is_export{is_export},
+              m_kind{UsingKind::GroupImport}
         {
         }
 
         [[nodiscard]] constexpr si::InternedString name() const noexcept { return m_name; }
         [[nodiscard]] constexpr TypeExpr* aliased_type() const noexcept { return m_aliased; }
         [[nodiscard]] constexpr Visibility visibility() const noexcept { return m_vis; }
+        [[nodiscard]] constexpr bool is_export() const noexcept { return m_is_export; }
+        [[nodiscard]] constexpr UsingKind kind() const noexcept { return m_kind; }
+        [[nodiscard]] constexpr std::span<const si::InternedString> import_path() const noexcept { return m_import_path; }
+        [[nodiscard]] constexpr std::span<const si::InternedString> group_names() const noexcept { return m_group_names; }
 
         void accept(Visitor& v) const override;
 
     private:
         si::InternedString m_name;
         TypeExpr* m_aliased;
+        std::span<const si::InternedString> m_import_path;
+        std::span<const si::InternedString> m_group_names;
         Visibility m_vis;
+        bool m_is_export;
+        UsingKind m_kind;
     };
 
     class TranslationUnit final : public Decl

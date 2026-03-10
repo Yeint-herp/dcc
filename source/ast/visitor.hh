@@ -6,6 +6,7 @@ namespace dcc::ast
     class BuiltinType;
     class NamedType;
     class QualifiedType;
+    class DottedNamedType;
     class PointerType;
     class SliceType;
     class ArrayType;
@@ -86,6 +87,7 @@ namespace dcc::ast
         virtual void visit(const BuiltinType&) = 0;
         virtual void visit(const NamedType&) = 0;
         virtual void visit(const QualifiedType&) = 0;
+        virtual void visit(const ast::DottedNamedType&) = 0;
         virtual void visit(const PointerType&) = 0;
         virtual void visit(const SliceType&) = 0;
         virtual void visit(const ArrayType&) = 0;

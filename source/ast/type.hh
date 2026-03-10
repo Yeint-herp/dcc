@@ -48,6 +48,21 @@ namespace dcc::ast
         TypeExpr* m_inner;
     };
 
+    class DottedNamedType final : public TypeExpr
+    {
+    public:
+        explicit constexpr DottedNamedType(sm::SourceRange range, std::span<const si::InternedString> segments) noexcept : TypeExpr{range}, m_segments{segments}
+        {
+        }
+
+        [[nodiscard]] constexpr std::span<const si::InternedString> segments() const noexcept { return m_segments; }
+
+        void accept(Visitor& v) const override;
+
+    private:
+        std::span<const si::InternedString> m_segments;
+    };
+
     class PointerType final : public TypeExpr
     {
     public:

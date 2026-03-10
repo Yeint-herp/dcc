@@ -20,6 +20,10 @@ namespace dcc::ast
     {
         v.visit(*this);
     }
+    void DottedNamedType::accept(Visitor& v) const
+    {
+        v.visit(*this);
+    }
     void PointerType::accept(Visitor& v) const
     {
         v.visit(*this);
