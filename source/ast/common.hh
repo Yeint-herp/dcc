@@ -110,6 +110,106 @@ namespace dcc::ast
         Shr,
     };
 
+    [[nodiscard]] constexpr std::string_view to_string(BinaryOp op) noexcept
+    {
+        switch (op)
+        {
+            case BinaryOp::Add:
+                return "+";
+            case BinaryOp::Sub:
+                return "-";
+            case BinaryOp::Mul:
+                return "*";
+            case BinaryOp::Div:
+                return "/";
+            case BinaryOp::Mod:
+                return "%";
+            case BinaryOp::BitAnd:
+                return "&";
+            case BinaryOp::BitOr:
+                return "|";
+            case BinaryOp::BitXor:
+                return "^";
+            case BinaryOp::Shl:
+                return "<<";
+            case BinaryOp::Shr:
+                return ">>";
+            case BinaryOp::Eq:
+                return "==";
+            case BinaryOp::Ne:
+                return "!=";
+            case BinaryOp::Lt:
+                return "<";
+            case BinaryOp::Le:
+                return "<=";
+            case BinaryOp::Gt:
+                return ">";
+            case BinaryOp::Ge:
+                return ">=";
+            case BinaryOp::LogAnd:
+                return "&&";
+            case BinaryOp::LogOr:
+                return "||";
+        }
+        return "?";
+    }
+
+    [[nodiscard]] constexpr std::string_view to_string(UnaryOp op) noexcept
+    {
+        switch (op)
+        {
+            case UnaryOp::Negate:
+                return "-";
+            case UnaryOp::BitNot:
+                return "~";
+            case UnaryOp::LogNot:
+                return "!";
+            case UnaryOp::Deref:
+                return "*";
+            case UnaryOp::AddressOf:
+                return "&";
+            case UnaryOp::PreInc:
+                return "++";
+            case UnaryOp::PreDec:
+                return "--";
+            case UnaryOp::PostInc:
+                return "++ (post)";
+            case UnaryOp::PostDec:
+                return "-- (post)";
+        }
+        return "?";
+    }
+
+    [[nodiscard]] constexpr std::string_view to_string(AssignOp op) noexcept
+    {
+        switch (op)
+        {
+            case AssignOp::Simple:
+                return "=";
+            case AssignOp::Add:
+                return "+=";
+            case AssignOp::Sub:
+                return "-=";
+            case AssignOp::Mul:
+                return "*=";
+            case AssignOp::Div:
+                return "/=";
+            case AssignOp::Mod:
+                return "%=";
+            case AssignOp::BitAnd:
+                return "&=";
+            case AssignOp::BitOr:
+                return "|=";
+            case AssignOp::BitXor:
+                return "^=";
+            case AssignOp::Shl:
+                return "<<=";
+            case AssignOp::Shr:
+                return ">>=";
+        }
+        return "?";
+    }
+
     struct TemplateArg
     {
         std::variant<TypeExpr*, Expr*> arg;

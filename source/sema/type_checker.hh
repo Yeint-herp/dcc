@@ -113,6 +113,7 @@ namespace dcc::sema
         std::unordered_map<const ast::Node*, uint64_t> m_sizeof_values;
 
         uint32_t m_error_count{};
+        uint32_t m_loop_depth{};
 
         SemaType* m_current_return_type{nullptr};
         SemaType* m_match_scrutinee_type{nullptr};

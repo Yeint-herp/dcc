@@ -118,7 +118,7 @@ namespace dcc::sema
         auto* common = m_types.common_arithmetic_type(lhs, rhs);
         if (!common || (!common->is_numeric()))
         {
-            error(range, std::format("invalid operands to binary '{}': '{}' and '{}'", static_cast<int>(op), lhs->to_string(), rhs->to_string()));
+            error(range, std::format("invalid operands to binary '{}': '{}' and '{}'", ast::to_string(op), lhs->to_string(), rhs->to_string()));
             return m_types.error_type();
         }
 
@@ -739,44 +739,41 @@ namespace dcc::sema
             check_assignment_compatible(target_type, value_type, node.range());
         else
         {
-            ast::BinaryOp bin_op = ast::BinaryOp::Add;
             switch (node.op())
             {
                 case ast::AssignOp::Add:
-                    bin_op = ast::BinaryOp::Add;
+                    check_binary_arithmetic(ast::BinaryOp::Add, target_type, value_type, node.range());
                     break;
                 case ast::AssignOp::Sub:
-                    bin_op = ast::BinaryOp::Sub;
+                    check_binary_arithmetic(ast::BinaryOp::Sub, target_type, value_type, node.range());
                     break;
                 case ast::AssignOp::Mul:
-                    bin_op = ast::BinaryOp::Mul;
+                    check_binary_arithmetic(ast::BinaryOp::Mul, target_type, value_type, node.range());
                     break;
                 case ast::AssignOp::Div:
-                    bin_op = ast::BinaryOp::Div;
+                    check_binary_arithmetic(ast::BinaryOp::Div, target_type, value_type, node.range());
                     break;
                 case ast::AssignOp::Mod:
-                    bin_op = ast::BinaryOp::Mod;
+                    check_binary_arithmetic(ast::BinaryOp::Mod, target_type, value_type, node.range());
                     break;
                 case ast::AssignOp::BitAnd:
-                    bin_op = ast::BinaryOp::BitAnd;
+                    check_binary_bitwise(ast::BinaryOp::BitAnd, target_type, value_type, node.range());
                     break;
                 case ast::AssignOp::BitOr:
-                    bin_op = ast::BinaryOp::BitOr;
+                    check_binary_bitwise(ast::BinaryOp::BitOr, target_type, value_type, node.range());
                     break;
                 case ast::AssignOp::BitXor:
-                    bin_op = ast::BinaryOp::BitXor;
+                    check_binary_bitwise(ast::BinaryOp::BitXor, target_type, value_type, node.range());
                     break;
                 case ast::AssignOp::Shl:
-                    bin_op = ast::BinaryOp::Shl;
+                    check_binary_bitwise(ast::BinaryOp::Shl, target_type, value_type, node.range());
                     break;
                 case ast::AssignOp::Shr:
-                    bin_op = ast::BinaryOp::Shr;
+                    check_binary_bitwise(ast::BinaryOp::Shr, target_type, value_type, node.range());
                     break;
                 default:
                     break;
             }
-
-            check_binary_arithmetic(bin_op, target_type, value_type, node.range());
         }
 
         record_type(&node, target_type);
@@ -1201,7 +1198,9 @@ namespace dcc::sema
         if (!cond->is_error() && !cond->is_bool())
             error(node.condition()->range(), std::format("while condition must be 'bool', found '{}'", cond->to_string()));
 
+        ++m_loop_depth;
         check_stmt(*node.body());
+        --m_loop_depth;
     }
 
     void TypeChecker::visit(const ast::ForStmt& node)
@@ -1219,19 +1218,32 @@ namespace dcc::sema
         if (node.increment())
             check_expr(*node.increment());
 
+        ++m_loop_depth;
         check_stmt(*node.body());
+        --m_loop_depth;
     }
 
     void TypeChecker::visit(const ast::DoWhileStmt& node)
     {
+        ++m_loop_depth;
         check_stmt(*node.body());
+        --m_loop_depth;
         auto* cond = materialize_type(check_expr(*node.condition()));
         if (!cond->is_error() && !cond->is_bool())
             error(node.condition()->range(), std::format("do-while condition must be 'bool', found '{}'", cond->to_string()));
     }
 
-    void TypeChecker::visit(const ast::BreakStmt&) {}
-    void TypeChecker::visit(const ast::ContinueStmt&) {}
+    void TypeChecker::visit(const ast::BreakStmt& node)
+    {
+        if (m_loop_depth == 0)
+            error(node.range(), "'break' statement not in a loop");
+    }
+
+    void TypeChecker::visit(const ast::ContinueStmt& node)
+    {
+        if (m_loop_depth == 0)
+            error(node.range(), "'continue' statement not in a loop");
+    }
 
     void TypeChecker::visit(const ast::DeferStmt& node)
     {

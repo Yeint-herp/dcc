@@ -2516,4 +2516,89 @@ namespace dcc::test
         EXPECT_EQ(fn->attributes()[1].entries[0], "nomangle");
     }
 
+    TEST_F(SemaTest, BreakInsideWhile)
+    {
+        analyze_ok("void f() { while (true) { break; } }");
+    }
+
+    TEST_F(SemaTest, ContinueInsideWhile)
+    {
+        analyze_ok("void f() { while (true) { continue; } }");
+    }
+
+    TEST_F(SemaTest, BreakInsideFor)
+    {
+        analyze_ok("void f() { for (;;) { break; } }");
+    }
+
+    TEST_F(SemaTest, ContinueInsideFor)
+    {
+        analyze_ok("void f() { for (;;) { continue; } }");
+    }
+
+    TEST_F(SemaTest, BreakInsideDoWhile)
+    {
+        analyze_ok("void f() { do { break; } while (true); }");
+    }
+
+    TEST_F(SemaTest, ContinueInsideDoWhile)
+    {
+        analyze_ok("void f() { do { continue; } while (true); }");
+    }
+
+    TEST_F(SemaTest, BreakOutsideLoop)
+    {
+        analyze_err("void f() { break; }");
+    }
+
+    TEST_F(SemaTest, ContinueOutsideLoop)
+    {
+        analyze_err("void f() { continue; }");
+    }
+
+    TEST_F(SemaTest, BreakInNestedLoop)
+    {
+        analyze_ok("void f() { while (true) { while (true) { break; } break; } }");
+    }
+
+    TEST_F(SemaTest, BreakAfterLoop)
+    {
+        analyze_err("void f() { while (true) {} break; }");
+    }
+
+    TEST_F(SemaTest, CompoundAssignAddOk)
+    {
+        analyze_ok("void f() { i32 x = 1; x += 2; }");
+    }
+
+    TEST_F(SemaTest, CompoundAssignBitwiseAndOk)
+    {
+        analyze_ok("void f() { i32 x = 1; x &= 3; }");
+    }
+
+    TEST_F(SemaTest, CompoundAssignBitwiseOrOk)
+    {
+        analyze_ok("void f() { i32 x = 1; x |= 3; }");
+    }
+
+    TEST_F(SemaTest, CompoundAssignBitwiseAndOnBoolErr)
+    {
+        analyze_err("void f() { bool x = true; x &= 3; }");
+    }
+
+    TEST_F(SemaTest, CompoundAssignBitwiseOrOnBoolErr)
+    {
+        analyze_err("void f() { bool x = true; x |= 3; }");
+    }
+
+    TEST_F(SemaTest, CompoundAssignShlOk)
+    {
+        analyze_ok("void f() { i32 x = 1; x <<= 2; }");
+    }
+
+    TEST_F(SemaTest, CompoundAssignShlOnBoolErr)
+    {
+        analyze_err("void f() { bool x = true; x <<= 2; }");
+    }
+
 } // namespace dcc::test
