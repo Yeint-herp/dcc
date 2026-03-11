@@ -11,8 +11,9 @@
 namespace dcc::sema
 {
     TypeChecker::TypeChecker(TypeContext& types, const ResolutionMap& resolutions, const TypeResolutionMap& type_resolutions,
-                             const DisambiguationMap& disambiguations, diag::DiagnosticPrinter& printer)
-        : m_types{types}, m_resolutions{resolutions}, m_type_resolutions{type_resolutions}, m_printer{printer}, m_disambiguations{disambiguations}
+                             const DisambiguationMap& disambiguations, const UfcsMap& ufcs_candidates, diag::DiagnosticPrinter& printer)
+        : m_types{types}, m_resolutions{resolutions}, m_type_resolutions{type_resolutions}, m_printer{printer}, m_disambiguations{disambiguations},
+          m_ufcs_candidates{ufcs_candidates}
     {
     }
 
@@ -416,6 +417,70 @@ namespace dcc::sema
         for (auto& variant : enum_type->variants())
             if (!covered.contains(variant.name))
                 warning(range, std::format("non-exhaustive match: variant '{}' not covered", std::string{variant.name.view()}));
+    }
+
+    SemaType* TypeChecker::try_ufcs_call(const ast::CallExpr& node, const ast::MemberAccessExpr& ma)
+    {
+        auto cand_it = m_ufcs_candidates.find(&node);
+        if (cand_it == m_ufcs_candidates.end())
+            return nullptr;
+
+        Symbol* func_sym = cand_it->second;
+        SemaType* raw_fn = m_types.resolve(func_sym->type());
+        auto* fn_type = dynamic_cast<const FunctionSemaType*>(raw_fn);
+        if (!fn_type || fn_type->param_types().empty())
+            return nullptr;
+
+        SemaType* receiver_ty = check_expr(*ma.object());
+        SemaType* first_param = m_types.resolve(fn_type->param_types()[0]);
+
+        bool match = m_types.types_equal(receiver_ty, first_param) || m_types.is_implicitly_convertible(receiver_ty, first_param);
+
+        if (!match)
+        {
+            if (first_param->is_pointer())
+            {
+                auto* ptr = static_cast<const PointerSemaType*>(first_param);
+                SemaType* pointee = m_types.resolve(ptr->pointee());
+                match = m_types.types_equal(receiver_ty, pointee) || m_types.is_implicitly_convertible(receiver_ty, pointee);
+            }
+        }
+
+        if (!match)
+            return nullptr;
+
+        auto explicit_args = node.args();
+        std::size_t expected_remaining = fn_type->param_types().size() - 1;
+
+        if (!fn_type->is_variadic() && explicit_args.size() != expected_remaining)
+        {
+            error(node.range(), std::format("UFCS call to '{}' expects {} argument(s), got {}", std::string{func_sym->name().view()}, expected_remaining,
+                                            explicit_args.size()));
+            return m_types.error_type();
+        }
+
+        if (fn_type->is_variadic() && explicit_args.size() < expected_remaining)
+        {
+            error(node.range(), std::format("UFCS call to '{}' expects at least {} argument(s), got {}", std::string{func_sym->name().view()},
+                                            expected_remaining, explicit_args.size()));
+            return m_types.error_type();
+        }
+
+        for (std::size_t i = 0; i < expected_remaining; ++i)
+        {
+            SemaType* arg_ty = check_expr(*explicit_args[i]);
+            SemaType* param_ty = m_types.resolve(fn_type->param_types()[i + 1]);
+            if (!check_assignment_compatible(param_ty, arg_ty, explicit_args[i]->range()))
+                return m_types.error_type();
+        }
+
+        for (std::size_t i = expected_remaining; i < explicit_args.size(); ++i)
+            check_expr(*explicit_args[i]);
+
+        m_confirmed_ufcs[&node] = func_sym;
+        SemaType* ret = m_types.resolve(fn_type->return_type());
+        record_type(&node, ret);
+        return ret;
     }
 
     void TypeChecker::complete_struct(StructSemaType* sty, const ast::StructDecl& decl)
@@ -900,6 +965,107 @@ namespace dcc::sema
 
     void TypeChecker::visit(const ast::CallExpr& node)
     {
+        if (auto* ma = dynamic_cast<const ast::MemberAccessExpr*>(node.callee()))
+        {
+            SemaType* obj_type = check_expr(*ma->object());
+            obj_type = m_types.resolve(obj_type);
+
+            SemaType* derefed = obj_type;
+            if (derefed->is_pointer())
+                derefed = m_types.resolve(static_cast<PointerSemaType*>(derefed)->pointee());
+
+            bool found_member = false;
+            SemaType* member_type = nullptr;
+
+            if (derefed->is_aggregate())
+            {
+                if (auto* sty = dynamic_cast<StructSemaType*>(derefed))
+                {
+                    if (auto* fi = sty->find_field(ma->member()))
+                    {
+                        member_type = fi->type;
+                        found_member = true;
+                    }
+                    else if (auto* mi = sty->find_method(ma->member()))
+                    {
+                        member_type = mi->type;
+                        found_member = true;
+                    }
+                }
+                else if (auto* uty = dynamic_cast<UnionSemaType*>(derefed))
+                {
+                    if (auto* fi = uty->find_field(ma->member()))
+                    {
+                        member_type = fi->type;
+                        found_member = true;
+                    }
+                    else if (auto* mi = uty->find_method(ma->member()))
+                    {
+                        member_type = mi->type;
+                        found_member = true;
+                    }
+                }
+            }
+
+            if (derefed->is_enum())
+            {
+                auto* ety = static_cast<EnumSemaType*>(derefed);
+                if (auto* mi = ety->find_method(ma->member()))
+                {
+                    member_type = mi->type;
+                    found_member = true;
+                }
+            }
+
+            if (derefed->is_slice())
+            {
+                std::string_view sv = ma->member().view();
+                if (sv == "len" || sv == "ptr")
+                {
+                    found_member = true;
+                    member_type = (sv == "len") ? static_cast<SemaType*>(m_types.integer_type(64, false))
+                                                : static_cast<SemaType*>(m_types.pointer_to(static_cast<SliceSemaType*>(derefed)->element()));
+                }
+            }
+
+            if (found_member && member_type)
+            {
+                record_type(ma, member_type);
+                member_type = m_types.resolve(member_type);
+
+                if (member_type->is_function())
+                {
+                    auto* fn = static_cast<FunctionSemaType*>(member_type);
+                    auto* ret = check_call(fn, node.args(), node.range());
+                    record_type(&node, ret);
+                    return;
+                }
+                else
+                {
+                    error_not_callable(member_type, node.callee()->range());
+                    for (auto* arg : node.args())
+                        check_expr(*arg);
+
+                    record_type(&node, m_types.error_type());
+                    return;
+                }
+            }
+
+            SemaType* ufcs_result = try_ufcs_call(node, *ma);
+            if (ufcs_result)
+                return;
+
+            if (!obj_type->is_error())
+                error_no_member(obj_type->is_pointer() ? m_types.resolve(static_cast<PointerSemaType*>(obj_type)->pointee()) : obj_type, ma->member(),
+                                ma->range());
+
+            for (auto* arg : node.args())
+                check_expr(*arg);
+
+            record_type(&node, m_types.error_type());
+            return;
+        }
+
         auto* callee_type = check_expr(*node.callee());
         callee_type = m_types.resolve(callee_type);
 
@@ -907,7 +1073,6 @@ namespace dcc::sema
         {
             for (auto* arg : node.args())
                 check_expr(*arg);
-
             record_type(&node, m_types.error_type());
             return;
         }
@@ -917,7 +1082,6 @@ namespace dcc::sema
             error_not_callable(callee_type, node.callee()->range());
             for (auto* arg : node.args())
                 check_expr(*arg);
-
             record_type(&node, m_types.error_type());
             return;
         }

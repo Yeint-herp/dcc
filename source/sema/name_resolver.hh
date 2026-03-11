@@ -13,6 +13,7 @@ namespace dcc::sema
     using ResolutionMap = std::unordered_map<const ast::Node*, Symbol*>;
     using TypeResolutionMap = std::unordered_map<const ast::TypeExpr*, SemaType*>;
     using DisambiguationMap = std::unordered_map<const ast::Node*, ast::Node*>;
+    using UfcsMap = std::unordered_map<const ast::CallExpr*, Symbol*>;
 
     class NameResolver final : public ast::Visitor
     {
@@ -24,6 +25,7 @@ namespace dcc::sema
         [[nodiscard]] const ResolutionMap& resolution_map() const noexcept { return m_resolutions; }
         [[nodiscard]] const TypeResolutionMap& type_resolution_map() const noexcept { return m_type_resolutions; }
         [[nodiscard]] const DisambiguationMap& disambiguation_map() const noexcept { return m_disambiguations; }
+        [[nodiscard]] const UfcsMap& ufcs_map() const noexcept { return m_ufcs_calls; }
         [[nodiscard]] Scope* global_scope() const noexcept { return m_global_scope.get(); }
         [[nodiscard]] Scope* module_scope() const noexcept { return m_module_scope; }
         [[nodiscard]] uint32_t error_count() const noexcept { return m_error_count; }
@@ -123,6 +125,7 @@ namespace dcc::sema
         ResolutionMap m_resolutions;
         TypeResolutionMap m_type_resolutions;
         DisambiguationMap m_disambiguations;
+        UfcsMap m_ufcs_calls;
         uint32_t m_error_count{};
 
         Scope* m_scope_stack_prev{nullptr};

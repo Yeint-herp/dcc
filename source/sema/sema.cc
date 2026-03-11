@@ -66,7 +66,7 @@ namespace dcc::sema
 
         mod.owned_scope = resolver.take_global_scope();
 
-        TypeChecker checker{m_types, m_resolutions, m_type_resolutions, m_disambiguations, m_printer};
+        TypeChecker checker{m_types, m_resolutions, m_type_resolutions, m_disambiguations, m_ufcs_candidates, m_printer};
         if (!checker.check(*mod.translation_unit))
         {
             m_error_count += checker.error_count();
@@ -107,6 +107,7 @@ namespace dcc::sema
         m_type_resolutions = resolver.type_resolution_map();
         m_disambiguations = resolver.disambiguation_map();
         m_global_scope = resolver.take_global_scope();
+        m_ufcs_candidates = resolver.ufcs_map();
 
         populate_builtins();
 
@@ -117,7 +118,7 @@ namespace dcc::sema
 
     bool Sema::run_type_checking(ast::TranslationUnit& tu)
     {
-        TypeChecker checker{m_types, m_resolutions, m_type_resolutions, m_disambiguations, m_printer};
+        TypeChecker checker{m_types, m_resolutions, m_type_resolutions, m_disambiguations, m_ufcs_candidates, m_printer};
 
         if (!checker.check(tu))
         {
@@ -126,6 +127,7 @@ namespace dcc::sema
         }
 
         m_type_map = checker.type_map();
+        m_confirmed_ufcs = checker.confirmed_ufcs();
         return true;
     }
 
@@ -145,6 +147,17 @@ namespace dcc::sema
     {
         auto it = m_scope_map.find(node);
         return it != m_scope_map.end() ? it->second : nullptr;
+    }
+
+    bool Sema::is_ufcs_call(const ast::CallExpr* node) const noexcept
+    {
+        return m_confirmed_ufcs.contains(node);
+    }
+
+    Symbol* Sema::ufcs_target(const ast::CallExpr* node) const noexcept
+    {
+        auto it = m_confirmed_ufcs.find(node);
+        return it != m_confirmed_ufcs.end() ? it->second : nullptr;
     }
 
     void Sema::populate_builtins()

@@ -4,6 +4,7 @@
 #include <ast/pattern.hh>
 #include <ast/visitor.hh>
 #include <diagnostics.hh>
+#include <gtest/gtest.h>
 #include <sema/name_resolver.hh>
 #include <sema/scope.hh>
 #include <sema/type_context.hh>
@@ -11,17 +12,20 @@
 namespace dcc::sema
 {
     using TypeMap = std::unordered_map<const ast::Node*, SemaType*>;
+    using ConfirmedUfcsMap = std::unordered_map<const ast::CallExpr*, Symbol*>;
 
     class TypeChecker final : public ast::Visitor
     {
     public:
         explicit TypeChecker(TypeContext& types, const ResolutionMap& resolutions, const TypeResolutionMap& type_resolutions,
-                             const DisambiguationMap& disambiguations, diag::DiagnosticPrinter& printer);
+                             const DisambiguationMap& disambiguations, const UfcsMap& ufcs_candidates, diag::DiagnosticPrinter& printer);
 
         [[nodiscard]] bool check(ast::TranslationUnit& tu);
 
         [[nodiscard]] const TypeMap& type_map() const noexcept { return m_type_map; }
         [[nodiscard]] uint32_t error_count() const noexcept { return m_error_count; }
+
+        [[nodiscard]] const ConfirmedUfcsMap& confirmed_ufcs() const noexcept { return m_confirmed_ufcs; }
 
         [[nodiscard]] SemaType* type_of(const ast::Node* node) const noexcept;
 
@@ -109,6 +113,8 @@ namespace dcc::sema
 
         TypeMap m_type_map;
         const DisambiguationMap& m_disambiguations;
+        const UfcsMap& m_ufcs_candidates;
+        ConfirmedUfcsMap m_confirmed_ufcs;
         std::unordered_map<SemaType*, SemaType*> m_literal_defaults;
         std::unordered_map<const ast::Node*, uint64_t> m_sizeof_values;
 
@@ -140,6 +146,7 @@ namespace dcc::sema
         void check_pattern(const ast::Pattern& pat, SemaType* scrutinee_type);
 
         void check_match_exhaustiveness(const EnumSemaType* enum_type, std::span<const ast::MatchArm> arms, sm::SourceRange range);
+        SemaType* try_ufcs_call(const ast::CallExpr& node, const ast::MemberAccessExpr& ma);
 
         [[nodiscard]] bool is_mutable_lvalue(const ast::Expr& expr) const noexcept;
 

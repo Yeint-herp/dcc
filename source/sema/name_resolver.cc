@@ -729,6 +729,13 @@ namespace dcc::sema
 
         for (auto* arg : node.args())
             arg->accept(*this);
+
+        if (auto* ma = dynamic_cast<const ast::MemberAccessExpr*>(node.callee()))
+        {
+            auto* func_sym = m_current_scope->lookup(ma->member());
+            if (func_sym && func_sym->kind() == SymbolKind::Function)
+                m_ufcs_calls[&node] = func_sym;
+        }
     }
 
     void NameResolver::visit(const ast::IndexExpr& node)

@@ -38,6 +38,9 @@ namespace dcc::sema
         [[nodiscard]] ModuleLoader& modules() noexcept { return m_modules; }
         [[nodiscard]] Scope* global_scope() const noexcept { return m_global_scope.get(); }
 
+        [[nodiscard]] bool is_ufcs_call(const ast::CallExpr* node) const noexcept;
+        [[nodiscard]] Symbol* ufcs_target(const ast::CallExpr* node) const noexcept;
+
         [[nodiscard]] bool has_errors() const noexcept { return m_error_count > 0; }
         [[nodiscard]] uint32_t error_count() const noexcept { return m_error_count; }
 
@@ -54,6 +57,8 @@ namespace dcc::sema
         ResolutionMap m_resolutions;
         TypeResolutionMap m_type_resolutions;
         TypeMap m_type_map;
+        UfcsMap m_ufcs_candidates;
+        ConfirmedUfcsMap m_confirmed_ufcs;
 
         std::unordered_map<const ast::Node*, Scope*> m_scope_map;
 

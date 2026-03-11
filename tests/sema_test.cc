@@ -2601,4 +2601,360 @@ namespace dcc::test
         analyze_err("void f() { bool x = true; x <<= 2; }");
     }
 
+    TEST_F(SemaTest, UfcsBasicFreeFunction)
+    {
+        analyze_ok(R"(
+        struct Vec2 { f32 x; f32 y; }
+
+        f32 length_sq(Vec2 v) {
+            return v.x * v.x + v.y * v.y;
+        }
+
+        void f() {
+            Vec2 v = { x: 3.0, y: 4.0 };
+            f32 lsq = v.length_sq();
+        }
+    )");
+    }
+
+    TEST_F(SemaTest, UfcsWithExtraArgs)
+    {
+        analyze_ok(R"(
+        struct Vec2 { f32 x; f32 y; }
+
+        Vec2 add(Vec2 a, Vec2 b) {
+            Vec2 r = { x: a.x + b.x, y: a.y + b.y };
+            return r;
+        }
+
+        void f() {
+            Vec2 a = { x: 1.0, y: 2.0 };
+            Vec2 b = { x: 3.0, y: 4.0 };
+            Vec2 c = a.add(b);
+        }
+    )");
+    }
+
+    TEST_F(SemaTest, UfcsPointerReceiver)
+    {
+        analyze_ok(R"(
+        struct Counter { i32 val; }
+
+        void increment(Counter* c) {
+            c.val = c.val + 1;
+        }
+
+        void f() {
+            Counter c = { val: 0 };
+            c.increment();
+        }
+    )");
+    }
+
+    TEST_F(SemaTest, UfcsReturnValue)
+    {
+        analyze_ok(R"(
+        struct Vec2 { f32 x; f32 y; }
+
+        Vec2 scale(Vec2 v, f32 factor) {
+            Vec2 r = { x: v.x * factor, y: v.y * factor };
+            return r;
+        }
+
+        void f() {
+            Vec2 v = { x: 1.0, y: 2.0 };
+            Vec2 scaled = v.scale(2.0);
+        }
+    )");
+    }
+
+    TEST_F(SemaTest, UfcsChainedCalls)
+    {
+        analyze_ok(R"(
+        struct Builder { i32 val; }
+
+        Builder with_val(Builder b, i32 v) {
+            Builder r = { val: v };
+            return r;
+        }
+
+        i32 build(Builder b) {
+            return b.val;
+        }
+
+        void f() {
+            Builder b = { val: 0 };
+            i32 result = b.with_val(42).build();
+        }
+    )");
+    }
+
+    TEST_F(SemaTest, UfcsPrimitiveReceiver)
+    {
+        analyze_ok(R"(
+        bool is_positive(i32 x) {
+            return x > 0;
+        }
+
+        void f() {
+            i32 val = 42;
+            bool pos = val.is_positive();
+        }
+    )");
+    }
+
+    TEST_F(SemaTest, UfcsPointerReceiverAutoAddress)
+    {
+        analyze_ok(R"(
+        struct Data { i32 x; }
+
+        void reset(Data* d) {
+            d.x = 0;
+        }
+
+        void f() {
+            Data d = { x: 42 };
+            d.reset();
+        }
+    )");
+    }
+
+    TEST_F(SemaTest, UfcsDoesNotShadowRealMethod)
+    {
+        analyze_ok(R"(
+        struct Foo {
+            i32 x;
+
+            i32 get_x() {
+                return x;
+            }
+        }
+
+        i32 get_x(Foo f_) {
+            return f_.x + 100;
+        }
+
+        void f() {
+            Foo foo = { x: 5 };
+            i32 v = foo.get_x();
+        }
+    )");
+    }
+
+    TEST_F(SemaTest, UfcsNoArgs)
+    {
+        analyze_ok(R"(
+        struct Token { i32 kind; }
+
+        bool is_eof(Token t) {
+            return t.kind == 0;
+        }
+
+        void f() {
+            Token tok = { kind: 0 };
+            bool eof = tok.is_eof();
+        }
+    )");
+    }
+
+    TEST_F(SemaTest, UfcsMultipleParams)
+    {
+        analyze_ok(R"(
+        struct Rect { f32 x; f32 y; f32 w; f32 h; }
+
+        bool contains(Rect r, f32 px, f32 py) {
+            return px >= r.x && px <= r.x + r.w &&
+                   py >= r.y && py <= r.y + r.h;
+        }
+
+        void f() {
+            Rect r = { x: 0.0, y: 0.0, w: 10.0, h: 10.0 };
+            bool hit = r.contains(5.0, 5.0);
+        }
+    )");
+    }
+
+    TEST_F(SemaTest, ErrorUfcsWrongReceiverType)
+    {
+        analyze_err(R"(
+        struct Vec2 { f32 x; f32 y; }
+        struct Vec3 { f32 x; f32 y; f32 z; }
+
+        f32 length_sq(Vec2 v) {
+            return v.x * v.x + v.y * v.y;
+        }
+
+        void f() {
+            Vec3 v = { x: 1.0, y: 2.0, z: 3.0 };
+            f32 lsq = v.length_sq();
+        }
+    )");
+    }
+
+    TEST_F(SemaTest, ErrorUfcsTooManyArgs)
+    {
+        analyze_err(R"(
+        struct Vec2 { f32 x; f32 y; }
+
+        f32 length_sq(Vec2 v) {
+            return v.x * v.x + v.y * v.y;
+        }
+
+        void f() {
+            Vec2 v = { x: 1.0, y: 2.0 };
+            f32 lsq = v.length_sq(1.0);
+        }
+    )");
+    }
+
+    TEST_F(SemaTest, ErrorUfcsTooFewArgs)
+    {
+        analyze_err(R"(
+        struct Vec2 { f32 x; f32 y; }
+
+        Vec2 add(Vec2 a, Vec2 b) {
+            Vec2 r = { x: a.x + b.x, y: a.y + b.y };
+            return r;
+        }
+
+        void f() {
+            Vec2 a = { x: 1.0, y: 2.0 };
+            Vec2 c = a.add();
+        }
+    )");
+    }
+
+    TEST_F(SemaTest, ErrorUfcsArgTypeMismatch)
+    {
+        analyze_err(R"(
+        struct Vec2 { f32 x; f32 y; }
+
+        Vec2 scale(Vec2 v, f32 factor) {
+            Vec2 r = { x: v.x * factor, y: v.y * factor };
+            return r;
+        }
+
+        void f() {
+            Vec2 v = { x: 1.0, y: 2.0 };
+            Vec2 r = v.scale(true);
+        }
+    )");
+    }
+
+    TEST_F(SemaTest, ErrorUfcsReturnTypeMismatch)
+    {
+        analyze_err(R"(
+        struct Vec2 { f32 x; f32 y; }
+
+        f32 length_sq(Vec2 v) {
+            return v.x * v.x + v.y * v.y;
+        }
+
+        void f() {
+            Vec2 v = { x: 3.0, y: 4.0 };
+            bool result = v.length_sq();
+        }
+    )");
+    }
+
+    TEST_F(SemaTest, UfcsEnumReceiver)
+    {
+        analyze_ok(R"(
+        enum Color { Red, Green, Blue }
+
+        bool is_red(Color c) {
+            match c {
+                Red => { return true; },
+                _ => { return false; }
+            }
+        }
+
+        void f() {
+            Color c;
+            bool r = c.is_red();
+        }
+    )");
+    }
+
+    TEST_F(SemaTest, UfcsPointerToStruct)
+    {
+        analyze_ok(R"(
+        struct Node { i32 val; Node* next; }
+
+        i32 get_val(Node* n) {
+            return n.val;
+        }
+
+        void f() {
+            Node n = { val: 42, next: null };
+            Node* p = &n;
+            i32 v = p.get_val();
+        }
+    )");
+    }
+
+    TEST_F(SemaTest, UfcsForwardDeclaredFunction)
+    {
+        analyze_ok(R"(
+        struct Vec2 { f32 x; f32 y; }
+
+        void f() {
+            Vec2 v = { x: 1.0, y: 2.0 };
+            f32 lsq = v.length_sq();
+        }
+
+        f32 length_sq(Vec2 v) {
+            return v.x * v.x + v.y * v.y;
+        }
+    )");
+    }
+
+    TEST_F(SemaTest, UfcsWideningReceiverArg)
+    {
+        analyze_ok(R"(
+        f64 to_f64(i64 x) {
+            return x as f64;
+        }
+
+        void f() {
+            i32 val = 42;
+            f64 result = val.to_f64();
+        }
+    )");
+    }
+
+    TEST_F(SemaTest, UfcsConfirmedQueryable)
+    {
+        auto r = analyze_full(R"(
+        struct Vec2 { f32 x; f32 y; }
+
+        f32 length_sq(Vec2 v) {
+            return v.x * v.x + v.y * v.y;
+        }
+
+        void f() {
+            Vec2 v = { x: 3.0, y: 4.0 };
+            f32 lsq = v.length_sq();
+        }
+    )");
+        ASSERT_TRUE(r.ok) << r.diagnostics;
+
+        auto* fn = as<ast::FunctionDecl>([&]() -> ast::Decl* {
+            for (auto* d : r.tu->decls())
+                if (auto* fd = dynamic_cast<ast::FunctionDecl*>(d); fd && std::string{fd->name().view()} == "f")
+                    return fd;
+
+            return nullptr;
+        }());
+
+        ASSERT_NE(fn, nullptr);
+
+        auto* var_stmt = as<ast::DeclStmt>(func_stmt(fn, 1));
+        auto* var = as<ast::VarDecl>(var_stmt->decl());
+        auto* call = dynamic_cast<ast::CallExpr*>(var->init());
+        ASSERT_NE(call, nullptr);
+        EXPECT_TRUE(r.sema->is_ufcs_call(call));
+        EXPECT_NE(r.sema->ufcs_target(call), nullptr);
+    }
+
 } // namespace dcc::test

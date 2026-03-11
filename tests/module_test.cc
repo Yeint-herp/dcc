@@ -1030,4 +1030,270 @@ namespace dcc::test
         )");
     }
 
+    TEST_F(ModuleImportTest, UfcsWithImportedFunction)
+    {
+        write_module("vecmath.dcc", R"(
+        module vecmath;
+
+        public struct Vec2 { f32 x; f32 y; }
+
+        public f32 length_sq(Vec2 v) {
+            return v.x * v.x + v.y * v.y;
+        }
+    )");
+
+        analyze_ok_modules(R"(
+        module main;
+        import vecmath;
+        using vecmath.{Vec2, length_sq};
+
+        void f() {
+            Vec2 v = { x: 3.0, y: 4.0 };
+            f32 lsq = v.length_sq();
+        }
+    )");
+    }
+
+    TEST_F(ModuleImportTest, UfcsWithImportedFunctionExtraArgs)
+    {
+        write_module("vecmath.dcc", R"(
+        module vecmath;
+
+        public struct Vec2 { f32 x; f32 y; }
+
+        public Vec2 scale(Vec2 v, f32 factor) {
+            Vec2 r = { x: v.x * factor, y: v.y * factor };
+            return r;
+        }
+    )");
+
+        analyze_ok_modules(R"(
+        module main;
+        import vecmath;
+        using vecmath.{Vec2, scale};
+
+        void f() {
+            Vec2 v = { x: 1.0, y: 2.0 };
+            Vec2 scaled = v.scale(3.0);
+        }
+    )");
+    }
+
+    TEST_F(ModuleImportTest, UfcsChainedWithImports)
+    {
+        write_module("builder.dcc", R"(
+        module builder;
+
+        public struct Builder { i32 val; }
+
+        public Builder create() {
+            Builder b = { val: 0 };
+            return b;
+        }
+
+        public Builder with_val(Builder b, i32 v) {
+            Builder r = { val: v };
+            return r;
+        }
+
+        public i32 build(Builder b) {
+            return b.val;
+        }
+    )");
+
+        analyze_ok_modules(R"(
+        module main;
+        import builder;
+        using builder.{Builder, create, with_val, build};
+
+        void f() {
+            i32 result = create().with_val(42).build();
+        }
+    )");
+    }
+
+    TEST_F(ModuleImportTest, UfcsWithPointerReceiverCrossModule)
+    {
+        write_module("counter.dcc", R"(
+        module counter;
+
+        public struct Counter { i32 val; }
+
+        public void increment(Counter* c) {
+            c.val = c.val + 1;
+        }
+    )");
+
+        analyze_ok_modules(R"(
+        module main;
+        import counter;
+        using counter.{Counter, increment};
+
+        void f() {
+            Counter c = { val: 0 };
+            c.increment();
+        }
+    )");
+    }
+
+    TEST_F(ModuleImportTest, UfcsRequiresUsingImport)
+    {
+        write_module("vecmath.dcc", R"(
+        module vecmath;
+
+        public struct Vec2 { f32 x; f32 y; }
+
+        public f32 length_sq(Vec2 v) {
+            return v.x * v.x + v.y * v.y;
+        }
+    )");
+
+        analyze_err_modules(R"(
+        module main;
+        import vecmath;
+        using vecmath.Vec2;
+
+        void f() {
+            Vec2 v = { x: 3.0, y: 4.0 };
+            f32 lsq = v.length_sq();
+        }
+    )");
+    }
+
+    TEST_F(ModuleImportTest, UfcsWithRenamedImport)
+    {
+        write_module("vecmath.dcc", R"(
+        module vecmath;
+
+        public struct Vec2 { f32 x; f32 y; }
+
+        public f32 magnitude_squared(Vec2 v) {
+            return v.x * v.x + v.y * v.y;
+        }
+    )");
+
+        analyze_ok_modules(R"(
+        module main;
+        import vecmath;
+        using vecmath.Vec2;
+        using len2 = vecmath.magnitude_squared;
+
+        void f() {
+            Vec2 v = { x: 3.0, y: 4.0 };
+            f32 lsq = v.len2();
+        }
+    )");
+    }
+
+    TEST_F(ModuleImportTest, UfcsWrongTypeCrossModule)
+    {
+        write_module("vecmath.dcc", R"(
+        module vecmath;
+
+        public struct Vec2 { f32 x; f32 y; }
+        public struct Vec3 { f32 x; f32 y; f32 z; }
+
+        public f32 length_sq(Vec2 v) {
+            return v.x * v.x + v.y * v.y;
+        }
+    )");
+
+        analyze_err_modules(R"(
+        module main;
+        import vecmath;
+        using vecmath.{Vec3, length_sq};
+
+        void f() {
+            Vec3 v = { x: 1.0, y: 2.0, z: 3.0 };
+            f32 lsq = v.length_sq();
+        }
+    )");
+    }
+
+    TEST_F(ModuleImportTest, UfcsReexportedFunction)
+    {
+        write_module("core.dcc", R"(
+        module core;
+
+        public struct Vec2 { f32 x; f32 y; }
+
+        public f32 dot(Vec2 a, Vec2 b) {
+            return a.x * b.x + a.y * b.y;
+        }
+    )");
+
+        write_module("graphics.dcc", R"(
+        module graphics;
+        import core;
+        using public core.{Vec2, dot};
+    )");
+
+        analyze_ok_modules(R"(
+        module main;
+        import graphics;
+        using graphics.{Vec2, dot};
+
+        void f() {
+            Vec2 a = { x: 1.0, y: 0.0 };
+            Vec2 b = { x: 0.0, y: 1.0 };
+            f32 d = a.dot(b);
+        }
+    )");
+    }
+
+    TEST_F(ModuleImportTest, UfcsMultipleModulesFunctionResolution)
+    {
+        write_module("vecmath.dcc", R"(
+        module vecmath;
+        public struct Vec2 { f32 x; f32 y; }
+        public f32 length_sq(Vec2 v) { return v.x * v.x + v.y * v.y; }
+    )");
+
+        write_module("vecops.dcc", R"(
+        module vecops;
+        import vecmath;
+        using vecmath.Vec2;
+
+        public Vec2 normalize(Vec2 v) {
+            Vec2 r = { x: v.x, y: v.y };
+            return r;
+        }
+    )");
+
+        analyze_ok_modules(R"(
+        module main;
+        import vecmath;
+        import vecops;
+        using vecmath.{Vec2, length_sq};
+        using vecops.normalize;
+
+        void f() {
+            Vec2 v = { x: 3.0, y: 4.0 };
+            f32 lsq = v.length_sq();
+            Vec2 n = v.normalize();
+        }
+    )");
+    }
+
+    TEST_F(ModuleImportTest, UfcsQualifiedCallStillWorks)
+    {
+        write_module("vecmath.dcc", R"(
+        module vecmath;
+        public struct Vec2 { f32 x; f32 y; }
+        public f32 length_sq(Vec2 v) { return v.x * v.x + v.y * v.y; }
+    )");
+
+        analyze_ok_modules(R"(
+        module main;
+        import vecmath;
+        using vecmath.{Vec2, length_sq};
+
+        void f() {
+            Vec2 v = { x: 3.0, y: 4.0 };
+            f32 a = v.length_sq();
+            f32 b = length_sq(v);
+        }
+    )");
+    }
+
 } // namespace dcc::test
