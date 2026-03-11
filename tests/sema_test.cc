@@ -2425,4 +2425,95 @@ namespace dcc::test
         EXPECT_GE(count, 2u) << "Expected at least 2 errors in:\n" << r.diagnostics;
     }
 
+    TEST_F(SemaTest, AttributeOnFunction_Sema)
+    {
+        auto* tu = analyze_ok(R"(
+            #[inline]
+            void f() {}
+        )");
+        auto decls = tu->decls();
+        ast::FunctionDecl* fn = nullptr;
+        for (auto* d : decls)
+        {
+            if ((fn = dynamic_cast<ast::FunctionDecl*>(d)))
+                break;
+        }
+        ASSERT_NE(fn, nullptr);
+        ASSERT_EQ(fn->attributes().size(), 1u);
+        EXPECT_EQ(fn->attributes()[0].entries[0], "inline");
+    }
+
+    TEST_F(SemaTest, AttributeOnStruct_Sema)
+    {
+        auto* tu = analyze_ok(R"(
+            #[repr(C), packed]
+            struct Point { f32 x; f32 y; }
+        )");
+        ast::StructDecl* s = nullptr;
+        for (auto* d : tu->decls())
+        {
+            if ((s = dynamic_cast<ast::StructDecl*>(d)))
+                break;
+        }
+        ASSERT_NE(s, nullptr);
+        ASSERT_EQ(s->attributes().size(), 1u);
+        auto attr = s->attributes()[0];
+        ASSERT_EQ(attr.entries.size(), 2u);
+        EXPECT_EQ(attr.entries[0], "repr(C)");
+        EXPECT_EQ(attr.entries[1], "packed");
+    }
+
+    TEST_F(SemaTest, AttributeOnEnum_Sema)
+    {
+        auto* tu = analyze_ok(R"(
+            #[repr(u8)]
+            enum Color { Red, Green, Blue }
+        )");
+        ast::EnumDecl* e = nullptr;
+        for (auto* d : tu->decls())
+        {
+            if ((e = dynamic_cast<ast::EnumDecl*>(d)))
+                break;
+        }
+        ASSERT_NE(e, nullptr);
+        ASSERT_EQ(e->attributes().size(), 1u);
+        EXPECT_EQ(e->attributes()[0].entries[0], "repr(u8)");
+    }
+
+    TEST_F(SemaTest, AttributeOnUnion_Sema)
+    {
+        auto* tu = analyze_ok(R"(
+            #[nomangle]
+            union U { i32 a; f32 b; }
+        )");
+        ast::UnionDecl* u = nullptr;
+        for (auto* d : tu->decls())
+        {
+            if ((u = dynamic_cast<ast::UnionDecl*>(d)))
+                break;
+        }
+        ASSERT_NE(u, nullptr);
+        ASSERT_EQ(u->attributes().size(), 1u);
+        EXPECT_EQ(u->attributes()[0].entries[0], "nomangle");
+    }
+
+    TEST_F(SemaTest, MultipleAttributesOnFunction_Sema)
+    {
+        auto* tu = analyze_ok(R"(
+            #[inline]
+            #[nomangle]
+            void g() {}
+        )");
+        ast::FunctionDecl* fn = nullptr;
+        for (auto* d : tu->decls())
+        {
+            if ((fn = dynamic_cast<ast::FunctionDecl*>(d)))
+                break;
+        }
+        ASSERT_NE(fn, nullptr);
+        ASSERT_EQ(fn->attributes().size(), 2u);
+        EXPECT_EQ(fn->attributes()[0].entries[0], "inline");
+        EXPECT_EQ(fn->attributes()[1].entries[0], "nomangle");
+    }
+
 } // namespace dcc::test

@@ -437,6 +437,72 @@ namespace dcc::parse
         return true;
     }
 
+    std::vector<ast::Attribute> Parser::parse_attribute_list()
+    {
+        std::vector<ast::Attribute> attrs;
+
+        while (check(TK::Hash) && check_ahead(1, TK::LBracket))
+        {
+            auto begin = loc();
+            advance();
+            advance();
+
+            std::vector<lex::Token> raw;
+            int depth = 1;
+            while (!at_end() && depth > 0)
+            {
+                if (check(TK::LBracket))
+                    ++depth;
+                else if (check(TK::RBracket))
+                {
+                    --depth;
+                    if (depth == 0)
+                        break;
+                }
+
+                raw.push_back(peek());
+                advance();
+            }
+            expect(TK::RBracket, "to close attribute");
+
+            std::vector<std::string_view> entries;
+            std::size_t entry_start = 0;
+            int paren_depth = 0;
+
+            for (std::size_t i = 0; i < raw.size(); ++i)
+            {
+                const auto& t = raw[i];
+                if (t.is_one_of(TK::LParen, TK::LBrace, TK::LBracket))
+                    ++paren_depth;
+                else if (t.is_one_of(TK::RParen, TK::RBrace, TK::RBracket))
+                    --paren_depth;
+                else if (t.is(TK::Comma) && paren_depth == 0)
+                {
+                    if (entry_start < i)
+                    {
+                        const auto& first = raw[entry_start];
+                        const auto& last = raw[i - 1];
+                        entries.push_back({first.text.data(), static_cast<std::size_t>(last.text.data() + last.text.size() - first.text.data())});
+                    }
+                    entry_start = i + 1;
+                }
+            }
+
+            if (entry_start < raw.size())
+            {
+                const auto& first = raw[entry_start];
+                const auto& last = raw[raw.size() - 1];
+                entries.push_back({first.text.data(), static_cast<std::size_t>(last.text.data() + last.text.size() - first.text.data())});
+            }
+
+            auto raw_span = m_arena.to_const_span(raw);
+            auto entries_span = m_arena.to_span(entries);
+            attrs.push_back(ast::Attribute{raw_span, entries_span, range_from(begin)});
+        }
+
+        return attrs;
+    }
+
     ast::TranslationUnit* Parser::parse()
     {
         auto begin = loc();
@@ -477,6 +543,8 @@ namespace dcc::parse
 
     ast::Decl* Parser::parse_top_level_decl()
     {
+        auto attrs = parse_attribute_list();
+
         auto vis = ast::Visibility::Private;
         if (match(TK::KwPublic))
             vis = ast::Visibility::Public;
@@ -486,15 +554,15 @@ namespace dcc::parse
             case TK::KwImport:
                 return parse_import_decl(vis);
             case TK::KwStruct:
-                return parse_struct_decl(vis);
+                return parse_struct_decl(vis, std::move(attrs));
             case TK::KwUnion:
-                return parse_union_decl(vis);
+                return parse_union_decl(vis, std::move(attrs));
             case TK::KwEnum:
-                return parse_enum_decl(vis);
+                return parse_enum_decl(vis, std::move(attrs));
             case TK::KwUsing:
                 return parse_using_decl(vis);
             default:
-                return parse_func_or_var_decl(vis);
+                return parse_func_or_var_decl(vis, std::move(attrs));
         }
     }
 
@@ -512,7 +580,7 @@ namespace dcc::parse
         return m_arena.create<ast::ImportDecl>(range_from(begin), m_arena.to_const_span(path), vis);
     }
 
-    ast::StructDecl* Parser::parse_struct_decl(ast::Visibility vis)
+    ast::StructDecl* Parser::parse_struct_decl(ast::Visibility vis, std::vector<ast::Attribute> attrs)
     {
         auto begin = loc();
         expect(TK::KwStruct, "internal error");
@@ -526,7 +594,6 @@ namespace dcc::parse
 
         std::vector<ast::FieldDecl*> fields;
         std::vector<ast::FunctionDecl*> methods;
-        std::vector<ast::Attribute> attributes;
 
         while (!check(TK::RBrace) && !at_end())
         {
@@ -625,10 +692,10 @@ namespace dcc::parse
         expect(TK::RBrace, "to close struct body");
 
         return m_arena.create<ast::StructDecl>(range_from(begin), name, m_arena.to_span(fields), m_arena.to_span(methods), m_arena.to_span(tpl_params),
-                                               m_arena.to_const_span(attributes), vis);
+                                               m_arena.to_const_span(attrs), vis);
     }
 
-    ast::UnionDecl* Parser::parse_union_decl(ast::Visibility vis)
+    ast::UnionDecl* Parser::parse_union_decl(ast::Visibility vis, std::vector<ast::Attribute> attrs)
     {
         auto begin = loc();
         expect(TK::KwUnion, "internal error");
@@ -638,7 +705,6 @@ namespace dcc::parse
 
         std::vector<ast::FieldDecl*> fields;
         std::vector<ast::FunctionDecl*> methods;
-        std::vector<ast::Attribute> attributes;
 
         while (!check(TK::RBrace) && !at_end())
         {
@@ -736,11 +802,10 @@ namespace dcc::parse
 
         expect(TK::RBrace, "to close union body");
 
-        return m_arena.create<ast::UnionDecl>(range_from(begin), name, m_arena.to_span(fields), m_arena.to_span(methods), m_arena.to_const_span(attributes),
-                                              vis);
+        return m_arena.create<ast::UnionDecl>(range_from(begin), name, m_arena.to_span(fields), m_arena.to_span(methods), m_arena.to_const_span(attrs), vis);
     }
 
-    ast::EnumDecl* Parser::parse_enum_decl(ast::Visibility vis)
+    ast::EnumDecl* Parser::parse_enum_decl(ast::Visibility vis, std::vector<ast::Attribute> attrs)
     {
         auto begin = loc();
         expect(TK::KwEnum, "internal error");
@@ -754,7 +819,6 @@ namespace dcc::parse
 
         std::vector<ast::EnumVariantDecl*> variants;
         std::vector<ast::FunctionDecl*> methods;
-        std::vector<ast::Attribute> attributes;
 
         while (!check(TK::RBrace) && !at_end())
         {
@@ -765,7 +829,7 @@ namespace dcc::parse
         expect(TK::RBrace, "to close enum body");
 
         return m_arena.create<ast::EnumDecl>(range_from(begin), name, underlying, m_arena.to_span(variants), m_arena.to_span(methods),
-                                             m_arena.to_const_span(attributes), vis);
+                                             m_arena.to_const_span(attrs), vis);
     }
 
     ast::EnumVariantDecl* Parser::parse_enum_variant()
@@ -884,7 +948,7 @@ namespace dcc::parse
         return m_arena.create<ast::UsingDecl>(range_from(begin), m_arena.to_const_span(path), vis, is_export);
     }
 
-    ast::Decl* Parser::parse_func_or_var_decl(ast::Visibility vis)
+    ast::Decl* Parser::parse_func_or_var_decl(ast::Visibility vis, std::vector<ast::Attribute> attrs)
     {
         auto begin = loc();
         ast::StorageClass sc = ast::StorageClass::None;
@@ -912,7 +976,7 @@ namespace dcc::parse
             if (two_parens)
             {
                 auto tpl = parse_template_param_list();
-                return parse_function_decl(type, name, std::move(tpl), vis, begin, sc);
+                return parse_function_decl(type, name, std::move(tpl), vis, begin, sc, std::move(attrs));
             }
 
             saved = save();
@@ -922,10 +986,10 @@ namespace dcc::parse
             restore(saved);
 
             if (has_body)
-                return parse_function_decl(type, name, {}, vis, begin, sc);
+                return parse_function_decl(type, name, {}, vis, begin, sc, std::move(attrs));
 
             if (has_semi && sc == ast::StorageClass::Extern)
-                return parse_function_decl(type, name, {}, vis, begin, sc);
+                return parse_function_decl(type, name, {}, vis, begin, sc, std::move(attrs));
         }
 
         ast::Qualifier quals = ast::Qualifier::None;
@@ -933,7 +997,7 @@ namespace dcc::parse
     }
 
     ast::FunctionDecl* Parser::parse_function_decl(ast::TypeExpr* ret, si::InternedString name, std::vector<ast::Decl*> tpl, ast::Visibility vis,
-                                                   sm::Location begin, ast::StorageClass sc)
+                                                   sm::Location begin, ast::StorageClass sc, std::vector<ast::Attribute> attrs)
     {
         auto params = parse_param_list();
 
@@ -947,7 +1011,7 @@ namespace dcc::parse
         std::span<ast::ParamDecl* const> p_span{param_span.data(), param_span.size()};
         auto tpl_span = m_arena.to_span(tpl);
 
-        return m_arena.create<ast::FunctionDecl>(range_from(begin), name, ret, p_span, tpl_span, body, vis, sc);
+        return m_arena.create<ast::FunctionDecl>(range_from(begin), name, ret, p_span, tpl_span, body, vis, sc, m_arena.to_const_span(attrs));
     }
 
     std::vector<ast::Decl*> Parser::parse_template_param_list()

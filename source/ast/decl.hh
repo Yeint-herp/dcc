@@ -130,8 +130,9 @@ namespace dcc::ast
     public:
         explicit constexpr FunctionDecl(sm::SourceRange range, si::InternedString name, TypeExpr* return_type, std::span<ParamDecl* const> params,
                                         std::span<Decl* const> template_params, BlockStmt* body, Visibility vis = Visibility::Private,
-                                        StorageClass sc = StorageClass::None) noexcept
-            : Decl{range}, m_name{name}, m_return_type{return_type}, m_params{params}, m_template_params{template_params}, m_body{body}, m_vis{vis}, m_sc{sc}
+                                        StorageClass sc = StorageClass::None, std::span<const Attribute> attributes = {}) noexcept
+            : Decl{range}, m_name{name}, m_return_type{return_type}, m_params{params}, m_template_params{template_params}, m_body{body}, m_vis{vis}, m_sc{sc},
+              m_attributes{attributes}
         {
         }
 
@@ -144,6 +145,7 @@ namespace dcc::ast
         [[nodiscard]] constexpr StorageClass storage_class() const noexcept { return m_sc; }
         [[nodiscard]] constexpr bool is_static() const noexcept { return m_sc == StorageClass::Static; }
         [[nodiscard]] constexpr bool is_extern() const noexcept { return m_sc == StorageClass::Extern; }
+        [[nodiscard]] constexpr std::span<const Attribute> attributes() const noexcept { return m_attributes; }
 
         void accept(Visitor& v) const override;
 
@@ -155,6 +157,7 @@ namespace dcc::ast
         BlockStmt* m_body;
         Visibility m_vis;
         StorageClass m_sc;
+        std::span<const Attribute> m_attributes;
     };
 
     class StructDecl final : public Decl

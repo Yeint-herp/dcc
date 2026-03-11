@@ -2,7 +2,9 @@
 #define DCC_AST_COMMON_HH
 
 #include <cstdint>
+#include <lex/token.hh>
 #include <span>
+#include <string_view>
 #include <util/si.hh>
 #include <util/source_manager.hh>
 #include <variant>
@@ -123,8 +125,8 @@ namespace dcc::ast
 
     struct Attribute
     {
-        si::InternedString name;
-        std::span<Expr* const> args;
+        std::span<const lex::Token> raw_tokens;
+        std::span<std::string_view> entries;
         sm::SourceRange range;
     };
 

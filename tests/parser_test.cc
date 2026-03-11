@@ -1554,4 +1554,125 @@ namespace dcc::test
         EXPECT_EQ(v->storage_class(), ast::StorageClass::Static);
     }
 
+    TEST_F(ParserTest, AttributeOnFunction_Single)
+    {
+        auto* tu = parse_ok("#[inline]\nvoid f() {}");
+        auto* fn = as<ast::FunctionDecl>(top_decl(tu, 0));
+        ASSERT_EQ(fn->attributes().size(), 1u);
+        ASSERT_EQ(fn->attributes()[0].entries.size(), 1u);
+        EXPECT_EQ(fn->attributes()[0].entries[0], "inline");
+        ASSERT_EQ(fn->attributes()[0].raw_tokens.size(), 1u);
+        EXPECT_EQ(fn->attributes()[0].raw_tokens[0].kind, lex::TokenKind::Identifier);
+    }
+
+    TEST_F(ParserTest, AttributeOnFunction_Multiple)
+    {
+        auto* tu = parse_ok("#[nomangle, optimize(release)]\nvoid f() {}");
+        auto* fn = as<ast::FunctionDecl>(top_decl(tu, 0));
+        ASSERT_EQ(fn->attributes().size(), 1u);
+        auto attr = fn->attributes()[0];
+        ASSERT_EQ(attr.entries.size(), 2u);
+        EXPECT_EQ(attr.entries[0], "nomangle");
+        EXPECT_EQ(attr.entries[1], "optimize(release)");
+    }
+
+    TEST_F(ParserTest, AttributeOnFunction_ManyAttrs)
+    {
+        auto* tu = parse_ok("#[debug]\n#[nomangle]\nvoid g() {}");
+        auto* fn = as<ast::FunctionDecl>(top_decl(tu, 0));
+        ASSERT_EQ(fn->attributes().size(), 2u);
+        EXPECT_EQ(fn->attributes()[0].entries[0], "debug");
+        EXPECT_EQ(fn->attributes()[1].entries[0], "nomangle");
+    }
+
+    TEST_F(ParserTest, AttributeOnFunction_RawTokens)
+    {
+        auto* tu = parse_ok("#[debug, nomangle, optimize(release)]\nvoid f() {}");
+        auto* fn = as<ast::FunctionDecl>(top_decl(tu, 0));
+        ASSERT_EQ(fn->attributes().size(), 1u);
+
+        EXPECT_EQ(fn->attributes()[0].raw_tokens.size(), 8u);
+        EXPECT_EQ(fn->attributes()[0].entries.size(), 3u);
+        EXPECT_EQ(fn->attributes()[0].entries[0], "debug");
+        EXPECT_EQ(fn->attributes()[0].entries[1], "nomangle");
+        EXPECT_EQ(fn->attributes()[0].entries[2], "optimize(release)");
+    }
+
+    TEST_F(ParserTest, AttributeOnStruct)
+    {
+        auto* tu = parse_ok("#[repr(C)]\nstruct Foo { i32 x; }");
+        auto* s = as<ast::StructDecl>(top_decl(tu, 0));
+        ASSERT_EQ(s->attributes().size(), 1u);
+        ASSERT_EQ(s->attributes()[0].entries.size(), 1u);
+        EXPECT_EQ(s->attributes()[0].entries[0], "repr(C)");
+    }
+
+    TEST_F(ParserTest, AttributeOnStruct_MultipleEntries)
+    {
+        auto* tu = parse_ok("#[packed, align(8)]\nstruct Bar { u8 b; }");
+        auto* s = as<ast::StructDecl>(top_decl(tu, 0));
+        ASSERT_EQ(s->attributes().size(), 1u);
+        auto attr = s->attributes()[0];
+        ASSERT_EQ(attr.entries.size(), 2u);
+        EXPECT_EQ(attr.entries[0], "packed");
+        EXPECT_EQ(attr.entries[1], "align(8)");
+    }
+
+    TEST_F(ParserTest, AttributeOnEnum)
+    {
+        auto* tu = parse_ok("#[repr(u8)]\nenum Color { Red, Green, Blue }");
+        auto* e = as<ast::EnumDecl>(top_decl(tu, 0));
+        ASSERT_EQ(e->attributes().size(), 1u);
+        EXPECT_EQ(e->attributes()[0].entries[0], "repr(u8)");
+    }
+
+    TEST_F(ParserTest, AttributeOnUnion)
+    {
+        auto* tu = parse_ok("#[nomangle]\nunion U { i32 a; f32 b; }");
+        auto* u = as<ast::UnionDecl>(top_decl(tu, 0));
+        ASSERT_EQ(u->attributes().size(), 1u);
+        EXPECT_EQ(u->attributes()[0].entries[0], "nomangle");
+    }
+
+    TEST_F(ParserTest, AttributeEmpty)
+    {
+        auto* tu = parse_ok("#[]\nvoid f() {}");
+        auto* fn = as<ast::FunctionDecl>(top_decl(tu, 0));
+        ASSERT_EQ(fn->attributes().size(), 1u);
+        EXPECT_EQ(fn->attributes()[0].raw_tokens.size(), 0u);
+        EXPECT_EQ(fn->attributes()[0].entries.size(), 0u);
+    }
+
+    TEST_F(ParserTest, AttributeNestedParens)
+    {
+        auto* tu = parse_ok("#[foo(a, b, c)]\nvoid f() {}");
+        auto* fn = as<ast::FunctionDecl>(top_decl(tu, 0));
+        ASSERT_EQ(fn->attributes().size(), 1u);
+        ASSERT_EQ(fn->attributes()[0].entries.size(), 1u);
+        EXPECT_EQ(fn->attributes()[0].entries[0], "foo(a, b, c)");
+    }
+
+    TEST_F(ParserTest, AttributePublicFunction)
+    {
+        auto* tu = parse_ok("#[inline]\npublic void h() {}");
+        auto* fn = as<ast::FunctionDecl>(top_decl(tu, 0));
+        ASSERT_EQ(fn->attributes().size(), 1u);
+        EXPECT_EQ(fn->attributes()[0].entries[0], "inline");
+        EXPECT_EQ(fn->visibility(), ast::Visibility::Public);
+    }
+
+    TEST_F(ParserTest, NoAttributeOnFunction)
+    {
+        auto* tu = parse_ok("void f() {}");
+        auto* fn = as<ast::FunctionDecl>(top_decl(tu, 0));
+        EXPECT_EQ(fn->attributes().size(), 0u);
+    }
+
+    TEST_F(ParserTest, NoAttributeOnStruct)
+    {
+        auto* tu = parse_ok("struct Foo { i32 x; }");
+        auto* s = as<ast::StructDecl>(top_decl(tu, 0));
+        EXPECT_EQ(s->attributes().size(), 0u);
+    }
+
 } // namespace dcc::test

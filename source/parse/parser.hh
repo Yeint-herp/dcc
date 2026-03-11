@@ -61,14 +61,16 @@ namespace dcc::parse
         ast::ModuleDecl* parse_module_decl();
         ast::Decl* parse_top_level_decl();
         ast::ImportDecl* parse_import_decl(ast::Visibility vis);
-        ast::StructDecl* parse_struct_decl(ast::Visibility vis);
-        ast::UnionDecl* parse_union_decl(ast::Visibility vis);
-        ast::EnumDecl* parse_enum_decl(ast::Visibility vis);
+        ast::StructDecl* parse_struct_decl(ast::Visibility vis, std::vector<ast::Attribute> attrs);
+        ast::UnionDecl* parse_union_decl(ast::Visibility vis, std::vector<ast::Attribute> attrs);
+        ast::EnumDecl* parse_enum_decl(ast::Visibility vis, std::vector<ast::Attribute> attrs);
         ast::UsingDecl* parse_using_decl(ast::Visibility vis);
-        ast::Decl* parse_func_or_var_decl(ast::Visibility vis);
+        ast::Decl* parse_func_or_var_decl(ast::Visibility vis, std::vector<ast::Attribute> attrs);
 
         ast::FunctionDecl* parse_function_decl(ast::TypeExpr* ret, si::InternedString name, std::vector<ast::Decl*> tpl, ast::Visibility vis,
-                                               sm::Location begin, ast::StorageClass sc);
+                                               sm::Location begin, ast::StorageClass sc, std::vector<ast::Attribute> attrs = {});
+
+        std::vector<ast::Attribute> parse_attribute_list();
         ast::VarDecl* parse_var_decl_rest(ast::TypeExpr* type, si::InternedString name, ast::Qualifier quals, sm::Location begin, ast::StorageClass sc);
         ast::ParamDecl* parse_param_decl();
         ast::FieldDecl* parse_field_decl();
