@@ -76,10 +76,10 @@ namespace dcc::ctx
         bool enable_extended_library{false};
         std::filesystem::path extended_library_path{};
 
-        bool hasFeature(CPUFeature feature) const { return (cpu_features & feature) == feature; }
+        bool has_feature(CPUFeature feature) const { return (cpu_features & feature) == feature; }
 
-        void addFeature(CPUFeature feature) { cpu_features |= feature; }
-        void removeFeature(CPUFeature feature) { cpu_features &= ~feature; }
+        void add_feature(CPUFeature feature) { cpu_features |= feature; }
+        void remove_feature(CPUFeature feature) { cpu_features &= ~feature; }
     };
 
 }; // namespace dcc::ctx
