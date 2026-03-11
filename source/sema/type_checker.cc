@@ -1119,13 +1119,27 @@ namespace dcc::sema
 
     void TypeChecker::visit(const ast::SizeofExpr& node)
     {
-        eval_type(*node.operand());
+        auto* ty = eval_type(*node.operand());
+        ty = m_types.resolve(ty);
+        if (!ty->is_error())
+        {
+            auto layout = m_types.layout_of(ty);
+            m_sizeof_values[&node] = layout.size;
+        }
+
         record_type(&node, m_types.integer_type(64, false));
     }
 
     void TypeChecker::visit(const ast::AlignofExpr& node)
     {
-        eval_type(*node.operand());
+        auto* ty = eval_type(*node.operand());
+        ty = m_types.resolve(ty);
+        if (!ty->is_error())
+        {
+            auto layout = m_types.layout_of(ty);
+            m_sizeof_values[&node] = layout.alignment;
+        }
+
         record_type(&node, m_types.integer_type(64, false));
     }
 
@@ -1476,8 +1490,13 @@ namespace dcc::sema
 
     void TypeChecker::visit(const ast::UsingDecl& node)
     {
-        auto* aliased = eval_type(*node.aliased_type());
-        record_type(&node, aliased);
+        if (node.aliased_type())
+        {
+            auto* aliased = eval_type(*node.aliased_type());
+            record_type(&node, aliased);
+        }
+        else
+            record_type(&node, m_types.void_type());
     }
 
     void TypeChecker::visit(const ast::TranslationUnit& node)

@@ -56,6 +56,8 @@ namespace dcc::sema
         [[nodiscard]] SemaType* common_arithmetic_type(SemaType* a, SemaType* b) noexcept;
         [[nodiscard]] SemaType* widen_integers(SemaType* a, SemaType* b) noexcept;
 
+        [[nodiscard]] TypeLayout layout_of(SemaType* ty);
+
     private:
         ErrorType m_error;
         VoidType m_void;
@@ -66,6 +68,7 @@ namespace dcc::sema
         FloatType m_f32;
         FloatType m_f64;
 
+        std::unordered_map<SemaType*, TypeLayout> m_layout_cache;
         std::deque<std::unique_ptr<SemaType>> m_arena;
 
         template <typename T, typename... Args> T* alloc(Args&&... args);
@@ -81,6 +84,10 @@ namespace dcc::sema
         std::unordered_map<const SemaType*, SemaType*, TypeHash, TypeEq> m_intern_map;
 
         SemaType* intern_or_create(std::unique_ptr<SemaType> candidate);
+        TypeLayout compute_layout(SemaType* ty);
+        TypeLayout layout_struct(StructSemaType* sty);
+        TypeLayout layout_union(UnionSemaType* uty);
+        TypeLayout layout_enum(EnumSemaType* ety);
 
         uint32_t m_next_var_id{};
 

@@ -127,6 +127,150 @@ namespace dcc::sema
         return raw;
     }
 
+    TypeLayout TypeContext::layout_of(SemaType* ty)
+    {
+        ty = resolve(ty);
+        auto it = m_layout_cache.find(ty);
+        if (it != m_layout_cache.end())
+            return it->second;
+
+        auto layout = compute_layout(ty);
+        m_layout_cache[ty] = layout;
+        return layout;
+    }
+
+    TypeLayout TypeContext::compute_layout(SemaType* ty)
+    {
+        if (ty->is_bool())
+            return TypeLayout::of(1, 1);
+        if (ty->is_void())
+            return TypeLayout::of(0, 1);
+        if (ty->is_error())
+            return TypeLayout::of(0, 1);
+        if (ty->is_null_t())
+            return TypeLayout::of(8, 8);
+
+        if (ty->is_integer())
+        {
+            auto* ity = static_cast<IntegerType*>(ty);
+            uint64_t bytes = ity->width() / 8;
+            return TypeLayout::of(bytes, bytes);
+        }
+
+        if (ty->is_float())
+        {
+            auto* fty = static_cast<FloatType*>(ty);
+            uint64_t bytes = fty->width() / 8;
+            return TypeLayout::of(bytes, bytes);
+        }
+
+        if (ty->is_pointer())
+            return TypeLayout::of(8, 8);
+
+        if (ty->is_slice())
+            return TypeLayout::of(16, 8);
+
+        if (ty->is_array())
+        {
+            auto* aty = static_cast<ArraySemaType*>(ty);
+            auto elem = layout_of(aty->element());
+            return TypeLayout::of(elem.size * aty->length(), elem.alignment);
+        }
+
+        if (dynamic_cast<FlexibleArraySemaType*>(ty))
+        {
+            auto* faty = static_cast<FlexibleArraySemaType*>(ty);
+            auto elem = layout_of(faty->element());
+            return TypeLayout::of(0, elem.alignment);
+        }
+
+        if (ty->is_function())
+            return TypeLayout::of(8, 8);
+
+        if (auto* sty = dynamic_cast<StructSemaType*>(ty))
+            return layout_struct(sty);
+        if (auto* uty = dynamic_cast<UnionSemaType*>(ty))
+            return layout_union(uty);
+        if (auto* ety = dynamic_cast<EnumSemaType*>(ty))
+            return layout_enum(ety);
+
+        return TypeLayout::of(0, 1);
+    }
+
+    static uint64_t align_to(uint64_t offset, uint64_t alignment)
+    {
+        return (offset + alignment - 1) & ~(alignment - 1);
+    }
+
+    TypeLayout TypeContext::layout_struct(StructSemaType* sty)
+    {
+        assert(sty->is_complete() && "cannot layout incomplete struct");
+
+        uint64_t offset = 0;
+        uint64_t max_align = 1;
+
+        for (auto& field : sty->fields())
+        {
+            auto fl = layout_of(field.type);
+            offset = align_to(offset, fl.alignment);
+            offset += fl.size;
+            max_align = std::max(max_align, fl.alignment);
+        }
+
+        offset = align_to(offset, max_align);
+        return TypeLayout::of(offset, max_align);
+    }
+
+    TypeLayout TypeContext::layout_union(UnionSemaType* uty)
+    {
+        assert(uty->is_complete() && "cannot layout incomplete union");
+
+        uint64_t max_size = 0;
+        uint64_t max_align = 1;
+
+        for (auto& field : uty->fields())
+        {
+            auto fl = layout_of(field.type);
+            max_size = std::max(max_size, fl.size);
+            max_align = std::max(max_align, fl.alignment);
+        }
+
+        max_size = align_to(max_size, max_align);
+        return TypeLayout::of(max_size, max_align);
+    }
+
+    TypeLayout TypeContext::layout_enum(EnumSemaType* ety)
+    {
+        assert(ety->is_complete() && "cannot layout incomplete enum");
+
+        auto disc = layout_of(ety->underlying_type());
+        uint64_t max_payload_size = 0;
+        uint64_t max_align = disc.alignment;
+
+        for (auto& variant : ety->variants())
+        {
+            uint64_t variant_size = 0;
+            for (auto* pt : variant.payload_types)
+            {
+                auto pl = layout_of(pt);
+                variant_size = align_to(variant_size, pl.alignment);
+                variant_size += pl.size;
+                max_align = std::max(max_align, pl.alignment);
+            }
+            max_payload_size = std::max(max_payload_size, variant_size);
+        }
+
+        uint64_t total = disc.size;
+        if (max_payload_size > 0)
+        {
+            total = align_to(total, max_align);
+            total += max_payload_size;
+        }
+
+        total = align_to(total, max_align);
+        return TypeLayout::of(total, max_align);
+    }
+
     PointerSemaType* TypeContext::pointer_to(SemaType* pointee, ast::Qualifier quals)
     {
         auto candidate = std::make_unique<PointerSemaType>(pointee, quals);

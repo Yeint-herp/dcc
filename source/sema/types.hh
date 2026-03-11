@@ -68,6 +68,14 @@ namespace dcc::sema
         Kind m_kind;
     };
 
+    struct TypeLayout
+    {
+        uint64_t size;
+        uint64_t alignment;
+
+        static constexpr TypeLayout of(uint64_t size, uint64_t align) { return {size, align}; }
+    };
+
     class ErrorType final : public SemaType
     {
     public:

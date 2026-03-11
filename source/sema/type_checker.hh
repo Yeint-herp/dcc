@@ -110,6 +110,7 @@ namespace dcc::sema
         TypeMap m_type_map;
         const DisambiguationMap& m_disambiguations;
         std::unordered_map<SemaType*, SemaType*> m_literal_defaults;
+        std::unordered_map<const ast::Node*, uint64_t> m_sizeof_values;
 
         uint32_t m_error_count{};
 
