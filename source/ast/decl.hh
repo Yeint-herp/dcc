@@ -132,7 +132,7 @@ namespace dcc::ast
                                         std::span<Decl* const> template_params, BlockStmt* body, Visibility vis = Visibility::Private,
                                         StorageClass sc = StorageClass::None, std::span<const Attribute> attributes = {}) noexcept
             : Decl{range}, m_name{name}, m_return_type{return_type}, m_params{params}, m_template_params{template_params}, m_body{body}, m_vis{vis}, m_sc{sc},
-              m_attributes{attributes}
+              m_attributes{attributes}, no_mangle(false)
         {
         }
 
@@ -145,6 +145,7 @@ namespace dcc::ast
         [[nodiscard]] constexpr StorageClass storage_class() const noexcept { return m_sc; }
         [[nodiscard]] constexpr bool is_static() const noexcept { return m_sc == StorageClass::Static; }
         [[nodiscard]] constexpr bool is_extern() const noexcept { return m_sc == StorageClass::Extern; }
+        [[nodiscard]] constexpr bool should_mangle() const noexcept { return !no_mangle; }
         [[nodiscard]] constexpr std::span<const Attribute> attributes() const noexcept { return m_attributes; }
 
         void accept(Visitor& v) const override;
@@ -158,6 +159,7 @@ namespace dcc::ast
         Visibility m_vis;
         StorageClass m_sc;
         std::span<const Attribute> m_attributes;
+        bool no_mangle;
     };
 
     class StructDecl final : public Decl
