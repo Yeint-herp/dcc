@@ -1,19 +1,19 @@
-Immutability by design,
 i8, u8, i16, u16, i32, u32, i64, u64, f32, f64, bool, void, null_t.
 Struct, union, enum with tagged enum support.
 `const`, `restrict`, `volatile` qualifiers.
-`using` for type aliases.
+`using` for type, function aliases & concepts.
 `import`, `module` and `public` for visbility, and module system.
 `defer <statement>` runs at scope exit.
 
 C Like `{}` is just a block statement rule taken to extremene, even with functions.
 Explicit casts with `as`.
-Rust like procedural macros called `semantic translators` with `@` for function like invocations and `#[]` for derive like functionality for structs enums and unions.
+Rust like procedural macros called `semantic translators` with `@` for function like invocations and `#[]` for derive like functionality for all top level declarations.
 Structs don't have ctor/dtor nor member functions. Use factories and UFCS functions.
 Only `.`, no `->`.
 D like syntax for templates, `T helloTemplate(T)(T value);` and for template constants: `void serialWrite(u8 COMN)(u8 byte)`.
-`static if` for template constant checks guaranteed on compile time.
+`static if` for template constant checks guaranteed on compile time. (free usage of `compiles`)
 UFCS
+Concepts via `using X = compiles { ... }`
 
 Slices VS Arrays VS FAM:
 ```
