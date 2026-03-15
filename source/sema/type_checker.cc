@@ -880,6 +880,8 @@ namespace dcc::sema
         auto* operand_type = check_expr(*node.operand());
         auto* target_type = eval_type(*node.target_type());
 
+        operand_type = materialize_type(operand_type);
+
         if (!operand_type->is_error() && !target_type->is_error())
             if (!m_types.is_explicitly_castable(operand_type, target_type))
                 error(node.range(), std::format("cannot cast '{}' to '{}'", operand_type->to_string(), target_type->to_string()));
@@ -1087,6 +1089,59 @@ namespace dcc::sema
         }
 
         auto* fn = static_cast<FunctionSemaType*>(callee_type);
+
+        if (!node.template_args().empty())
+        {
+            const ast::FunctionDecl* fn_decl = nullptr;
+            if (auto* id = dynamic_cast<const ast::IdentifierExpr*>(node.callee()))
+            {
+                auto res_it = m_resolutions.find(id);
+                if (res_it != m_resolutions.end() && res_it->second && res_it->second->decl())
+                    fn_decl = dynamic_cast<const ast::FunctionDecl*>(res_it->second->decl());
+            }
+
+            if (fn_decl && !fn_decl->template_params().empty() && fn_decl->template_params().size() == node.template_args().size())
+            {
+                std::vector<SemaType*> concrete_types;
+                for (auto& ta : node.template_args())
+                {
+                    if (auto* const* te = std::get_if<ast::TypeExpr*>(&ta.arg))
+                        concrete_types.push_back(eval_type(**te));
+                    else
+                        concrete_types.push_back(m_types.error_type());
+                }
+
+                std::unordered_map<SemaType*, SemaType*> tvar_to_concrete;
+                for (std::size_t i = 0; i < fn_decl->template_params().size(); ++i)
+                {
+                    auto tp_it = m_resolutions.find(fn_decl->template_params()[i]);
+                    if (tp_it != m_resolutions.end() && tp_it->second && tp_it->second->type())
+                        tvar_to_concrete[tp_it->second->type()] = concrete_types[i];
+                }
+
+                auto subst = [&](SemaType* ty) -> SemaType* {
+                    auto it = tvar_to_concrete.find(ty);
+                    if (it != tvar_to_concrete.end())
+                        return it->second;
+                    return m_types.resolve(ty);
+                };
+
+                auto params = fn->param_types();
+                for (std::size_t i = 0; i < node.args().size(); ++i)
+                {
+                    auto* arg_type = check_expr(*node.args()[i]);
+                    if (i < params.size())
+                    {
+                        auto* expected = subst(params[i]);
+                        check_assignment_compatible(expected, arg_type, node.args()[i]->range());
+                    }
+                }
+
+                record_type(&node, subst(fn->return_type()));
+                return;
+            }
+        }
+
         auto* ret = check_call(fn, node.args(), node.range());
         record_type(&node, ret);
     }
@@ -1520,6 +1575,8 @@ namespace dcc::sema
 
                         init_type = declared_type;
 
+                        record_type(init_expr, declared_type);
+
                         auto it = m_resolutions.find(&node);
                         Symbol* sym = (it != m_resolutions.end()) ? it->second : nullptr;
                         if (sym)
@@ -1599,10 +1656,10 @@ namespace dcc::sema
         for (auto* tp : node.template_params())
             tp->accept(*this);
 
-        for (auto* param : node.params())
-            param->accept(*this);
+        for (auto* p : node.params())
+            p->accept(*this);
 
-        if (node.body())
+        if (node.body() && node.template_params().empty())
             node.body()->accept(*this);
 
         m_current_return_type = saved_return;
@@ -1696,6 +1753,13 @@ namespace dcc::sema
 
     void TypeChecker::visit(const ast::BindingPattern& node)
     {
+        if (m_match_scrutinee_type && m_match_scrutinee_type->is_enum())
+        {
+            error(node.range(),
+                  std::format("cannot bind enum value of type '{}' to '{}'", m_match_scrutinee_type->to_string(), std::string{node.name().view()}));
+            return;
+        }
+
         auto it = m_resolutions.find(&node);
         if (it != m_resolutions.end() && it->second && m_match_scrutinee_type)
             it->second->set_type(m_match_scrutinee_type);

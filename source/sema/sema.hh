@@ -34,6 +34,18 @@ namespace dcc::sema
         [[nodiscard]] Symbol* symbol_of(const ast::Node* node) const noexcept;
         [[nodiscard]] Scope* scope_of(const ast::Node* node) const noexcept;
 
+        [[nodiscard]] ast::Node* disambiguated(const ast::Node* node) const noexcept
+        {
+            auto it = m_disambiguations.find(node);
+            return it != m_disambiguations.end() ? it->second : nullptr;
+        }
+
+        [[nodiscard]] SemaType* resolve_type_expr(const ast::TypeExpr* te) const noexcept
+        {
+            auto it = m_type_resolutions.find(te);
+            return it != m_type_resolutions.end() ? it->second : nullptr;
+        }
+
         [[nodiscard]] TypeContext& types() noexcept { return m_types; }
         [[nodiscard]] ModuleLoader& modules() noexcept { return m_modules; }
         [[nodiscard]] Scope* global_scope() const noexcept { return m_global_scope.get(); }

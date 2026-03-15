@@ -574,8 +574,14 @@ namespace dcc::sema
 
     void NameResolver::visit(const ast::PointerType& node)
     {
+        ast::Qualifier pointee_quals = ast::Qualifier::None;
+        const ast::TypeExpr* actual_pointee = node.pointee();
+
+        if (auto* qt = dynamic_cast<const ast::QualifiedType*>(actual_pointee))
+            pointee_quals = qt->quals();
+
         auto* pointee = resolve_type(*node.pointee());
-        m_type_resolutions[&node] = m_types.pointer_to(pointee);
+        m_type_resolutions[&node] = m_types.pointer_to(pointee, pointee_quals);
     }
 
     void NameResolver::visit(const ast::SliceType& node)
@@ -909,7 +915,10 @@ namespace dcc::sema
     {
         auto* sym = declare(SymbolKind::TemplateTypeParam, node.name(), const_cast<ast::TemplateTypeParamDecl*>(&node), ast::Visibility::Private, node.range());
         if (sym)
+        {
             sym->set_type(m_types.fresh_var());
+            m_resolutions[&node] = sym;
+        }
 
         if (node.default_type())
             resolve_type(*node.default_type());
@@ -925,6 +934,7 @@ namespace dcc::sema
         {
             auto it = m_type_resolutions.find(node.type());
             sym->set_type(it != m_type_resolutions.end() ? it->second : m_types.error_type());
+            m_resolutions[&node] = sym;
         }
 
         if (node.default_value())

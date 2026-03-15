@@ -1360,9 +1360,9 @@ namespace dcc::test
         void f() {
             Color c;
             match c {
-                Red => { return; },
-                Green => { return; },
-                Blue => { return; }
+                Color::Red => { return; },
+                Color::Green => { return; },
+                Color::Blue => { return; }
             }
         }
     )");
@@ -2864,7 +2864,7 @@ namespace dcc::test
 
         bool is_red(Color c) {
             match c {
-                Red => { return true; },
+                Color::Red => { return true; },
                 _ => { return false; }
             }
         }

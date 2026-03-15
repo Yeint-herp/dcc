@@ -52,7 +52,7 @@ namespace dcc::sema
 
         [[nodiscard]] bool is_extern() const noexcept;
         [[nodiscard]] bool is_public() const noexcept { return m_vis == ast::Visibility::Public; }
-        [[nodiscard]] bool is_type() const noexcept { return m_kind == SymbolKind::Type; }
+        [[nodiscard]] bool is_type() const noexcept { return m_kind == SymbolKind::Type || m_kind == SymbolKind::TemplateTypeParam; }
         [[nodiscard]] bool is_namespace() const noexcept { return m_kind == SymbolKind::Namespace; }
 
         [[nodiscard]] Scope* namespace_scope() const noexcept { return m_namespace_scope; }
