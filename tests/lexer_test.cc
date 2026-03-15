@@ -297,7 +297,7 @@ namespace dcc::test
     {
         SourceManager sm;
         StringInterner interner;
-        std::string source = "+ - * / % & | ^ ! && || = == != < > <= >= << >> += -= *= /= %= &= |= ^= <<= >>=";
+        std::string source = "+ - * / % & | ^ ! && || = == != < > <= >= << >> += -= *= /= %= &= |= ^= <<= >>= ++ --";
         auto id = sm.add_synthetic("test_file", source);
         const SourceFile& file = *sm.get(id);
         Lexer lexer(file, interner);
@@ -362,6 +362,10 @@ namespace dcc::test
         EXPECT_EQ(token.kind, TokenKind::LtLtEq);
         token = lexer.next();
         EXPECT_EQ(token.kind, TokenKind::GtGtEq);
+        token = lexer.next();
+        EXPECT_EQ(token.kind, TokenKind::Increment);
+        token = lexer.next();
+        EXPECT_EQ(token.kind, TokenKind::Decrement);
         token = lexer.next();
         EXPECT_EQ(token.kind, TokenKind::Eof);
     }

@@ -97,6 +97,8 @@ namespace dcc::lex
         Star,
         Slash,
         Percent,
+        Increment,
+        Decrement,
 
         Amp,
         Pipe,

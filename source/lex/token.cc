@@ -169,6 +169,10 @@ namespace dcc::lex
                 return "/";
             case TokenKind::Percent:
                 return "%";
+            case TokenKind::Increment:
+                return "++";
+            case TokenKind::Decrement:
+                return "--";
 
             case TokenKind::Amp:
                 return "&";

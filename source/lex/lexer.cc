@@ -855,6 +855,8 @@ namespace dcc::lex
                 return match(':') ? make(TokenKind::ColonColon, start) : make(TokenKind::Colon, start);
 
             case '+':
+                if (match('+'))
+                    return make(TokenKind::Increment, start);
                 return match('=') ? make(TokenKind::PlusEq, start) : make(TokenKind::Plus, start);
 
             case '*':
@@ -881,6 +883,8 @@ namespace dcc::lex
                 return make(TokenKind::Pipe, start);
 
             case '-':
+                if (match('-'))
+                    return make(TokenKind::Decrement, start);
                 if (match('='))
                     return make(TokenKind::MinusEq, start);
                 if (match('>'))
