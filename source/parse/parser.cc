@@ -957,6 +957,10 @@ namespace dcc::parse
         else if (match(TK::KwExtern))
             sc = ast::StorageClass::Extern;
 
+        ast::Qualifier var_quals = ast::Qualifier::None;
+        if (check(TK::KwConst))
+            var_quals = var_quals | ast::Qualifier::Const;
+
         auto* type = parse_type();
         if (!type)
         {
@@ -992,8 +996,7 @@ namespace dcc::parse
                 return parse_function_decl(type, name, {}, vis, begin, sc, std::move(attrs));
         }
 
-        ast::Qualifier quals = ast::Qualifier::None;
-        return parse_var_decl_rest(type, name, quals, begin, sc);
+        return parse_var_decl_rest(type, name, var_quals, begin, sc);
     }
 
     ast::FunctionDecl* Parser::parse_function_decl(ast::TypeExpr* ret, si::InternedString name, std::vector<ast::Decl*> tpl, ast::Visibility vis,
@@ -1314,26 +1317,17 @@ namespace dcc::parse
             return m_arena.create<ast::DeclStmt>(var->range(), var);
         }
 
-        if (check(TK::KwConst))
-        {
-            auto begin = loc();
-            advance();
-
-            auto* type = parse_type();
-            auto quals = ast::Qualifier::Const;
-            auto name = expect(TK::Identifier, "for variable name").interned;
-            auto* var = parse_var_decl_rest(type, name, quals, begin, ast::StorageClass::None);
-
-            return m_arena.create<ast::DeclStmt>(var->range(), var);
-        }
-
-        if (is_type_keyword(peek().kind))
+        if (is_type_keyword(peek().kind) || check(TK::KwConst) || check(TK::KwVolatile) || check(TK::KwRestrict))
         {
             auto begin = loc();
 
+            ast::Qualifier var_quals = ast::Qualifier::None;
+            if (check(TK::KwConst))
+                var_quals = var_quals | ast::Qualifier::Const;
+
             auto* type = parse_type();
             auto name = expect(TK::Identifier, "for variable name").interned;
-            auto* var = parse_var_decl_rest(type, name, ast::Qualifier::None, begin, ast::StorageClass::None);
+            auto* var = parse_var_decl_rest(type, name, var_quals, begin, ast::StorageClass::None);
 
             return m_arena.create<ast::DeclStmt>(var->range(), var);
         }
@@ -1484,6 +1478,22 @@ namespace dcc::parse
 
     ast::Expr* Parser::parse_unary()
     {
+        if (check(TK::Increment))
+        {
+            auto begin = loc();
+            advance();
+            auto* operand = parse_unary();
+            return m_arena.create<ast::UnaryExpr>(range_from(begin), ast::UnaryOp::PreInc, operand);
+        }
+
+        if (check(TK::Decrement))
+        {
+            auto begin = loc();
+            advance();
+            auto* operand = parse_unary();
+            return m_arena.create<ast::UnaryExpr>(range_from(begin), ast::UnaryOp::PreDec, operand);
+        }
+
         if (peek().is_one_of(TK::Minus, TK::Tilde, TK::Bang, TK::Star, TK::Amp))
         {
             auto begin = loc();
@@ -1503,6 +1513,20 @@ namespace dcc::parse
         while (true)
         {
             auto begin = lhs->begin_loc();
+
+            if (check(TK::Increment))
+            {
+                advance();
+                lhs = m_arena.create<ast::UnaryExpr>(range_from(begin), ast::UnaryOp::PostInc, lhs);
+                continue;
+            }
+
+            if (check(TK::Decrement))
+            {
+                advance();
+                lhs = m_arena.create<ast::UnaryExpr>(range_from(begin), ast::UnaryOp::PostDec, lhs);
+                continue;
+            }
 
             if (match(TK::Dot))
             {
@@ -1590,13 +1614,13 @@ namespace dcc::parse
         return m_arena.create<ast::CallExpr>(range_from(begin), callee, arg_span, tpl_span);
     }
 
-    std::vector<ast::TemplateArg> Parser::parse_template_args() // TODO parenthesis less templates.
+    std::vector<ast::TemplateArg> Parser::parse_template_args()
     {
-        if (!check(TK::Bang) || !check_ahead(1, TK::LParen))
+        if (!check(TK::Bang))
             return {};
 
         advance();
-        advance();
+        bool parenthesis = match(TK::LParen);
 
         std::vector<ast::TemplateArg> args;
         if (!check(TK::RParen))
@@ -1607,7 +1631,9 @@ namespace dcc::parse
                 args.push_back(ast::TemplateArg{type, range_from(tbegin)});
             } while (match(TK::Comma));
 
-        expect(TK::RParen, "after template arguments");
+        if (parenthesis)
+            expect(TK::RParen, "after template arguments");
+
         return args;
     }
 
@@ -1901,6 +1927,23 @@ namespace dcc::parse
             if (match(TK::Star))
             {
                 base = m_arena.create<ast::PointerType>(range_from(begin), base);
+
+                ast::Qualifier ptr_quals = ast::Qualifier::None;
+                while (true)
+                {
+                    if (match(TK::KwConst))
+                        ptr_quals = ptr_quals | ast::Qualifier::Const;
+                    else if (match(TK::KwVolatile))
+                        ptr_quals = ptr_quals | ast::Qualifier::Volatile;
+                    else if (match(TK::KwRestrict))
+                        ptr_quals = ptr_quals | ast::Qualifier::Restrict;
+                    else
+                        break;
+                }
+
+                if (ptr_quals != ast::Qualifier::None)
+                    base = m_arena.create<ast::QualifiedType>(range_from(begin), ptr_quals, base);
+
                 continue;
             }
 
