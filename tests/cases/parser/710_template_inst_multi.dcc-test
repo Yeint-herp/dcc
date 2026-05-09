@@ -1,0 +1,29 @@
+=== FILE: main.dc ===
+module m;
+void f() {
+    copy!(u8, 23)(dst, src);
+}
+
+=== EXPECT-AST ===
+TranslationUnit
+  Module m
+  Func name=f
+    Return
+      Primitive void
+    Body
+      ExprStmt
+        Call
+          Callee
+            TemplateInst
+              Callee
+                Ident copy
+              TemplateArgs
+                Arg
+                  Primitive u8
+                Arg
+                  IntLiteral 23
+          Args
+            Ident dst
+            Ident src
+
+=== EXPECT-ERRORS ===

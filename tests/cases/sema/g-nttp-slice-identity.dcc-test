@@ -1,0 +1,24 @@
+=== FILE: main.dc ===
+module m;
+
+i32 first([]i32 S)(i32 v) {
+    return v;
+}
+
+void a() {
+    i32 r = first!({1, 2})(10);
+}
+
+void b() {
+    i32 r = first!({1, 2})(20);
+}
+
+void c() {
+    i32 r = first!({3, 4})(30);
+}
+
+=== ENTRY: main.dc ===
+
+=== EXPECT-REGISTRY ===
+fn=first args=[<value>] state=2
+fn=first args=[<value>] state=2

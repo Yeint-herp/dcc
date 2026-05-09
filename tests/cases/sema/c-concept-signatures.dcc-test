@@ -1,0 +1,22 @@
+=== FILE: m.dc ===
+module m;
+
+public using Addable(T) = compiles(T lhs, T rhs) {
+    lhs + rhs;
+};
+
+public using Indexable(T) = compiles([]const T items, T* out) {
+    items[0];
+    out[0];
+};
+
+=== EXPECT-TYPES FOR: m ===
+Module m
+  Using Addable
+    TemplateParams T
+    CompilesParam lhs: T#0
+    CompilesParam rhs: T#0
+  Using Indexable
+    TemplateParams T
+    CompilesParam items: slice(const T#0)
+    CompilesParam out: ptr(T#0)

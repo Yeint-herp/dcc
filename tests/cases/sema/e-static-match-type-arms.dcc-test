@@ -1,0 +1,14 @@
+=== FILE: main.dc ===
+module m;
+
+i32 dispatch(T)(T x) {
+    i32 result = 0;
+    static match T {
+        i32 => result = 1,
+        f64 => result = 2,
+        _ => result = 9,
+    }
+    return result;
+}
+
+=== ENTRY: main.dc ===

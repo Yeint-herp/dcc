@@ -1,0 +1,26 @@
+=== FILE: test.dc ===
+module test;
+
+struct Point {
+    i64 x;
+    i64 y;
+}
+
+@nomangle
+i64 get_x(Point* p) {
+    return p.x;
+}
+
+=== EXPECT-LLVM FLAGS: -verify ===
+; ModuleID = 'test'
+source_filename = "test"
+target triple = "x86_64-elf"
+
+%0 = type { i64, i64 }
+
+define i64 @get_x(ptr %p) {
+entry:
+  %"0" = getelementptr %0, ptr %p, i32 0, i32 0
+  %"1" = load i64, ptr %"0", align 4
+  ret i64 %"1"
+}

@@ -1,0 +1,40 @@
+=== FILE: main.dc ===
+module m;
+void f() {
+    i32 r = match p {
+        Point { x, y => 0 } => x,
+        Point { x, _ } => x,
+    };
+}
+
+=== EXPECT-AST ===
+TranslationUnit
+  Module m
+  Func name=f
+    Return
+      Primitive void
+    Body
+      Var name=r
+        Type
+          Primitive i32
+        Init
+          Match
+            Operand
+              Ident p
+            Arm
+              StructDestructurePattern type=Point
+                Field name=x
+                  BindingPattern name=x
+                Field name=y
+                  LiteralPattern
+                    IntLiteral 0
+              Body
+                Ident x
+            Arm
+              StructDestructurePattern type=Point has_rest
+                Field name=x
+                  BindingPattern name=x
+              Body
+                Ident x
+
+=== EXPECT-ERRORS ===

@@ -1,0 +1,20 @@
+=== FILE: main.dc ===
+module m;
+
+i64 f() {
+    return {
+        i64 a = 1;
+        a
+    };
+}
+
+=== EXPECT-BODY ===
+Module m
+  Func f diverging=true
+    Body
+      Return
+        Block [type=i64 const=1 constant]
+          Body
+            Var a type=i64 storage=local offset=0
+              IntLiteral 1 [type=i64 const=1 constant]
+            Ident a [type=i64 const=1 lvalue constant decl=a]

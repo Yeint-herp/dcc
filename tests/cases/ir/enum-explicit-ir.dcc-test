@@ -1,0 +1,21 @@
+=== FILE: test.dc ===
+module test;
+
+public enum Color {
+    Red,
+    Green = 5,
+    Blue = 10,
+}
+
+public i32 get_blue() {
+    Color c = Color::Blue;
+    return 0;
+}
+=== EXPECT-IR ===
+module "test"
+i32@_DC0F1.4.test8.get_blue0i32s() {
+%entry:
+  %0 = alloca u8
+  store u8 #10, ptr<u8> %0
+  ret i32 #0
+}

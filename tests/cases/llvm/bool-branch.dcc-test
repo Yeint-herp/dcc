@@ -1,0 +1,34 @@
+=== FILE: test.dc ===
+module test;
+
+public i32 branch_on_bool(bool cond) {
+    i32 r = 0;
+    if (cond) {
+      r = 42;
+    }
+
+    return r;
+}
+
+=== EXPECT-LLVM ===
+; ModuleID = 'test'
+source_filename = "test"
+target triple = "x86_64-elf"
+
+define i32 @_DC0F1.4.test14.branch_on_bool1bi32s(i1 %cond) {
+entry:
+  %"0" = alloca i32, align 4
+  store i32 0, ptr %"0", align 4
+  br i1 %cond, label %if.then1, label %if.else2
+
+if.then1:                                         ; preds = %entry
+  store i32 42, ptr %"0", align 4
+  br label %if.merge3
+
+if.else2:                                         ; preds = %entry
+  br label %if.merge3
+
+if.merge3:                                        ; preds = %if.else2, %if.then1
+  %"1" = load i32, ptr %"0", align 4
+  ret i32 %"1"
+}

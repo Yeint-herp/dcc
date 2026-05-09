@@ -1,0 +1,16 @@
+=== FILE: main.dc ===
+module m;
+using Callback = void(*)(i32, i32);
+
+=== EXPECT-AST ===
+TranslationUnit
+  Module m
+  Using kind=alias
+    alias=Callback
+    TargetType
+      FuncPtr
+        Return
+          Primitive void
+        Params
+          Primitive i32
+          Primitive i32

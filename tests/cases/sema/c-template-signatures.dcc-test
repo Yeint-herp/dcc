@@ -1,0 +1,30 @@
+=== FILE: m.dc ===
+module m;
+
+public struct Box(T) {
+    T value;
+}
+
+public enum Maybe(T) : u8 {
+    None,
+    Some(T),
+}
+
+public i32 take(i32 N)(i32 value) {
+    return value;
+}
+
+=== EXPECT-TYPES FOR: m ===
+Module m
+  Struct Box
+    TemplateParams T
+    Field value: T#0
+  Enum Maybe
+    TemplateParams T
+    Backing: u8
+    Variant None
+    Variant Some(T#0)
+  Func take
+    TemplateParams N: i32
+    Return: i32
+    Param value: i32

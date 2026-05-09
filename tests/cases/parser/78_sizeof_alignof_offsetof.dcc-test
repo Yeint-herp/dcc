@@ -1,0 +1,33 @@
+=== FILE: main.dc ===
+module m;
+struct S { i32 a; i64 b; }
+u64 sz = sizeof(i32);
+u64 al = alignof(S);
+u64 of = offsetof(S, b);
+
+=== EXPECT-AST ===
+TranslationUnit
+  Module m
+  Struct name=S
+    Field name=a
+      Primitive i32
+    Field name=b
+      Primitive i64
+  Var name=sz
+    Type
+      Primitive u64
+    Init
+      Sizeof
+        Primitive i32
+  Var name=al
+    Type
+      Primitive u64
+    Init
+      Alignof
+        Named S
+  Var name=of
+    Type
+      Primitive u64
+    Init
+      Offsetof field=b
+        Named S

@@ -1,0 +1,32 @@
+=== FILE: main.dc ===
+module m;
+
+enum Maybe {
+    Some(i32),
+    None,
+}
+
+struct Point {
+    i32 x;
+    i32 y;
+}
+
+enum Node {
+    Leaf(i32),
+    Pair(Point, Maybe),
+    Empty,
+}
+
+i64 bad(Node n) {
+    return match n {
+        Node::Leaf() => 0,
+        Node::Pair(Point { x }, Maybe::Some(v, w)) => 1,
+        Maybe::None => 2,
+        _ => 3,
+    };
+}
+
+=== EXPECT-ERRORS ===
+main.dc:21: enum pattern payload arity mismatch
+main.dc:22: enum pattern payload arity mismatch
+main.dc:23: enum variant `None` does not belong to `Maybe`

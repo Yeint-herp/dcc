@@ -1,0 +1,137 @@
+=== FILE: test.dc ===
+module test;
+
+public i32 while_simple(i32 n) {
+    i32 i = 0;
+    while (i < n) { i = i + 1; }
+
+    return i;
+}
+
+public i32 while_break(i32 n) {
+    i32 i = 0;
+    while (i < n) { if (i == 5) { break; } i = i + 1; }
+
+    return i;
+}
+
+public i32 while_continue(i32 n) {
+    i32 i = 0;
+    while (i < n) { i = i + 1; if (i < 3) { continue; } i = i + 1; }
+
+    return i;
+}
+
+public i32 while_true_break(i32 n) {
+    i32 i = 0;
+
+    while (true) {
+        i = i + 1;
+        if (i == n) { break; }
+    }
+
+    return i;
+}
+
+=== EXPECT-IR ===
+module "test"
+i32@_DC0F1.4.test12.while_simple1i32si32s(i32) {
+%entry(i32 %n):
+  %0 = alloca i32
+  store i32 #0, ptr<i32> %0
+  br label %while.cond1
+%while.cond1:
+  %1 = load i32, ptr<i32> %0
+  %2 = cmp.lt i32 %1, %n
+  br.cond %2, label %while.body2, label %while.exit3
+%while.body2:
+  %3 = load i32, ptr<i32> %0
+  %4 = add i32 %3, i32 #1
+  store i32 %4, ptr<i32> %0
+  br label %while.cond1
+%while.exit3:
+  %5 = load i32, ptr<i32> %0
+  ret i32 %5
+}
+
+i32@_DC0F1.4.test11.while_break1i32si32s(i32) {
+%entry(i32 %n):
+  %0 = alloca i32
+  store i32 #0, ptr<i32> %0
+  br label %while.cond1
+%while.cond1:
+  %1 = load i32, ptr<i32> %0
+  %2 = cmp.lt i32 %1, %n
+  br.cond %2, label %while.body2, label %while.exit3
+%while.body2:
+  %3 = load i32, ptr<i32> %0
+  %4 = cmp.eq i32 %3, #5
+  br.cond %4, label %if.then4, label %if.else5
+%while.exit3:
+  %7 = load i32, ptr<i32> %0
+  ret i32 %7
+%if.then4:
+  br label %while.exit3
+%if.else5:
+  br label %if.merge6
+%if.merge6:
+  %5 = load i32, ptr<i32> %0
+  %6 = add i32 %5, i32 #1
+  store i32 %6, ptr<i32> %0
+  br label %while.cond1
+}
+
+i32@_DC0F1.4.test14.while_continue1i32si32s(i32) {
+%entry(i32 %n):
+  %0 = alloca i32
+  store i32 #0, ptr<i32> %0
+  br label %while.cond1
+%while.cond1:
+  %1 = load i32, ptr<i32> %0
+  %2 = cmp.lt i32 %1, %n
+  br.cond %2, label %while.body2, label %while.exit3
+%while.body2:
+  %3 = load i32, ptr<i32> %0
+  %4 = add i32 %3, i32 #1
+  store i32 %4, ptr<i32> %0
+  %5 = load i32, ptr<i32> %0
+  %6 = cmp.lt i32 %5, #3
+  br.cond %6, label %if.then4, label %if.else5
+%while.exit3:
+  %9 = load i32, ptr<i32> %0
+  ret i32 %9
+%if.then4:
+  br label %while.cond1
+%if.else5:
+  br label %if.merge6
+%if.merge6:
+  %7 = load i32, ptr<i32> %0
+  %8 = add i32 %7, i32 #1
+  store i32 %8, ptr<i32> %0
+  br label %while.cond1
+}
+
+i32@_DC0F1.4.test16.while_true_break1i32si32s(i32) {
+%entry(i32 %n):
+  %0 = alloca i32
+  store i32 #0, ptr<i32> %0
+  br label %while.cond1
+%while.cond1:
+  br.cond #true, label %while.body2, label %while.exit3
+%while.body2:
+  %1 = load i32, ptr<i32> %0
+  %2 = add i32 %1, i32 #1
+  store i32 %2, ptr<i32> %0
+  %3 = load i32, ptr<i32> %0
+  %4 = cmp.eq i32 %3, %n
+  br.cond %4, label %if.then4, label %if.else5
+%while.exit3:
+  %5 = load i32, ptr<i32> %0
+  ret i32 %5
+%if.then4:
+  br label %while.exit3
+%if.else5:
+  br label %if.merge6
+%if.merge6:
+  br label %while.cond1
+}

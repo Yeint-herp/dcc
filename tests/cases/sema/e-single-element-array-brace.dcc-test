@@ -1,0 +1,51 @@
+=== FILE: main.dc ===
+module m;
+
+i32[1] make_single_array() {
+    return { 42 };
+}
+
+[]i32 make_single_slice() {
+    return { 99 };
+}
+
+i32 test_single_array_var() {
+    i32[1] arr = { 77 };
+    return arr[0];
+}
+
+i32 test_single_slice_var() {
+    []i32 sl = { 88 };
+    return 0;
+}
+
+=== ENTRY: main.dc ===
+
+=== EXPECT-BODY ===
+Module m
+  Func make_single_array diverging=true
+    Body
+      Return
+        StructLiteral [type=[i32; 1] const=agg(42) constant]
+          IntLiteral 42 [type=i32 const=42 constant]
+  Func make_single_slice diverging=true
+    Body
+      Return
+        StructLiteral [type=slice(i32) const=slice(99) constant]
+          IntLiteral 99 [type=i32 const=99 constant]
+  Func test_single_array_var diverging=true
+    Body
+      Var arr type=[i32; 1] storage=local offset=0
+        StructLiteral [type=[i32; 1] const=agg(77) constant]
+          IntLiteral 77 [type=i32 const=77 constant]
+      Return
+        Index [type=i32 const=77 constant decl=arr]
+          Ident arr [type=[i32; 1] const=agg(77) lvalue constant decl=arr]
+          IntLiteral 0 [type=i32 const=0 constant]
+  Func test_single_slice_var diverging=true
+    Body
+      Var sl type=slice(i32) storage=local offset=0
+        StructLiteral [type=slice(i32) const=slice(88) constant]
+          IntLiteral 88 [type=i32 const=88 constant]
+      Return
+        IntLiteral 0 [type=i32 const=0 constant]

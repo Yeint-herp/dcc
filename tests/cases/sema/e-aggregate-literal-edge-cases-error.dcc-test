@@ -1,0 +1,38 @@
+=== FILE: main.dc ===
+module m;
+
+enum TooFewFields {
+    @implicit_construction NeedsTwo(i32, i32),
+}
+
+i32[2] test_array_wrong_count_1() {
+    i32[2] arr = { 1 };
+    return 0;
+}
+
+i32[2] test_array_wrong_count_2() {
+    i32[2] arr = { 1, 2, 3 };
+    return 0;
+}
+
+i32 test_array_named_field() {
+    i32[2] arr = { 3, 4, a = 5 };
+    return 0;
+}
+
+i32 test_slice_named_field() {
+    []i32 sl = { 6, 7, x = 8 };
+    return 0;
+}
+
+i32 test_too_few_fields_enum() {
+    TooFewFields tff = { 9 };
+    return 0;
+}
+
+=== EXPECT-ERRORS ===
+main.dc:8: array literal element count mismatch
+main.dc:13: array literal element count mismatch
+main.dc:18: array literal does not accept field names
+main.dc:23: slice literal does not accept field names
+main.dc:28: no matching enum construction

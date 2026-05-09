@@ -1,0 +1,69 @@
+=== FILE: main.dc ===
+module m;
+void process_file([]const u8 path) {
+    File* f = open(path);
+    defer close(f);
+    u8* buf = alloc(1024);
+    defer free(buf);
+}
+
+=== EXPECT-AST ===
+TranslationUnit
+  Module m
+  Func name=process_file
+    Return
+      Primitive void
+    Params
+      Param name=path
+        Slice
+          Qualified const
+            Primitive u8
+    Body
+      AmbiguousStmt resolution=as_decl
+        AsDecl
+          Var name=f
+            Type
+              Pointer
+                Named File
+            Init
+              Call
+                Callee
+                  Ident open
+                Args
+                  Ident path
+        AsExpr
+          Binary op==
+            Binary op=*
+              Ident File
+              Ident f
+            Call
+              Callee
+                Ident open
+              Args
+                Ident path
+      Defer
+        ExprStmt
+          Call
+            Callee
+              Ident close
+            Args
+              Ident f
+      Var name=buf
+        Type
+          Pointer
+            Primitive u8
+        Init
+          Call
+            Callee
+              Ident alloc
+            Args
+              IntLiteral 1024
+      Defer
+        ExprStmt
+          Call
+            Callee
+              Ident free
+            Args
+              Ident buf
+
+=== EXPECT-ERRORS ===

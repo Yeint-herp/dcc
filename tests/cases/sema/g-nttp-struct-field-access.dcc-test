@@ -1,0 +1,26 @@
+=== FILE: main.dc ===
+module m;
+
+struct Point { i32 x; i32 y; }
+
+i32 get_x(Point P)(i32 v) {
+    return P.x;
+}
+
+void a() {
+    i32 r = get_x!(Point{10, 20})(0);
+}
+
+void b() {
+    i32 r = get_x!(Point{10, 20})(0);
+}
+
+void c() {
+    i32 r = get_x!(Point{30, 40})(0);
+}
+
+=== ENTRY: main.dc ===
+
+=== EXPECT-REGISTRY ===
+fn=get_x args=[<value>] state=2
+fn=get_x args=[<value>] state=2

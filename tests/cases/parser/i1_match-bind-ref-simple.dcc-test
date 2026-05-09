@@ -1,0 +1,35 @@
+=== FILE: main.dc ===
+module m;
+
+i64 f(i64 v) {
+    return match v {
+        &x => *x + 1,
+        y => y,
+    };
+}
+
+=== EXPECT-AST ===
+TranslationUnit
+  Module m
+  Func name=f
+    Return
+      Primitive i64
+    Params
+      Param name=v
+        Primitive i64
+    Body
+      Return
+        Match
+          Operand
+            Ident v
+          Arm
+            BindingPattern name=x by_ref=true
+            Body
+              Binary op=+
+                Unary op=*
+                  Ident x
+                IntLiteral 1
+          Arm
+            BindingPattern name=y
+            Body
+              Ident y

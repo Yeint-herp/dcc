@@ -1,0 +1,36 @@
+=== FILE: main.dc ===
+module m;
+void f() {
+    i32 x = {
+        i32 a = 1;
+        i32 b = 2;
+        a + b
+    };
+}
+
+=== EXPECT-AST ===
+TranslationUnit
+  Module m
+  Func name=f
+    Return
+      Primitive void
+    Body
+      Var name=x
+        Type
+          Primitive i32
+        Init
+          Block
+            Var name=a
+              Type
+                Primitive i32
+              Init
+                IntLiteral 1
+            Var name=b
+              Type
+                Primitive i32
+              Init
+                IntLiteral 2
+            Tail
+              Binary op=+
+                Ident a
+                Ident b

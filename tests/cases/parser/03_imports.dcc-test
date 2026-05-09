@@ -1,0 +1,35 @@
+=== FILE: main.dc ===
+module app;
+
+import math;
+import std::io;
+import std::math::sin;
+public import std;
+public import win32::MessageBoxA;
+
+=== FILE: math.dc ===
+module math;
+public struct Vec3 { f32 x; f32 y; f32 z; }
+
+=== FILE: std.dc ===
+module std;
+
+=== FILE: std/io.dc ===
+module std::io;
+
+=== FILE: std/math/sin.dc ===
+module std::math::sin;
+
+=== FILE: win32/MessageBoxA.dc ===
+module win32::MessageBoxA;
+
+=== EXPECT-AST ===
+TranslationUnit
+  Module app
+  Import math
+  Import std::io
+  Import std::math::sin
+  Import std
+    public
+  Import win32::MessageBoxA
+    public

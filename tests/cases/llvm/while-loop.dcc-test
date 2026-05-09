@@ -1,0 +1,46 @@
+=== FILE: test.dc ===
+module test;
+
+public i32 while_mutate(i32 n) {
+    i32 r = 0;
+    i32 i = 0;
+    while (i < n) {
+        r = r + i;
+        i = i + 1;
+    }
+
+    return r;
+}
+
+=== EXPECT-LLVM ===
+; ModuleID = 'test'
+source_filename = "test"
+target triple = "x86_64-elf"
+
+define i32 @_DC0F1.4.test12.while_mutate1i32si32s(i32 %n) {
+entry:
+  %"0" = alloca i32, align 4
+  store i32 0, ptr %"0", align 4
+  %"1" = alloca i32, align 4
+  store i32 0, ptr %"1", align 4
+  br label %while.cond1
+
+while.cond1:                                      ; preds = %while.body2, %entry
+  %"2" = load i32, ptr %"1", align 4
+  %"3" = icmp slt i32 %"2", %n
+  br i1 %"3", label %while.body2, label %while.exit3
+
+while.body2:                                      ; preds = %while.cond1
+  %"4" = load i32, ptr %"0", align 4
+  %"5" = load i32, ptr %"1", align 4
+  %"6" = add i32 %"4", %"5"
+  store i32 %"6", ptr %"0", align 4
+  %"7" = load i32, ptr %"1", align 4
+  %"8" = add i32 %"7", 1
+  store i32 %"8", ptr %"1", align 4
+  br label %while.cond1
+
+while.exit3:                                      ; preds = %while.cond1
+  %"9" = load i32, ptr %"0", align 4
+  ret i32 %"9"
+}

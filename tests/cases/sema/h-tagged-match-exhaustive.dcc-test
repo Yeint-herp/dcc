@@ -1,0 +1,24 @@
+=== FILE: main.dc ===
+module m;
+
+enum Option {
+    Some(i32),
+    None,
+}
+
+i32 unwrap_or_zero(Option opt) {
+    return match opt {
+        Option::Some(x) => x,
+        Option::None => 0,
+    };
+}
+
+i32 unwrap_wildcard_payload(Option opt) {
+    return match opt {
+        Option::Some(_) => 0,
+        Option::None => 1,
+    };
+}
+
+=== EXPECT-ERRORS ===
+

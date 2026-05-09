@@ -1,0 +1,20 @@
+=== FILE: main.dc ===
+module m;
+
+void cleanup() {}
+
+void nested() {
+    defer defer cleanup();
+}
+
+void transfer() {
+    defer return;
+    defer break;
+    defer continue;
+}
+
+=== EXPECT-ERRORS ===
+main.dc:6: defer is not allowed inside a deferred statement
+main.dc:10: deferred statement must not transfer control
+main.dc:11: deferred statement must not transfer control
+main.dc:12: deferred statement must not transfer control

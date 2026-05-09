@@ -1,0 +1,17 @@
+=== FILE: test.dc ===
+module test;
+
+public i32 volatile_test() {
+    volatile i32 x = 10;
+    return x;
+}
+
+=== EXPECT-IR ===
+module "test"
+i32@_DC0F1.4.test13.volatile_test0i32s() {
+%entry:
+  %0 = alloca i32
+  store.volatile i32 #10, ptr<i32> %0
+  %1 = load.volatile i32, ptr<i32> %0
+  ret i32 %1
+}

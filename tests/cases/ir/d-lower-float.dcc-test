@@ -1,0 +1,82 @@
+=== FILE: test.dc ===
+module test;
+
+public f64 fadd(f64 a, f64 b) { return a + b; }
+public f64 fsub(f64 a, f64 b) { return a - b; }
+public f64 fmul(f64 a, f64 b) { return a * b; }
+public f64 fdiv(f64 a, f64 b) { return a / b; }
+public f64 frem(f64 a, f64 b) { return a % b; }
+public bool feq(f64 a, f64 b) { return a == b; }
+public bool fne(f64 a, f64 b) { return a != b; }
+public bool flt(f64 a, f64 b) { return a < b; }
+public bool fle(f64 a, f64 b) { return a <= b; }
+public bool fgt(f64 a, f64 b) { return a > b; }
+public bool fge(f64 a, f64 b) { return a >= b; }
+
+=== EXPECT-IR ===
+module "test"
+f64@_DC0F1.4.test4.fadd2f64.f64.f64.(f64, f64) {
+%entry(f64 %a, f64 %b):
+  %0 = add f64 %a, f64 %b
+  ret f64 %0
+}
+
+f64@_DC0F1.4.test4.fsub2f64.f64.f64.(f64, f64) {
+%entry(f64 %a, f64 %b):
+  %0 = sub f64 %a, f64 %b
+  ret f64 %0
+}
+
+f64@_DC0F1.4.test4.fmul2f64.f64.f64.(f64, f64) {
+%entry(f64 %a, f64 %b):
+  %0 = mul f64 %a, f64 %b
+  ret f64 %0
+}
+
+f64@_DC0F1.4.test4.fdiv2f64.f64.f64.(f64, f64) {
+%entry(f64 %a, f64 %b):
+  %0 = fdiv f64 %a, f64 %b
+  ret f64 %0
+}
+
+f64@_DC0F1.4.test4.frem2f64.f64.f64.(f64, f64) {
+%entry(f64 %a, f64 %b):
+  %0 = frem f64 %a, f64 %b
+  ret f64 %0
+}
+
+bool@_DC0F1.4.test3.feq2f64.f64.b(f64, f64) {
+%entry(f64 %a, f64 %b):
+  %0 = cmp.eq f64 %a, %b
+  ret bool %0
+}
+
+bool@_DC0F1.4.test3.fne2f64.f64.b(f64, f64) {
+%entry(f64 %a, f64 %b):
+  %0 = cmp.ne f64 %a, %b
+  ret bool %0
+}
+
+bool@_DC0F1.4.test3.flt2f64.f64.b(f64, f64) {
+%entry(f64 %a, f64 %b):
+  %0 = cmp.olt f64 %a, %b
+  ret bool %0
+}
+
+bool@_DC0F1.4.test3.fle2f64.f64.b(f64, f64) {
+%entry(f64 %a, f64 %b):
+  %0 = cmp.ole f64 %a, %b
+  ret bool %0
+}
+
+bool@_DC0F1.4.test3.fgt2f64.f64.b(f64, f64) {
+%entry(f64 %a, f64 %b):
+  %0 = cmp.ogt f64 %a, %b
+  ret bool %0
+}
+
+bool@_DC0F1.4.test3.fge2f64.f64.b(f64, f64) {
+%entry(f64 %a, f64 %b):
+  %0 = cmp.oge f64 %a, %b
+  ret bool %0
+}

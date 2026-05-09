@@ -1,0 +1,11 @@
+=== FILE: main.dc ===
+module m;
+
+i32 some_function() { return 5; }
+
+enum X {
+    A = some_function(),
+}
+
+=== EXPECT-ERRORS ===
+main.dc:6: expression is not a valid enum discriminant

@@ -1,0 +1,53 @@
+=== FILE: test.dc ===
+module test;
+
+public i64 test([]i64 s) {
+    i64 sum = 0;
+    for i64 item in s {
+        sum = sum + item;
+        defer sum = sum + 1;
+    }
+    return sum;
+}
+
+=== EXPECT-IR ===
+module "test"
+i64@_DC0F1.4.test4.test1Sqi64si64s([]i64) {
+%entry([]i64 %s):
+  %0 = alloca []i64
+  store []i64 %s, ptr<[]i64> %0
+  %1 = alloca i64
+  store i64 #0, ptr<i64> %1
+  %2 = load []i64, ptr<[]i64> %0
+  %3 = extract []i64 %2, field #1
+  %4 = extract []i64 %2, field #0
+  %5 = alloca u64
+  store u64 #0, ptr<u64> %5
+  br label %forin.header1
+%forin.header1:
+  %6 = load u64, ptr<u64> %5
+  %7 = cmp.ult u64 %6, %3
+  br.cond %7, label %forin.body2, label %forin.exit4
+%forin.body2:
+  %8 = load u64, ptr<u64> %5
+  %9 = gep ptr<i64> %4, %8
+  %10 = alloca i64
+  %11 = load i64, ptr<i64> %9
+  store i64 %11, ptr<i64> %10
+  %12 = load i64, ptr<i64> %1
+  %13 = load i64, ptr<i64> %10
+  %14 = add i64 %12, i64 %13
+  store i64 %14, ptr<i64> %1
+  %15 = load i64, ptr<i64> %1
+  %16 = add i64 %15, i64 #1
+  store i64 %16, ptr<i64> %1
+  br label %forin.step3
+%forin.step3:
+  %17 = load u64, ptr<u64> %5
+  %18 = add u64 %17, u64 #1
+  store u64 %18, ptr<u64> %5
+  br label %forin.header1
+%forin.exit4:
+  %19 = load i64, ptr<i64> %1
+  ret i64 %19
+}

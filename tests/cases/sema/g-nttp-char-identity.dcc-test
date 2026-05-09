@@ -1,0 +1,18 @@
+=== FILE: main.dc ===
+module m;
+
+i32 tag(char C)(i32 x) {
+    return C as i32 + x;
+}
+
+void use() {
+    tag!'a'(1);
+    tag!'a'(2);
+    tag!'b'(3);
+}
+
+=== ENTRY: main.dc ===
+
+=== EXPECT-REGISTRY ===
+fn=tag args=[97] state=2
+fn=tag args=[98] state=2

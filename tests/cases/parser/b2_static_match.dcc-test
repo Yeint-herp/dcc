@@ -1,0 +1,58 @@
+=== FILE: main.dc ===
+module m;
+void execute(u8 command)() {
+    static match command {
+        3..=10 => a(),
+        11..13 => b(),
+        13 => c(),
+        _ => d(),
+    }
+}
+
+=== EXPECT-AST ===
+TranslationUnit
+  Module m
+  Func name=execute
+    TemplateParams
+      Param name=command
+        ValueType
+          Primitive u8
+    Return
+      Primitive void
+    Body
+      StaticMatch
+        Operand
+          Ident command
+        Arm
+          RangePattern inclusive=true
+            Start
+              IntLiteral 3
+            End
+              IntLiteral 10
+          Body
+            Call
+              Callee
+                Ident a
+        Arm
+          RangePattern inclusive=false
+            Start
+              IntLiteral 11
+            End
+              IntLiteral 13
+          Body
+            Call
+              Callee
+                Ident b
+        Arm
+          LiteralPattern
+            IntLiteral 13
+          Body
+            Call
+              Callee
+                Ident c
+        Arm
+          WildcardPattern
+          Body
+            Call
+              Callee
+                Ident d

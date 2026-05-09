@@ -1,0 +1,11 @@
+=== FILE: main.dc ===
+module m;
+
+public i32 f(i32 v) {
+    return match v {
+        &x | x => x,
+        _ => 0,
+    };
+}
+=== EXPECT-ERRORS ===
+main.dc:5: or-pattern alternatives bind `x` with inconsistent types (by-ref vs by-value)

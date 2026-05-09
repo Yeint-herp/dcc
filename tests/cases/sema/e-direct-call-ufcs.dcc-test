@@ -1,0 +1,35 @@
+=== FILE: main.dc ===
+module m;
+
+struct S {
+    i32 value;
+}
+
+i64 add(S s, i64 x) {
+    return x;
+}
+
+void f(S s) {
+    add(s, 1);
+    s.add(2);
+}
+
+=== EXPECT-BODY ===
+Module m
+  Func add diverging=true
+    Param s type=struct S storage=param offset=0 index=0
+    Param x type=i64 storage=param offset=8 index=1
+    Body
+      Return
+        Ident x [type=i64 const=<none> lvalue decl=x]
+  Func f diverging=false
+    Param s type=struct S storage=param offset=0 index=0
+    Body
+      Call [type=i64 const=<none> decl=add]
+        Ident add [type=<unresolved> const=<none>]
+        Ident s [type=struct S const=<none> lvalue decl=s]
+        IntLiteral 1 [type=i64 const=1 constant]
+      Call [type=i64 const=<none> decl=add ufcs=add]
+        FieldAccess add [type=<unresolved> const=<none> decl=add ufcs=add]
+          Ident s [type=struct S const=<none> lvalue decl=s]
+        IntLiteral 2 [type=i64 const=2 constant]

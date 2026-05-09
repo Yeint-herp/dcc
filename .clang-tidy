@@ -1,0 +1,40 @@
+---
+Checks: >
+  bugprone-*,
+  modernize-*,
+  readability-*,
+  cppcoreguidelines-*,
+  performance-*,
+  -readability-braces-around-statements,
+  -readability-implicit-bool-conversion,
+  -readability-named-parameter,
+  -readability-identifier-length,
+  -readability-magic-numbers,
+  -readability-function-cognitive-complexity,
+  -readability-identifier-naming,
+  -readability-container-size-empty,
+  -modernize-use-trailing-return-type,
+  -modernize-use-nodiscard,
+  -modernize-use-auto,
+  -cppcoreguidelines-avoid-magic-numbers,
+  -cppcoreguidelines-avoid-non-const-global-variables,
+  -cppcoreguidelines-avoid-c-arrays,
+  -cppcoreguidelines-pro-bounds-pointer-arithmetic,
+  -cppcoreguidelines-pro-bounds-array-to-pointer-decay,
+  -cppcoreguidelines-pro-bounds-constant-array-index,
+  -cppcoreguidelines-owning-memory,
+  -bugprone-easily-swappable-parameters,
+  -bugprone-implicit-widening-of-multiplication-result,
+  -cppcoreguidelines-pro-type-reinterpret-cast,
+  -cppcoreguidelines-pro-type-vararg,
+
+WarningsAsErrors: ''
+
+CheckOptions:
+  - key: modernize-pass-by-value.ValuesOnly
+    value: '1'
+
+FormatStyle: none
+
+HeaderFilterRegex: '.*/(compiler|dccd|driver|tests)/.*'
+ExcludeHeaderFilterRegex: '/usr/share/libc\+\+/.*|/usr/(include|lib)/.*'

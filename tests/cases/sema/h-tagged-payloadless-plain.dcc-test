@@ -1,0 +1,15 @@
+=== FILE: main.dc ===
+module m;
+
+public enum Color {
+    Red,
+    Green,
+    Blue,
+}
+
+=== EXPECT-TYPES FOR: m ===
+Module m
+  Enum Color
+    Variant Red
+    Variant Green
+    Variant Blue

@@ -1,0 +1,180 @@
+=== FILE: test.dc ===
+module test;
+
+public void test_empty_all_parens() {
+    for (;;) {
+        break;
+    }
+}
+
+public void test_empty_all_parenless() {
+    for ;; {
+        break;
+    }
+}
+
+public void test_empty_init_and_update(i32 n) {
+    i32 x = 0;
+    for (; n > 0;) {
+        break;
+    }
+}
+
+public void test_empty_init_and_cond() {
+    i32 n = 0;
+    for (;; n = n - 1) {
+        break;
+    }
+}
+
+public void test_empty_cond_and_update() {
+    i32 n = 0;
+    for (n = 42;;) {
+        break;
+    }
+}
+
+public void test_nested_empty_loops() {
+    for (;;) {
+        for (;;) {
+            break;
+        }
+        break;
+    }
+}
+
+public void test_continue_in_empty_loop() {
+    i32 i = 0;
+    for (;;) {
+        i = i + 1;
+        if (i > 10) {
+            break;
+        }
+        continue;
+    }
+}
+
+=== EXPECT-IR ===
+module "test"
+void@_DC0F1.4.test21.test_empty_all_parens0v() {
+%entry:
+  br label %for.cond1
+%for.cond1:
+  br label %for.body2
+%for.body2:
+  br label %for.exit4
+%for.step3:
+  br label %for.cond1
+%for.exit4:
+  ret void
+}
+
+void@_DC0F1.4.test24.test_empty_all_parenless0v() {
+%entry:
+  br label %for.cond1
+%for.cond1:
+  br label %for.body2
+%for.body2:
+  br label %for.exit4
+%for.step3:
+  br label %for.cond1
+%for.exit4:
+  ret void
+}
+
+void@_DC0F1.4.test26.test_empty_init_and_update1i32sv(i32) {
+%entry(i32 %n):
+  %0 = alloca i32
+  store i32 #0, ptr<i32> %0
+  br label %for.cond1
+%for.cond1:
+  %1 = cmp.gt i32 %n, #0
+  br.cond %1, label %for.body2, label %for.exit4
+%for.body2:
+  br label %for.exit4
+%for.step3:
+  br label %for.cond1
+%for.exit4:
+  ret void
+}
+
+void@_DC0F1.4.test24.test_empty_init_and_cond0v() {
+%entry:
+  %0 = alloca i32
+  store i32 #0, ptr<i32> %0
+  br label %for.cond1
+%for.cond1:
+  br label %for.body2
+%for.body2:
+  br label %for.exit4
+%for.step3:
+  %1 = load i32, ptr<i32> %0
+  %2 = sub i32 %1, i32 #1
+  store i32 %2, ptr<i32> %0
+  br label %for.cond1
+%for.exit4:
+  ret void
+}
+
+void@_DC0F1.4.test26.test_empty_cond_and_update0v() {
+%entry:
+  %0 = alloca i32
+  store i32 #0, ptr<i32> %0
+  store i32 #42, ptr<i32> %0
+  br label %for.cond1
+%for.cond1:
+  br label %for.body2
+%for.body2:
+  br label %for.exit4
+%for.step3:
+  br label %for.cond1
+%for.exit4:
+  ret void
+}
+
+void@_DC0F1.4.test23.test_nested_empty_loops0v() {
+%entry:
+  br label %for.cond1
+%for.cond1:
+  br label %for.body2
+%for.body2:
+  br label %for.cond5
+%for.step3:
+  br label %for.cond1
+%for.exit4:
+  ret void
+%for.cond5:
+  br label %for.body6
+%for.body6:
+  br label %for.exit8
+%for.step7:
+  br label %for.cond5
+%for.exit8:
+  br label %for.exit4
+}
+
+void@_DC0F1.4.test27.test_continue_in_empty_loop0v() {
+%entry:
+  %0 = alloca i32
+  store i32 #0, ptr<i32> %0
+  br label %for.cond1
+%for.cond1:
+  br label %for.body2
+%for.body2:
+  %1 = load i32, ptr<i32> %0
+  %2 = add i32 %1, i32 #1
+  store i32 %2, ptr<i32> %0
+  %3 = load i32, ptr<i32> %0
+  %4 = cmp.gt i32 %3, #10
+  br.cond %4, label %if.then5, label %if.else6
+%for.step3:
+  br label %for.cond1
+%for.exit4:
+  ret void
+%if.then5:
+  br label %for.exit4
+%if.else6:
+  br label %if.merge7
+%if.merge7:
+  br label %for.step3
+}

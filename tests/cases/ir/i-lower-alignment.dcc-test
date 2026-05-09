@@ -1,0 +1,23 @@
+=== FILE: test.dc ===
+module test;
+
+public i32 align_test() {
+    @align(16)
+    i32 x = 7;
+    x = x + 1;
+
+    return x;
+}
+
+=== EXPECT-IR ===
+module "test"
+i32@_DC0F1.4.test10.align_test0i32s() {
+%entry:
+  %0 = alloca i32, align=16
+  store i32 #7, ptr<i32> %0
+  %1 = load i32, ptr<i32> %0
+  %2 = add i32 %1, i32 #1
+  store i32 %2, ptr<i32> %0
+  %3 = load i32, ptr<i32> %0
+  ret i32 %3
+}

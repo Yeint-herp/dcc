@@ -1,0 +1,8 @@
+=== FILE: main.dc ===
+module m;
+
+i32 f(i64 x) {
+    return match x {
+        0x8000000000000000..=0x7FFFFFFFFFFFFFFF => 1,
+    };
+}

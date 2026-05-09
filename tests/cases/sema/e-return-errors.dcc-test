@@ -1,0 +1,19 @@
+=== FILE: main.dc ===
+module m;
+
+i32 a() {
+    return;
+}
+
+void b() {
+    return 1;
+}
+
+i32 c() {
+    return true;
+}
+
+=== EXPECT-ERRORS ===
+main.dc:4: missing return value
+main.dc:8: void function cannot return a value
+main.dc:12: return type mismatch

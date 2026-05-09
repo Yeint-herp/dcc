@@ -1,0 +1,27 @@
+=== FILE: test.dc ===
+module test;
+
+const i32 BASE = 100;
+
+public enum Codes {
+    X = BASE,
+    Y = BASE + 1,
+}
+
+public Codes get_x() { return Codes::X; }
+public Codes get_y() { return Codes::Y; }
+=== EXPECT-IR ===
+module "test"
+
+const global @_DC0G1.4.test4.BASEi32s : i32 = #100
+
+
+u8@_DC0F1.4.test5.get_x0D1.4.test5.Codes0.() {
+%entry:
+  ret u8 #100
+}
+
+u8@_DC0F1.4.test5.get_y0D1.4.test5.Codes0.() {
+%entry:
+  ret u8 #101
+}

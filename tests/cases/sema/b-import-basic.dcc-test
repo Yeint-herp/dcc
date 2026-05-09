@@ -1,0 +1,27 @@
+=== FILE: math.dc ===
+module math;
+
+public struct Vec3 {
+    f32 x;
+    f32 y;
+    f32 z;
+}
+
+public f32 dot(Vec3 a, Vec3 b) { return 0.0; }
+
+f32 internal_helper() { return 0.0; }
+
+=== FILE: main.dc ===
+module main;
+
+import math;
+
+=== ENTRY: main.dc ===
+
+=== EXPECT-SCOPE FOR: main ===
+Module main
+  OwnScope
+    Binding math
+      Namespace: module
+        (foreign-scope)
+  ExportScope

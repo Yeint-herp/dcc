@@ -1,0 +1,20 @@
+=== FILE: main.dc ===
+module m;
+
+i32 test_regular_match_not_exhaustive() {
+    return match 42 {
+        1 => 10,
+        2 => 20,
+    };
+}
+
+i32 test_static_match_ok() {
+    static match 42 {
+        1 => 10,
+        2 => 20,
+    }
+    return 0;
+}
+
+=== EXPECT-ERRORS ===
+main.dc:4: match expression not exhaustive

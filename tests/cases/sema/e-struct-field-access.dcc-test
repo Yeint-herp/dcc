@@ -1,0 +1,19 @@
+=== FILE: main.dc ===
+module m;
+
+struct Point {
+    f64 x;
+    f64 y;
+}
+
+void f(Point p) {
+    p.x;
+}
+
+=== EXPECT-BODY ===
+Module m
+  Func f diverging=false
+    Param p type=struct Point storage=param offset=0 index=0
+    Body
+      FieldAccess x [type=f64 const=<none> lvalue decl=Point]
+        Ident p [type=struct Point const=<none> lvalue decl=p]

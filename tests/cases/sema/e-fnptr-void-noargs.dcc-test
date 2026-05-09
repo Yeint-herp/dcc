@@ -1,0 +1,23 @@
+=== FILE: test.dc ===
+module m;
+
+using VoidFn = void(*)();
+
+void target() {}
+
+void test() {
+    VoidFn f = &target;
+    f();
+}
+
+=== EXPECT-BODY ===
+Module m
+  Func target diverging=false
+    Body
+  Func test diverging=false
+    Body
+      Var f type=fn() -> void storage=local offset=0
+        Unary & [type=fn() -> void const=<none> decl=target]
+          Ident target [type=fn() -> void const=<none> decl=target]
+      Call [type=void const=<none>]
+        Ident f [type=fn() -> void const=<none> lvalue decl=f]

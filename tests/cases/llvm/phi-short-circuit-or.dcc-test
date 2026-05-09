@@ -1,0 +1,24 @@
+=== FILE: test.dc ===
+module test;
+
+@nomangle
+public bool sc_or(bool a, bool b) {
+    return a || b;
+}
+
+=== EXPECT-LLVM FLAGS: -verify ===
+; ModuleID = 'test'
+source_filename = "test"
+target triple = "x86_64-elf"
+
+define i1 @sc_or(i1 %a, i1 %b) {
+entry:
+  br i1 %a, label %sc.merge2, label %sc.rhs1
+
+sc.rhs1:                                          ; preds = %entry
+  br label %sc.merge2
+
+sc.merge2:                                        ; preds = %sc.rhs1, %entry
+  %"0" = phi i1 [ true, %entry ], [ %b, %sc.rhs1 ]
+  ret i1 %"0"
+}

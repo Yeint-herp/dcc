@@ -1,0 +1,44 @@
+=== FILE: test.dc ===
+module test;
+
+public []i64 bounds_checked(i64[5] arr, i64 start, i64 end) {
+    return arr[start..end];
+}
+
+=== EXPECT-IR FLAGS: -fbounds-check ===
+module "test"
+
+const global @.str.0 : [8 x u8] = aggregate [8 x u8], #116, #101, #115, #116, #46, #100, #99, #0
+
+const global @.str.1 : [15 x u8] = aggregate [15 x u8], #98, #111, #117, #110, #100, #115, #95, #99, #104, #101, #99, #107, #101, #100, #0
+
+const global @.str.2 : [26 x u8] = aggregate [26 x u8], #115, #108, #105, #99, #101, #32, #114, #97, #110, #103, #101, #32, #111, #117, #116, #32, #111, #102, #32, #98, #111, #117, #110, #100, #115, #0
+
+
+[]i64@_DC0F1.4.test14.bounds_checked3A5i64si64si64sSqi64s([5 x i64], i64, i64) {
+%entry([5 x i64] %arr, i64 %start, i64 %end):
+  %0 = alloca [5 x i64]
+  store [5 x i64] %arr, ptr<[5 x i64]> %0
+  %1 = gep ptr<[5 x i64]> %0, #0
+  %2 = zext i64 %start to u64
+  %3 = zext i64 %end to u64
+  %4 = cmp.ule u64 %2, %3
+  br.cond %4, label %slice.oka1, label %slice.faila2
+%slice.oka1:
+  %5 = cmp.ule u64 %3, #5
+  br.cond %5, label %slice.okb3, label %slice.failb4
+%slice.faila2:
+  call fn(@_DC0F0.8.__assert4Pqi8ui32sPqi8uPqi8uv)(ptr<u8> @.str.0, i32 #4, ptr<u8> @.str.1, ptr<u8> @.str.2)
+  unreachable
+%slice.okb3:
+  %6 = sub u64 %3, u64 %2
+  %7 = gep ptr<i64> %1, %2
+  %8 = aggregate []i64, %7, %6
+  ret []i64 %8
+%slice.failb4:
+  call fn(@_DC0F0.8.__assert4Pqi8ui32sPqi8uPqi8uv)(ptr<u8> @.str.0, i32 #4, ptr<u8> @.str.1, ptr<u8> @.str.2)
+  unreachable
+}
+
+import void@_DC0F0.8.__assert4Pqi8ui32sPqi8uPqi8uv(ptr<u8>, i32, ptr<u8>, ptr<u8>) {
+}

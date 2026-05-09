@@ -1,0 +1,10 @@
+=== FILE: main.dc ===
+module m;
+
+enum E {
+    A = 0,
+    B = 0,
+}
+
+=== EXPECT-ERRORS ===
+main.dc:5: duplicate discriminant value 0 for `B` (previously used by `A`)

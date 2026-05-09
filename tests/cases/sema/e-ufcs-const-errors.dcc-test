@@ -1,0 +1,17 @@
+=== FILE: main.dc ===
+module m;
+
+public struct S {
+    i32 value;
+}
+
+i32 mutate_only(S* s) {
+    return 1;
+}
+
+i32 test_const_cant_call_mutable(const S s) {
+    return s.mutate_only();
+}
+
+=== EXPECT-ERRORS ===
+main.dc:12: no matching UFCS function for `mutate_only`

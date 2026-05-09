@@ -1,0 +1,183 @@
+=== FILE: test.dc ===
+module test;
+
+public i32 dense_int(i32 v) {
+    return match v {
+        1 => 10,
+        2 => 20,
+        3 => 30,
+        4 => 40,
+        5 => 50,
+        6 => 60,
+        7 => 70,
+        8 => 80,
+        _ => 99,
+    };
+}
+
+public i32 dense_char(char c) {
+    return match c {
+        'a' => 1,
+        'b' => 2,
+        'c' => 3,
+        'd' => 4,
+        'e' => 5,
+        _ => 99,
+    };
+}
+
+public i32 dense_ranges(i32 v) {
+    return match v {
+        0..=3 => 1,
+        4..=7 => 2,
+        8..=11 => 3,
+        12..=15 => 4,
+        _ => 99,
+    };
+}
+
+public i32 dense_or_contiguous(i32 v) {
+    return match v {
+        1 | 2 | 3 | 4 => 10,
+        5 => 20,
+        _ => 99,
+    };
+}
+
+=== EXPECT-IR ===
+module "test"
+i32@_DC0F1.4.test9.dense_int1i32si32s(i32) {
+%entry(i32 %v):
+  switch i32 %v {
+    #1 => label %match.arm0.body4
+    #2 => label %match.arm1.body6
+    #3 => label %match.arm2.body8
+    #4 => label %match.arm3.body10
+    #5 => label %match.arm4.body12
+    #6 => label %match.arm5.body14
+    #7 => label %match.arm6.body16
+    #8 => label %match.arm7.body18
+    default => label %match.arm8.body20
+  }
+%match.merge1:
+  %0 = phi i32 [ i32 #10, label %match.arm0.body4 ],  [ i32 #20, label %match.arm1.body6 ],  [ i32 #30, label %match.arm2.body8 ],  [ i32 #40, label %match.arm3.body10 ],  [ i32 #50, label %match.arm4.body12 ],  [ i32 #60, label %match.arm5.body14 ],  [ i32 #70, label %match.arm6.body16 ],  [ i32 #80, label %match.arm7.body18 ],  [ i32 #99, label %match.arm8.body20 ]
+  ret i32 %0
+%match.fail2:
+  unreachable
+%match.arm0.test3:
+%match.arm0.body4:
+  br label %match.merge1
+%match.arm1.test5:
+%match.arm1.body6:
+  br label %match.merge1
+%match.arm2.test7:
+%match.arm2.body8:
+  br label %match.merge1
+%match.arm3.test9:
+%match.arm3.body10:
+  br label %match.merge1
+%match.arm4.test11:
+%match.arm4.body12:
+  br label %match.merge1
+%match.arm5.test13:
+%match.arm5.body14:
+  br label %match.merge1
+%match.arm6.test15:
+%match.arm6.body16:
+  br label %match.merge1
+%match.arm7.test17:
+%match.arm7.body18:
+  br label %match.merge1
+%match.arm8.test19:
+%match.arm8.body20:
+  br label %match.merge1
+}
+
+i32@_DC0F1.4.test10.dense_char1ci32s(u8) {
+%entry(u8 %c):
+  switch u8 %c {
+    #97 => label %match.arm0.body4
+    #98 => label %match.arm1.body6
+    #99 => label %match.arm2.body8
+    #100 => label %match.arm3.body10
+    #101 => label %match.arm4.body12
+    default => label %match.arm5.body14
+  }
+%match.merge1:
+  %0 = phi i32 [ i32 #1, label %match.arm0.body4 ],  [ i32 #2, label %match.arm1.body6 ],  [ i32 #3, label %match.arm2.body8 ],  [ i32 #4, label %match.arm3.body10 ],  [ i32 #5, label %match.arm4.body12 ],  [ i32 #99, label %match.arm5.body14 ]
+  ret i32 %0
+%match.fail2:
+  unreachable
+%match.arm0.test3:
+%match.arm0.body4:
+  br label %match.merge1
+%match.arm1.test5:
+%match.arm1.body6:
+  br label %match.merge1
+%match.arm2.test7:
+%match.arm2.body8:
+  br label %match.merge1
+%match.arm3.test9:
+%match.arm3.body10:
+  br label %match.merge1
+%match.arm4.test11:
+%match.arm4.body12:
+  br label %match.merge1
+%match.arm5.test13:
+%match.arm5.body14:
+  br label %match.merge1
+}
+
+i32@_DC0F1.4.test12.dense_ranges1i32si32s(i32) {
+%entry(i32 %v):
+  switch i32 %v {
+    #0..=#3 => label %match.arm0.body4
+    #4..=#7 => label %match.arm1.body6
+    #8..=#11 => label %match.arm2.body8
+    #12..=#15 => label %match.arm3.body10
+    default => label %match.arm4.body12
+  }
+%match.merge1:
+  %0 = phi i32 [ i32 #1, label %match.arm0.body4 ],  [ i32 #2, label %match.arm1.body6 ],  [ i32 #3, label %match.arm2.body8 ],  [ i32 #4, label %match.arm3.body10 ],  [ i32 #99, label %match.arm4.body12 ]
+  ret i32 %0
+%match.fail2:
+  unreachable
+%match.arm0.test3:
+%match.arm0.body4:
+  br label %match.merge1
+%match.arm1.test5:
+%match.arm1.body6:
+  br label %match.merge1
+%match.arm2.test7:
+%match.arm2.body8:
+  br label %match.merge1
+%match.arm3.test9:
+%match.arm3.body10:
+  br label %match.merge1
+%match.arm4.test11:
+%match.arm4.body12:
+  br label %match.merge1
+}
+
+i32@_DC0F1.4.test19.dense_or_contiguous1i32si32s(i32) {
+%entry(i32 %v):
+  switch i32 %v {
+    #1..=#4 => label %match.arm0.body4
+    #5 => label %match.arm1.body6
+    default => label %match.arm2.body8
+  }
+%match.merge1:
+  %0 = phi i32 [ i32 #10, label %match.arm0.body4 ],  [ i32 #20, label %match.arm1.body6 ],  [ i32 #99, label %match.arm2.body8 ]
+  ret i32 %0
+%match.fail2:
+  unreachable
+%match.arm0.test3:
+%match.arm0.body4:
+  br label %match.merge1
+%match.arm1.test5:
+%match.arm1.body6:
+  br label %match.merge1
+%match.arm2.test7:
+%match.arm2.body8:
+  br label %match.merge1
+}

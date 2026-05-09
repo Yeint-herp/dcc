@@ -1,0 +1,9 @@
+=== FILE: main.dc ===
+module m;
+
+i32 bad() {
+    i32 x = null;
+}
+
+=== EXPECT-ERRORS ===
+main.dc:4: initializer type mismatch

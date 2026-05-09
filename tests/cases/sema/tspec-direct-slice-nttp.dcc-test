@@ -1,0 +1,38 @@
+=== FILE: main.dc ===
+module main;
+
+i32 first([]i32 S)(i32 v) {
+    return v;
+}
+
+void a() {
+    first!({1, 2});
+}
+
+void b() {
+    first!({3, 4})(30);
+}
+
+=== ENTRY: main.dc ===
+
+=== EXPECT-REGISTRY ===
+fn=first args=[<value>] state=2
+fn=first args=[<value>] state=2
+
+=== EXPECT-BODY ===
+Module main
+  Func first diverging=false
+    Param v type=i32 storage=param offset=0 index=0
+    Body
+      Return
+        Ident v [type=<unresolved> const=<none>]
+  Func a diverging=false
+    Body
+      TemplateInst [type=fn(i32) -> i32 const=<none> decl=first spec=first]
+        Ident first [type=fn(i32) -> i32 const=<none> decl=first]
+  Func b diverging=false
+    Body
+      Call [type=i32 const=<none> decl=first spec=first]
+        TemplateInst [type=fn(i32) -> i32 const=<none> decl=first spec=first]
+          Ident first [type=fn(i32) -> i32 const=<none> decl=first]
+        IntLiteral 30 [type=i32 const=30 constant]

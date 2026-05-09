@@ -1,0 +1,26 @@
+=== FILE: main.dc ===
+module m;
+
+struct Pair { i32 a; i32 b; }
+
+i32 sum(Pair P)(i32 v) {
+    return v;
+}
+
+void a() {
+    i32 r = sum!(Pair{5, 6})(10);
+}
+
+void b() {
+    i32 r = sum!(Pair{5, 6})(20);
+}
+
+void c() {
+    i32 r = sum!(Pair{7, 8})(30);
+}
+
+=== ENTRY: main.dc ===
+
+=== EXPECT-REGISTRY ===
+fn=sum args=[<value>] state=2
+fn=sum args=[<value>] state=2

@@ -1,0 +1,28 @@
+=== FILE: test.dc ===
+module test;
+
+public i64 test() {
+    i64[3] arr = {10, 20, 30};
+    []i64 s = arr;
+
+    return s.len;
+}
+
+=== EXPECT-IR ===
+module "test"
+i64@_DC0F1.4.test4.test0i64s() {
+%entry:
+  %0 = alloca [3 x i64]
+  %1 = aggregate [3 x i64], #10, #20, #30
+  store [3 x i64] %1, ptr<[3 x i64]> %0
+  %2 = alloca []i64
+  %3 = load [3 x i64], ptr<[3 x i64]> %0
+  %4 = alloca [3 x i64]
+  store [3 x i64] %3, ptr<[3 x i64]> %4
+  %5 = gep ptr<[3 x i64]> %4, #0
+  %6 = aggregate []i64, %5, #3
+  store []i64 %6, ptr<[]i64> %2
+  %7 = gep ptr<[]i64> %2, field #1
+  %8 = load u64, ptr<u64> %7
+  ret u64 %8
+}

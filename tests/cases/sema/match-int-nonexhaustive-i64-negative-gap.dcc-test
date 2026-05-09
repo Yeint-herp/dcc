@@ -1,0 +1,11 @@
+=== FILE: main.dc ===
+module m;
+
+i32 f(i64 x) {
+    return match x {
+        0..=9223372036854775807 => 1,
+    };
+}
+
+=== EXPECT-ERRORS ===
+main.dc:4: match expression not exhaustive: missing range -9223372036854775808..-1

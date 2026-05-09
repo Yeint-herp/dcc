@@ -1,0 +1,41 @@
+=== FILE: main.dc ===
+module m;
+
+void f(i64 x) {
+    -5;
+    1 as i64;
+    true as i64;
+    1 as bool;
+    3.5 as f64;
+    3.5 as i64;
+    !false;
+    ~1;
+    null as const u8*;
+    x++;
+}
+
+=== EXPECT-BODY ===
+Module m
+  Func f diverging=false
+    Param x type=i64 storage=param offset=0 index=0
+    Body
+      Unary - [type=i32 const=-5 constant]
+        IntLiteral 5 [type=i32 const=5 constant]
+      Cast [type=i64 const=1 constant]
+        IntLiteral 1 [type=i32 const=1 constant]
+      Cast [type=i64 const=1 constant]
+        BoolLiteral true [type=bool const=true constant]
+      Cast [type=bool const=true constant]
+        IntLiteral 1 [type=i32 const=1 constant]
+      Cast [type=f64 const=3.5 constant]
+        FloatLiteral 3.5 [type=f64 const=3.5 constant]
+      Cast [type=i64 const=3 constant]
+        FloatLiteral 3.5 [type=f64 const=3.5 constant]
+      Unary ! [type=bool const=true constant]
+        BoolLiteral false [type=bool const=false constant]
+      Unary ~ [type=i32 const=-2 constant]
+        IntLiteral 1 [type=i32 const=1 constant]
+      Cast [type=ptr(const u8) const=null constant]
+        NullLiteral [type=null_t const=null constant]
+      Postfix ++ [type=i64 const=<none> decl=x]
+        Ident x [type=i64 const=<none> lvalue decl=x]

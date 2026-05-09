@@ -1,0 +1,80 @@
+=== FILE: main.dc ===
+module m;
+
+enum Maybe {
+    Some(i32),
+    None,
+}
+
+struct Point {
+    i32 x;
+    i32 y;
+}
+
+struct PairFields {
+    Point point;
+    Maybe maybe;
+}
+
+enum Node {
+    Leaf(i32),
+    Pair(PairFields),
+    Ptr(i32*),
+    Bytes(u8[4]),
+    Empty,
+}
+
+i64 score(Node node) {
+    return match node {
+        Node::Leaf(0) => 10,
+        Node::Leaf(value) => value as i64,
+        Node::Pair(PairFields { point => Point { x, y }, maybe => Maybe::Some(extra) }) => (x + y + extra) as i64,
+        Node::Pair(PairFields { point => Point { x => left, y => right }, maybe => Maybe::None }) => (left + right) as i64,
+        Node::Pair(_) => 7,
+        Node::Ptr(ptr) => 8,
+        Node::Bytes(_) => 9,
+        Node::Empty => 0,
+    };
+}
+
+=== EXPECT-BODY ===
+Module m
+  Func score diverging=true
+    Param node type=enum Node storage=param offset=0 index=0
+    Body
+      Return
+        Match [type=i64 const=<none>]
+          Ident node [type=enum Node const=<none> lvalue decl=node]
+          Arm
+            EnumDestructurePattern Leaf
+            IntLiteral 10 [type=i64 const=10 constant]
+          Arm
+            EnumDestructurePattern Leaf
+            Cast [type=i64 const=<none> lvalue decl=value]
+              Ident value [type=i32 const=<none> lvalue decl=value]
+          Arm
+            EnumDestructurePattern Pair
+            Cast [type=i64 const=<none>]
+              Binary + [type=i32 const=<none>]
+                Binary + [type=i32 const=<none>]
+                  Ident x [type=i32 const=<none> lvalue decl=x]
+                  Ident y [type=i32 const=<none> lvalue decl=y]
+                Ident extra [type=i32 const=<none> lvalue decl=extra]
+          Arm
+            EnumDestructurePattern Pair
+            Cast [type=i64 const=<none>]
+              Binary + [type=i32 const=<none>]
+                Ident left [type=i32 const=<none> lvalue decl=left]
+                Ident right [type=i32 const=<none> lvalue decl=right]
+          Arm
+            EnumDestructurePattern Pair
+            IntLiteral 7 [type=i64 const=7 constant]
+          Arm
+            EnumDestructurePattern Ptr
+            IntLiteral 8 [type=i64 const=8 constant]
+          Arm
+            EnumDestructurePattern Bytes
+            IntLiteral 9 [type=i64 const=9 constant]
+          Arm
+            EnumDestructurePattern Empty
+            IntLiteral 0 [type=i64 const=0 constant]

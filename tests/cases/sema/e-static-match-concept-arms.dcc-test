@@ -1,0 +1,14 @@
+=== FILE: main.dc ===
+module m;
+
+using MyConcept(T) = compiles(T a) { i32 y = a; };
+
+void dispatch(T)(T x) {
+    static match T {
+        i32 => x,
+        MyConcept => x,
+        _ => x,
+    }
+}
+
+=== ENTRY: main.dc ===

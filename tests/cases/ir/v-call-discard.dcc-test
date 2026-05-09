@@ -1,0 +1,19 @@
+=== FILE: test.dc ===
+module test;
+
+public i32 make_val() { return 42; }
+
+public void discard() { make_val(); }
+
+=== EXPECT-IR ===
+module "test"
+i32@_DC0F1.4.test8.make_val0i32s() {
+%entry:
+  ret i32 #42
+}
+
+void@_DC0F1.4.test7.discard0v() {
+%entry:
+  %0 = call fn(@_DC0F1.4.test8.make_val0i32s)() -> i32
+  ret void
+}

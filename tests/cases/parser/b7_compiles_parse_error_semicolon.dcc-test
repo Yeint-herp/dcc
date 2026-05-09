@@ -1,0 +1,8 @@
+=== FILE: main.dc ===
+module m;
+void test() {
+    compiles;
+}
+
+=== EXPECT-ERRORS ===
+main.dc:3: expected '(' or '{' after 'compiles'

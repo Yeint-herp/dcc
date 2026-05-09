@@ -1,0 +1,51 @@
+=== FILE: main.dc ===
+module m;
+
+struct Box {
+    i32 x;
+}
+
+i32 get() {
+    return 7;
+}
+
+void f(i32 local, Box p) {
+    i32[4] arr = { 10, (local), get(), p.x };
+    arr[0];
+    arr[1];
+    arr[2];
+    arr[3];
+}
+
+=== ENTRY: main.dc ===
+
+=== EXPECT-BODY ===
+Module m
+  Func get diverging=true
+    Body
+      Return
+        IntLiteral 7 [type=i32 const=7 constant]
+  Func f diverging=false
+    Param local type=i32 storage=param offset=0 index=0
+    Param p type=struct Box storage=param offset=4 index=1
+    Body
+      Var arr type=[i32; 4] storage=local offset=8
+        StructLiteral [type=[i32; 4] const=<none>]
+          IntLiteral 10 [type=i32 const=10 constant]
+          Ident local [type=i32 const=<none> lvalue decl=local]
+          Call [type=i32 const=<none> decl=get]
+            Ident get [type=<unresolved> const=<none>]
+          FieldAccess x [type=i32 const=<none> lvalue decl=Box]
+            Ident p [type=struct Box const=<none> lvalue decl=p]
+      Index [type=i32 const=<none> lvalue decl=arr]
+        Ident arr [type=[i32; 4] const=<none> lvalue decl=arr]
+        IntLiteral 0 [type=i32 const=0 constant]
+      Index [type=i32 const=<none> lvalue decl=arr]
+        Ident arr [type=[i32; 4] const=<none> lvalue decl=arr]
+        IntLiteral 1 [type=i32 const=1 constant]
+      Index [type=i32 const=<none> lvalue decl=arr]
+        Ident arr [type=[i32; 4] const=<none> lvalue decl=arr]
+        IntLiteral 2 [type=i32 const=2 constant]
+      Index [type=i32 const=<none> lvalue decl=arr]
+        Ident arr [type=[i32; 4] const=<none> lvalue decl=arr]
+        IntLiteral 3 [type=i32 const=3 constant]

@@ -1,0 +1,15 @@
+=== FILE: main.dc ===
+module m;
+
+void print(const char* fmt)(i32 out) {}
+
+void use() {
+    print("Hello", 1);
+    print("World", 2);
+}
+
+=== ENTRY: main.dc ===
+
+=== EXPECT-REGISTRY ===
+fn=print args=["Hello"] state=2
+fn=print args=["World"] state=2

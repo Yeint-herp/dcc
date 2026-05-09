@@ -1,0 +1,13 @@
+=== FILE: main.dc ===
+module m;
+
+T badly_bodied(T)(T x) {
+    return "hello";
+}
+
+void test() {
+    badly_bodied(42);
+}
+
+=== EXPECT-ERRORS ===
+main.dc:4: return type mismatch

@@ -1,0 +1,42 @@
+=== FILE: main.dc ===
+module m;
+void f() {
+    f64 x = 3.14;
+    i32 y = x as i32;
+    u8* p = addr as u8*;
+}
+
+=== EXPECT-AST ===
+TranslationUnit
+  Module m
+  Func name=f
+    Return
+      Primitive void
+    Body
+      Var name=x
+        Type
+          Primitive f64
+        Init
+          FloatLiteral 3.14
+      Var name=y
+        Type
+          Primitive i32
+        Init
+          Cast
+            Target
+              Primitive i32
+            Operand
+              Ident x
+      Var name=p
+        Type
+          Pointer
+            Primitive u8
+        Init
+          Cast
+            Target
+              Pointer
+                Primitive u8
+            Operand
+              Ident addr
+
+=== EXPECT-ERRORS ===

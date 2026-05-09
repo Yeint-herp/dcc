@@ -1,0 +1,16 @@
+=== FILE: main.dc ===
+module m;
+
+bool cond() {
+    return true;
+}
+
+i32 f(bool x) {
+    return match x {
+        true if cond() => 1,
+        false => 2,
+    };
+}
+
+=== EXPECT-ERRORS ===
+main.dc:8: match expression not exhaustive: missing case 'true'

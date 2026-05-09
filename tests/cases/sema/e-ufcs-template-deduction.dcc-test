@@ -1,0 +1,20 @@
+=== FILE: main.dc ===
+module m;
+
+T testt(T)(T x) {
+    return x + 2;
+}
+
+struct A {
+    i32 x;
+}
+
+void main() {
+    u64 u = 0;
+    u.testt();
+
+    A a;
+    a.x = u.testt() as i32;
+}
+
+=== EXPECT-ERRORS ===

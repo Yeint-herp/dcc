@@ -1,0 +1,24 @@
+=== FILE: main.dc ===
+module m;
+
+@frobnicate
+i32 bad_unknown_attr() {
+    return 1;
+}
+
+@implicit_construction
+i32 bad_wrong_target() {
+    return 2;
+}
+
+struct S {
+    i32 x;
+}
+
+@implicit_construction
+S bad_enum_attr_on_struct;
+
+=== EXPECT-ERRORS ===
+main.dc:3: unknown attribute `@frobnicate`
+main.dc:8: attribute `@implicit_construction` is not valid on this declaration
+main.dc:17: attribute `@implicit_construction` is not valid on this declaration

@@ -1,0 +1,21 @@
+=== FILE: main.dc ===
+module m;
+
+u8* a() {
+    return null;
+}
+
+void b() {
+    u8* p = null;
+}
+
+=== EXPECT-BODY ===
+Module m
+  Func a diverging=true
+    Body
+      Return
+        NullLiteral [type=ptr(u8) const=null constant]
+  Func b diverging=false
+    Body
+      Var p type=ptr(u8) storage=local offset=0
+        NullLiteral [type=ptr(u8) const=null constant]

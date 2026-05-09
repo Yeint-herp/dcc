@@ -1,0 +1,54 @@
+=== FILE: main.dc ===
+module m;
+
+@packed
+void packed_fn() {}
+
+@align(0)
+struct AlignZero {
+    i32 x;
+}
+
+@align(3)
+struct AlignNotPow2 {
+    i32 x;
+}
+
+@align(4)
+using MyAlias = i32;
+
+@inline @noinline
+void conflicting_inline() {}
+
+@import @export
+extern void conflicting_import_export();
+
+@import
+void import_no_extern();
+
+@export
+extern void export_with_extern();
+
+@calling_conv("bogus")
+void bad_cc() {}
+
+@section("")
+void empty_section() {}
+
+@align(1)
+struct UnderAlign {
+    i32 x;
+}
+
+=== EXPECT-ERRORS ===
+main.dc:3: attribute `@packed` is not valid on this declaration
+main.dc:6: alignment must be a positive integer
+main.dc:11: alignment value `3` is not a power of two
+main.dc:16: attribute `@align` is not valid on this declaration
+main.dc:19: attributes `@inline` and `@noinline` are mutually exclusive
+main.dc:22: attributes `@import` and `@export` are mutually exclusive
+main.dc:25: attribute `@import` requires 'extern' storage
+main.dc:28: attribute `@export` cannot be combined with 'extern'
+main.dc:31: unknown calling convention `bogus`
+main.dc:34: section name must be a non-empty string
+main.dc:37: alignment 1 is less than the natural alignment 4 of struct `UnderAlign`

@@ -1,0 +1,22 @@
+=== FILE: main.dc ===
+module m;
+
+i32 version(T)(T x) {
+    static if T == i32 {
+        return 1;
+    } else {
+        return 2;
+    }
+}
+
+i32 test_i32() {
+    i32 v = 42;
+    return version(v);
+}
+
+i32 test_f64() {
+    f64 v = 3.14;
+    return version(v);
+}
+
+=== ENTRY: main.dc ===

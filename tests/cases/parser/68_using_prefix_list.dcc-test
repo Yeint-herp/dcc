@@ -1,0 +1,19 @@
+=== FILE: main.dc ===
+module main;
+import std::sys::linux;
+using std::sys::linux::{stdout, write};
+
+=== FILE: std/sys/linux.dc ===
+module std::sys::linux;
+public i64 stdout = 1;
+public i64 write(i64 fd, const void* buffer, u64 count) { return 0; }
+
+=== EXPECT-AST ===
+TranslationUnit
+  Module main
+  Import std::sys::linux
+  Using kind=list
+    target_path=std::sys::linux
+    Targets
+      stdout
+      write

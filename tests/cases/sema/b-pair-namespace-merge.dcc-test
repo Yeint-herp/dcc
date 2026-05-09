@@ -1,0 +1,47 @@
+=== FILE: pair.dc ===
+module pair;
+
+public struct Pair { i32 first; i32 second; }
+
+public Pair make(i32 a, i32 b) { return Pair { first = a, second = b }; }
+
+public using Pair::make = make;
+
+=== FILE: main.dc ===
+module main;
+import pair;
+using pair::Pair;
+
+=== ENTRY: main.dc ===
+
+=== EXPECT-SCOPE FOR: pair ===
+Module pair
+  OwnScope
+    Binding Pair
+      Type: struct exported
+      Namespace: group exported via-using
+        Binding make
+          Value: function exported via-using
+    Binding make
+      Value: function exported
+  ExportScope
+    Binding Pair
+      Type: struct exported
+      Namespace: group exported via-using
+        Binding make
+          Value: function exported via-using
+    Binding make
+      Value: function exported
+
+=== EXPECT-SCOPE FOR: main ===
+Module main
+  OwnScope
+    Binding Pair
+      Type: struct via-using
+      Namespace: group via-using
+        Binding make
+          Value: function exported via-using
+    Binding pair
+      Namespace: module
+        (foreign-scope)
+  ExportScope

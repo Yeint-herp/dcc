@@ -1,0 +1,33 @@
+=== FILE: test.dc ===
+module test;
+
+public enum Optional(T) {
+    Some(T),
+    None,
+}
+
+public Optional(i32) make_some(i32 x) {
+    return Optional::Some(x);
+}
+
+public Optional(i32) make_none() {
+    return Optional::None;
+}
+
+=== EXPECT-IR ===
+module "test"
+{@0 u8, @4 [4 x u8]}@_DC0F1.4.test9.make_some1i32sD1.4.test8.Optional1.i32s(i32) {
+%entry(i32 %x):
+  %0 = alloca i32
+  store i32 %x, ptr<i32> %0
+  %1 = bitcast ptr<i32> %0 to ptr<[4 x u8]>
+  %2 = load [4 x u8], ptr<[4 x u8]> %1
+  %3 = aggregate {@0 u8, @4 [4 x u8]}, #0, %2
+  ret {@0 u8, @4 [4 x u8]} %3
+}
+
+{@0 u8, @4 [4 x u8]}@_DC0F1.4.test9.make_none0D1.4.test8.Optional1.i32s() {
+%entry:
+  %0 = aggregate {@0 u8, @4 [4 x u8]}, #1, aggregate [4 x u8], #0, #0, #0, #0
+  ret {@0 u8, @4 [4 x u8]} %0
+}

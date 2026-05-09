@@ -1,0 +1,19 @@
+=== FILE: test.dc ===
+module test;
+
+public struct Point { i64 x; i64 y; }
+
+public void mutate_param(Point p) {
+    p.x = 42;
+}
+
+=== EXPECT-IR ===
+module "test"
+void@_DC0F1.4.test12.mutate_param1D1.4.test5.Point0.v({@0 i64, @8 i64}) {
+%entry({@0 i64, @8 i64} %p):
+  %0 = alloca {@0 i64, @8 i64}
+  store {@0 i64, @8 i64} %p, ptr<{@0 i64, @8 i64}> %0
+  %1 = gep ptr<{@0 i64, @8 i64}> %0, field #0
+  store i64 #42, ptr<i64> %1
+  ret void
+}

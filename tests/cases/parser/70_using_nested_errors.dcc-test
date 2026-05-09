@@ -1,0 +1,18 @@
+=== FILE: pkg.dc ===
+module pkg;
+public i64 println = 1;
+
+=== FILE: main.dc ===
+module main;
+import pkg;
+
+using pkg::{};
+
+using pkg::{print::};
+
+=== ENTRY: main.dc ===
+
+=== EXPECT-ERRORS ===
+main.dc:4: empty using list is not allowed
+main.dc:6: expected '}' to close using list, found '::'
+main.dc:6: could not resolve all paths in using-list `pkg`

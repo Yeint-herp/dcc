@@ -1,0 +1,36 @@
+=== FILE: main.dc ===
+module m;
+
+void print(const char* fmt)(i32 out) {}
+
+void use() {
+    print!("Hello")(1);
+    print!("Hello")(2);
+    print!("World")(3);
+}
+
+=== ENTRY: main.dc ===
+
+=== EXPECT-REGISTRY ===
+fn=print args=["Hello"] state=2
+fn=print args=["World"] state=2
+
+=== EXPECT-BODY ===
+Module m
+  Func print diverging=false
+    Param out type=i32 storage=param offset=0 index=0
+    Body
+  Func use diverging=false
+    Body
+      Call [type=void const=<none> decl=print spec=print]
+        TemplateInst [type=fn(i32) -> void const=<none> decl=print spec=print]
+          Ident print [type=fn(i32) -> void const=<none> decl=print]
+        IntLiteral 1 [type=i32 const=1 constant]
+      Call [type=void const=<none> decl=print spec=print]
+        TemplateInst [type=fn(i32) -> void const=<none> decl=print spec=print]
+          Ident print [type=fn(i32) -> void const=<none> decl=print]
+        IntLiteral 2 [type=i32 const=2 constant]
+      Call [type=void const=<none> decl=print spec=print]
+        TemplateInst [type=fn(i32) -> void const=<none> decl=print spec=print]
+          Ident print [type=fn(i32) -> void const=<none> decl=print]
+        IntLiteral 3 [type=i32 const=3 constant]

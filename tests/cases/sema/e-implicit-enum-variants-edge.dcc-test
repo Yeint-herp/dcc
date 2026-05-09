@@ -1,0 +1,37 @@
+=== FILE: main.dc ===
+module m;
+
+enum MixedVisibility {
+    @implicit_construction Public(i32),
+    Hidden(bool),
+    @implicit_construction AlsoPublic(f32),
+}
+
+MixedVisibility test_int() {
+    MixedVisibility mv = { 42 };
+    return mv;
+}
+
+MixedVisibility test_float() {
+    MixedVisibility mv = { 3.14 };
+    return mv;
+}
+
+=== ENTRY: main.dc ===
+
+=== EXPECT-BODY ===
+Module m
+  Func test_int diverging=true
+    Body
+      Var mv type=enum MixedVisibility storage=local offset=0
+        StructLiteral [type=enum MixedVisibility const=agg(0, 42) constant]
+          IntLiteral 42 [type=i32 const=42 constant]
+      Return
+        Ident mv [type=enum MixedVisibility const=agg(0, 42) lvalue constant decl=mv]
+  Func test_float diverging=true
+    Body
+      Var mv type=enum MixedVisibility storage=local offset=0
+        StructLiteral [type=enum MixedVisibility const=agg(2, 3.14) constant]
+          FloatLiteral 3.14 [type=f32 const=3.14 constant]
+      Return
+        Ident mv [type=enum MixedVisibility const=agg(2, 3.14) lvalue constant decl=mv]

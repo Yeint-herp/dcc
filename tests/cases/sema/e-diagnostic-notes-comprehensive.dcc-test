@@ -1,0 +1,33 @@
+=== FILE: main.dc ===
+module m;
+
+i32 pick(i32 x) {
+    return x;
+}
+
+i64 pick(i64 x) {
+    return x;
+}
+
+T same(T)(T a, T b) {
+    return a;
+}
+
+i32 arity_two(i32 a, i32 b) {
+    return a;
+}
+
+void test_all() {
+    pick(true);
+    same(true, 1);
+    arity_two(1);
+}
+
+=== EXPECT-ERRORS ===
+main.dc:20: no matching call for `pick`
+main.dc:3: = note: candidate `pick(i32)`
+main.dc:7: = note: candidate `pick(i64)`
+main.dc:21: no matching call for `same`
+main.dc:11: = note: candidate `same(T, T)`
+main.dc:22: no matching call for `arity_two`
+main.dc:15: = note: candidate `arity_two(i32, i32)`

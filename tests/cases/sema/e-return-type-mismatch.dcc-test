@@ -1,0 +1,9 @@
+=== FILE: main.dc ===
+module m;
+
+i32 bad() {
+    return true;
+}
+
+=== EXPECT-ERRORS ===
+main.dc:4: return type mismatch

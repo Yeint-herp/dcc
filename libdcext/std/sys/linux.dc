@@ -1,0 +1,13 @@
+module std::sys::linux;
+
+@nomangle
+extern u64 __syscall0(u64 n);
+
+@nomangle
+extern u64 __syscall1(u64 n, u64 a1);
+
+@nomangle
+extern u64 __syscall2(u64 n, u64 a1, u64 a2);
+
+@nomangle
+extern u64 __syscall3(u64 n, u64 a1, u64 a2, u64 a3);

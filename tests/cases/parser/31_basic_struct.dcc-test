@@ -1,0 +1,15 @@
+=== FILE: main.dc ===
+module m;
+struct Point {
+    f32 x;
+    f32 y;
+}
+
+=== EXPECT-AST ===
+TranslationUnit
+  Module m
+  Struct name=Point
+    Field name=x
+      Primitive f32
+    Field name=y
+      Primitive f32

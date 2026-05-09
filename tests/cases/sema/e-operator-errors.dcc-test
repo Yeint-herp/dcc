@@ -1,0 +1,13 @@
+=== FILE: main.dc ===
+module m;
+
+void bad(i32 x) {
+    *x;
+    x[0];
+    x.f;
+}
+
+=== EXPECT-ERRORS ===
+main.dc:4: dereference of non-pointer
+main.dc:5: indexing non-indexable type
+main.dc:6: field access on non-record type

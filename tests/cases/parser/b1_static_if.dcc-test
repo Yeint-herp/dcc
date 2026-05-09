@@ -1,0 +1,44 @@
+=== FILE: main.dc ===
+module m;
+void process(T)(T value) {
+    static if T == u8 {
+        raw_write(value);
+    } else {
+        compile_error("not u8");
+    }
+}
+
+=== EXPECT-AST ===
+TranslationUnit
+  Module m
+  Func name=process
+    TemplateParams
+      Param name=T
+    Return
+      Primitive void
+    Params
+      Param name=value
+        Named T
+    Body
+      StaticIf
+        Cond
+          Binary op===
+            Ident T
+            TypeAST
+              Primitive u8
+        Then
+          ExprStmt
+            Call
+              Callee
+                Ident raw_write
+              Args
+                Ident value
+        Else
+          ExprStmt
+            Block
+              ExprStmt
+                Call
+                  Callee
+                    Ident compile_error
+                  Args
+                    StringLiteral "not u8"

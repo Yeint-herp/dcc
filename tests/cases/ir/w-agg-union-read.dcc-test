@@ -1,0 +1,22 @@
+=== FILE: test.dc ===
+module test;
+
+public union Data {
+    i64 as_int;
+    f64 as_float;
+}
+
+public i64 read_int(Data d) {
+    return d.as_int;
+}
+
+=== EXPECT-IR ===
+module "test"
+i64@_DC0F1.4.test8.read_int1D1.4.test4.Data0.i64s({@0 i64, @0 f64}) {
+%entry({@0 i64, @0 f64} %d):
+  %0 = alloca {@0 i64, @0 f64}
+  store {@0 i64, @0 f64} %d, ptr<{@0 i64, @0 f64}> %0
+  %1 = gep ptr<{@0 i64, @0 f64}> %0, field #0
+  %2 = load i64, ptr<i64> %1
+  ret i64 %2
+}

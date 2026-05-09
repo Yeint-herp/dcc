@@ -1,0 +1,25 @@
+=== FILE: test.dc ===
+module test;
+
+public bool check(i32 x) { return x > 0; }
+
+public i32 test_if_cond(i32 x) { if (check(x)) { return 1; } else { return 0; } }
+
+=== EXPECT-IR ===
+module "test"
+bool@_DC0F1.4.test5.check1i32sb(i32) {
+%entry(i32 %x):
+  %0 = cmp.gt i32 %x, #0
+  ret bool %0
+}
+
+i32@_DC0F1.4.test12.test_if_cond1i32si32s(i32) {
+%entry(i32 %x):
+  %0 = call fn(@_DC0F1.4.test5.check1i32sb)(i32 %x) -> bool
+  br.cond %0, label %if.then1, label %if.else2
+%if.then1:
+  ret i32 #1
+%if.else2:
+  ret i32 #0
+%if.merge3:
+}

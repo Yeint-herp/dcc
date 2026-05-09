@@ -1,0 +1,25 @@
+=== FILE: main.dc ===
+module main;
+import std::math::sin;
+
+=== FILE: std/math.dc ===
+module std::math;
+public struct Vec3 { f32 x; f32 y; f32 z; }
+
+=== FILE: std/math/sin.dc ===
+module std::math::sin;
+public f32 sin(f32 x) { return 0.0; }
+
+=== ENTRY: main.dc ===
+
+=== EXPECT-SCOPE FOR: main ===
+Module main
+  OwnScope
+    Binding std
+      Namespace: group
+        Binding math
+          Namespace: group
+            Binding sin
+              Namespace: module
+                (foreign-scope)
+  ExportScope

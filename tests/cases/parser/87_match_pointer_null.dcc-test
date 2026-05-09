@@ -1,0 +1,37 @@
+=== FILE: main.dc ===
+module m;
+void f() {
+    match ptr {
+        null => handle_null(),
+        p => use(p),
+    };
+}
+
+=== EXPECT-AST ===
+TranslationUnit
+  Module m
+  Func name=f
+    Return
+      Primitive void
+    Body
+      ExprStmt
+        Match
+          Operand
+            Ident ptr
+          Arm
+            LiteralPattern
+              NullLiteral
+            Body
+              Call
+                Callee
+                  Ident handle_null
+          Arm
+            BindingPattern name=p
+            Body
+              Call
+                Callee
+                  Ident use
+                Args
+                  Ident p
+
+=== EXPECT-ERRORS ===

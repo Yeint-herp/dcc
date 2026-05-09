@@ -1,0 +1,12 @@
+=== FILE: main.dc ===
+module m;
+
+i64 f(bool v) {
+    return match v {
+        true => 1,
+        true => 2,
+    };
+}
+
+=== EXPECT-ERRORS ===
+main.dc:4: match expression not exhaustive

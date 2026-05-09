@@ -1,0 +1,8 @@
+=== FILE: main.dc ===
+module main;
+import nonexistent::thing;
+
+=== ENTRY: main.dc ===
+
+=== EXPECT-ERRORS ===
+main.dc:2: could not resolve module

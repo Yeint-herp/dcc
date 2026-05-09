@@ -1,0 +1,19 @@
+=== FILE: test.dc ===
+module test;
+
+public struct Point {
+    i64 x;
+    i64 y;
+}
+
+@nomangle
+Point origin = {x = 0, y = 0};
+
+=== EXPECT-LLVM FLAGS: -verify ===
+; ModuleID = 'test'
+source_filename = "test"
+target triple = "x86_64-elf"
+
+%0 = type { i64, i64 }
+
+@origin = internal global %0 zeroinitializer

@@ -1,0 +1,12 @@
+=== FILE: main.dc ===
+module m;
+
+void f() {
+    1 = 2;
+    i32 x = 0;
+    x += true;
+}
+
+=== EXPECT-ERRORS ===
+main.dc:4: assignment target is not assignable
+main.dc:6: assignment type mismatch

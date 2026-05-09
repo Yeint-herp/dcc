@@ -1,0 +1,26 @@
+=== FILE: test.dc ===
+module test;
+
+public i32 neg(i32 a) { return -a; }
+public bool lnot(bool a) { return !a; }
+public i32 bnot(i32 a) { return ~a; }
+
+=== EXPECT-IR ===
+module "test"
+i32@_DC0F1.4.test3.neg1i32si32s(i32) {
+%entry(i32 %a):
+  %0 = neg i32 %a
+  ret i32 %0
+}
+
+bool@_DC0F1.4.test4.lnot1bb(bool) {
+%entry(bool %a):
+  %0 = cmp.eq bool %a, #false
+  ret bool %0
+}
+
+i32@_DC0F1.4.test4.bnot1i32si32s(i32) {
+%entry(i32 %a):
+  %0 = not i32 %a
+  ret i32 %0
+}

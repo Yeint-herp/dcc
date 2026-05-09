@@ -1,0 +1,61 @@
+=== FILE: main.dc ===
+module m;
+
+struct Vec2 {
+    i32 x;
+    i32 y;
+}
+
+enum Option {
+    @implicit_construction Some(i32),
+    None,
+}
+
+i32[3] make_triple() {
+    return { 1, 2, 3 };
+}
+
+[]i32 make_slice() {
+    return { 4, 5, 6, 7 };
+}
+
+Option make_some() {
+    return { 8 };
+}
+
+Option make_some_bool() {
+    Option o = { 30 };
+    return o;
+}
+
+=== ENTRY: main.dc ===
+
+=== EXPECT-BODY ===
+Module m
+  Func make_triple diverging=true
+    Body
+      Return
+        StructLiteral [type=[i32; 3] const=agg(1, 2, 3) constant]
+          IntLiteral 1 [type=i32 const=1 constant]
+          IntLiteral 2 [type=i32 const=2 constant]
+          IntLiteral 3 [type=i32 const=3 constant]
+  Func make_slice diverging=true
+    Body
+      Return
+        StructLiteral [type=slice(i32) const=slice(4, 5, 6, 7) constant]
+          IntLiteral 4 [type=i32 const=4 constant]
+          IntLiteral 5 [type=i32 const=5 constant]
+          IntLiteral 6 [type=i32 const=6 constant]
+          IntLiteral 7 [type=i32 const=7 constant]
+  Func make_some diverging=true
+    Body
+      Return
+        StructLiteral [type=enum Option const=agg(0, 8) constant]
+          IntLiteral 8 [type=i32 const=8 constant]
+  Func make_some_bool diverging=true
+    Body
+      Var o type=enum Option storage=local offset=0
+        StructLiteral [type=enum Option const=agg(0, 30) constant]
+          IntLiteral 30 [type=i32 const=30 constant]
+      Return
+        Ident o [type=enum Option const=agg(0, 30) lvalue constant decl=o]

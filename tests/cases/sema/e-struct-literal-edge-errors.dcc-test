@@ -1,0 +1,37 @@
+=== FILE: main.dc ===
+module m;
+
+struct Point {
+    i32 x;
+    i32 y;
+}
+
+struct Singleton {
+    i32 value;
+}
+
+i32 test_too_many_fields() {
+    Point p = { 1, 2, 3 };
+    return 0;
+}
+
+i32 test_unknown_named_field() {
+    Point p = { x = 1, z = 2 };
+    return 0;
+}
+
+i32 test_duplicate_named_field() {
+    Point p = { x = 1, x = 2 };
+    return 0;
+}
+
+i32 test_field_type_mismatch() {
+    Point p = { 1.0, 2.0 };
+    return 0;
+}
+
+=== EXPECT-ERRORS ===
+main.dc:13: too many positional fields in brace literal
+main.dc:18: unknown field `z` in brace literal
+main.dc:23: duplicate field `x` in brace literal
+main.dc:28: field type mismatch

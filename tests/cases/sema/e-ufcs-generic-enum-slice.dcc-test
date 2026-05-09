@@ -1,0 +1,90 @@
+=== FILE: main.dc ===
+module m;
+
+enum Argument(T) {
+    @implicit_construction Signed(i64),
+    @implicit_construction Unsigned(u64),
+    @implicit_construction String(const char*),
+    @implicit_construction User(T)
+}
+
+void print(T, U)(T out, []Argument(U) args) {
+    for arg in args {
+        match arg {
+            Argument::Signed(i) => 0,
+            Argument::Unsigned(u) => 0,
+            Argument::String(str) => 0,
+            Argument::User(obj) => 0,
+            _ => 0,
+        }
+    }
+}
+
+void write(i32 o, const char* s);
+void write(i32 o, char ch);
+void write(i32 o, i32 i);
+
+using FormattableInto(T) = compiles (T x) {
+    x.write("");
+    x.write(0x0);
+    x.write('\0');
+};
+
+void print(T, U, const char* fmt)(T out, []Argument(U) args) if FormattableInto(T) {
+    for arg in args {
+        match arg {
+            Argument::Signed(i) => 0,
+            Argument::Unsigned(u) => 0,
+            Argument::String(str) => 0,
+            Argument::User(obj) => 0,
+            _ => 0,
+        }
+    }
+}
+
+i32 test_ufcs_generic_enum_slice() {
+    i32 fd;
+    fd.print({2, 3});
+    return 0;
+}
+
+i32 test_direct_call() {
+    i32 fd;
+    print(fd, {4, 5, 6});
+    return 0;
+}
+
+i32 test_ufcs_formattable_into() {
+    i32 fd;
+    fd.print("", {2, 3});
+    return 0;
+}
+
+i32 test_concrete_enum_assign() {
+    []Argument(i32) args = { 10, 20, 30 };
+    return 0;
+}
+
+enum Simple {
+    @implicit_construction A(i32),
+    @implicit_construction B(bool),
+}
+
+i32 test_concrete_enum_slice() {
+    []Simple arr = { 42, 99 };
+    return 0;
+}
+
+enum Strict {
+    A,
+}
+
+i32 test_reject_no_match() {
+    []Strict arr = { 1 };
+    return 0;
+}
+
+=== ENTRY: main.dc ===
+
+=== EXPECT-ERRORS ===
+main.dc:82: slice element type mismatch

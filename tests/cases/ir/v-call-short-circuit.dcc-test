@@ -1,0 +1,32 @@
+=== FILE: test.dc ===
+module test;
+
+public bool cached() { return false; }
+
+public bool compute() { return true; }
+
+public bool test_sc() { return cached() || compute(); }
+
+=== EXPECT-IR ===
+module "test"
+bool@_DC0F1.4.test6.cached0b() {
+%entry:
+  ret bool #false
+}
+
+bool@_DC0F1.4.test7.compute0b() {
+%entry:
+  ret bool #true
+}
+
+bool@_DC0F1.4.test7.test_sc0b() {
+%entry:
+  %0 = call fn(@_DC0F1.4.test6.cached0b)() -> bool
+  br.cond %0, label %sc.merge2, label %sc.rhs1
+%sc.rhs1:
+  %1 = call fn(@_DC0F1.4.test7.compute0b)() -> bool
+  br label %sc.merge2
+%sc.merge2:
+  %2 = phi bool [ bool #true, label %entry ],  [ bool %1, label %sc.rhs1 ]
+  ret bool %2
+}

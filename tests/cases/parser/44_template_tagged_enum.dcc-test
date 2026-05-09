@@ -1,0 +1,22 @@
+=== FILE: main.dc ===
+module m;
+enum Result(T, E) {
+    Ok(T),
+    Err(E),
+    Cancelled,
+}
+
+=== EXPECT-AST ===
+TranslationUnit
+  Module m
+  Enum name=Result tagged
+    TemplateParams
+      Param name=T
+      Param name=E
+    Variant name=Ok
+      Payload
+        Named T
+    Variant name=Err
+      Payload
+        Named E
+    Variant name=Cancelled

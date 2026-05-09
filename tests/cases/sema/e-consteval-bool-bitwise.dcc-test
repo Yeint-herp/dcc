@@ -1,0 +1,55 @@
+=== FILE: main.dc ===
+module m;
+
+void f() {
+    -5;
+    !false;
+    ~1;
+    false && ((1 / 0) == 0);
+    true || ((1 / 0) == 0);
+    6 & 3;
+    6 | 3;
+    6 ^ 3;
+    1 << 3;
+    8 >> 2;
+}
+
+=== EXPECT-BODY ===
+Module m
+  Func f diverging=false
+    Body
+      Unary - [type=i32 const=-5 constant]
+        IntLiteral 5 [type=i32 const=5 constant]
+      Unary ! [type=bool const=true constant]
+        BoolLiteral false [type=bool const=false constant]
+      Unary ~ [type=i32 const=-2 constant]
+        IntLiteral 1 [type=i32 const=1 constant]
+      Binary && [type=bool const=false constant]
+        BoolLiteral false [type=bool const=false constant]
+        Binary == [type=bool const=<none>]
+          Binary / [type=i32 const=<none>]
+            IntLiteral 1 [type=i32 const=1 constant]
+            IntLiteral 0 [type=i32 const=0 constant]
+          IntLiteral 0 [type=i32 const=0 constant]
+      Binary || [type=bool const=true constant]
+        BoolLiteral true [type=bool const=true constant]
+        Binary == [type=bool const=<none>]
+          Binary / [type=i32 const=<none>]
+            IntLiteral 1 [type=i32 const=1 constant]
+            IntLiteral 0 [type=i32 const=0 constant]
+          IntLiteral 0 [type=i32 const=0 constant]
+      Binary & [type=i32 const=2 constant]
+        IntLiteral 6 [type=i32 const=6 constant]
+        IntLiteral 3 [type=i32 const=3 constant]
+      Binary | [type=i32 const=7 constant]
+        IntLiteral 6 [type=i32 const=6 constant]
+        IntLiteral 3 [type=i32 const=3 constant]
+      Binary ^ [type=i32 const=5 constant]
+        IntLiteral 6 [type=i32 const=6 constant]
+        IntLiteral 3 [type=i32 const=3 constant]
+      Binary << [type=i32 const=8 constant]
+        IntLiteral 1 [type=i32 const=1 constant]
+        IntLiteral 3 [type=i32 const=3 constant]
+      Binary >> [type=i32 const=2 constant]
+        IntLiteral 8 [type=i32 const=8 constant]
+        IntLiteral 2 [type=i32 const=2 constant]

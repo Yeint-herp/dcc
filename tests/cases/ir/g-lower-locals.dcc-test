@@ -1,0 +1,25 @@
+=== FILE: test.dc ===
+module test;
+
+public i32 locals_test() {
+    i32 x = 42;
+    i32 y = 0;
+    y = x + 1;
+
+    return y;
+}
+
+=== EXPECT-IR ===
+module "test"
+i32@_DC0F1.4.test11.locals_test0i32s() {
+%entry:
+  %0 = alloca i32
+  store i32 #42, ptr<i32> %0
+  %1 = alloca i32
+  store i32 #0, ptr<i32> %1
+  %2 = load i32, ptr<i32> %0
+  %3 = add i32 %2, i32 #1
+  store i32 %3, ptr<i32> %1
+  %4 = load i32, ptr<i32> %1
+  ret i32 %4
+}

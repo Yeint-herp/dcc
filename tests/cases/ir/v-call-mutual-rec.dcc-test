@@ -1,0 +1,34 @@
+=== FILE: test.dc ===
+module test;
+
+public bool is_even(i32 n) { if (n == 0) { return true; } else { return is_odd(n - 1); } }
+
+public bool is_odd(i32 n) { if (n == 0) { return false; } else { return is_even(n - 1); } }
+
+=== EXPECT-IR ===
+module "test"
+bool@_DC0F1.4.test7.is_even1i32sb(i32) {
+%entry(i32 %n):
+  %0 = cmp.eq i32 %n, #0
+  br.cond %0, label %if.then1, label %if.else2
+%if.then1:
+  ret bool #true
+%if.else2:
+  %1 = sub i32 %n, i32 #1
+  %2 = call fn(@_DC0F1.4.test6.is_odd1i32sb)(i32 %1) -> bool
+  ret bool %2
+%if.merge3:
+}
+
+bool@_DC0F1.4.test6.is_odd1i32sb(i32) {
+%entry(i32 %n):
+  %0 = cmp.eq i32 %n, #0
+  br.cond %0, label %if.then1, label %if.else2
+%if.then1:
+  ret bool #false
+%if.else2:
+  %1 = sub i32 %n, i32 #1
+  %2 = call fn(@_DC0F1.4.test7.is_even1i32sb)(i32 %1) -> bool
+  ret bool %2
+%if.merge3:
+}

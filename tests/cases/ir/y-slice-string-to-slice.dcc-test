@@ -1,0 +1,19 @@
+=== FILE: test.dc ===
+module test;
+
+public void test() {
+    []const u8 s = "hello";
+}
+
+=== EXPECT-IR ===
+module "test"
+
+const global @.str.0 : [5 x u8] = aggregate [5 x u8], #104, #101, #108, #108, #111
+
+
+void@_DC0F1.4.test4.test0v() {
+%entry:
+  %0 = alloca []u8
+  store []u8 aggregate []u8, @.str.0, #5, ptr<[]u8> %0
+  ret void
+}

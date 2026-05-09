@@ -1,0 +1,23 @@
+=== FILE: lib.dc ===
+module lib;
+public i64 stdout = 1;
+public i32 write(i64 fd, const void* buffer, u64 count) { return 0; }
+
+=== FILE: main.dc ===
+module main;
+import lib;
+using lib::{stdout, write};
+
+=== ENTRY: main.dc ===
+
+=== EXPECT-SCOPE FOR: main ===
+Module main
+  OwnScope
+    Binding lib
+      Namespace: module
+        (foreign-scope)
+    Binding stdout
+      Value: variable via-using
+    Binding write
+      Value: function via-using
+  ExportScope

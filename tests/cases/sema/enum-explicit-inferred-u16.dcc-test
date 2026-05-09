@@ -1,0 +1,18 @@
+=== FILE: main.dc ===
+module m;
+
+public enum Codes {
+    A = 1000,
+    B = 2000,
+}
+
+public Codes c1;
+public Codes c2;
+
+=== EXPECT-TYPES FOR: m ===
+Module m
+  Enum Codes
+    Variant A
+    Variant B
+  Var c1: enum Codes
+  Var c2: enum Codes

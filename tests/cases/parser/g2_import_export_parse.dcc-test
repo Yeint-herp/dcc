@@ -1,0 +1,36 @@
+=== FILE: main.dc ===
+module m;
+
+@import extern
+void imported_func();
+
+@export
+void exported_func();
+
+@import extern
+i32 imported_global;
+
+@export
+i32 exported_global;
+
+=== EXPECT-AST ===
+TranslationUnit
+  Module m
+  Func name=imported_func
+    @import
+    extern
+    Return
+      Primitive void
+  Func name=exported_func
+    @export
+    Return
+      Primitive void
+  Var name=imported_global
+    @import
+    extern
+    Type
+      Primitive i32
+  Var name=exported_global
+    @export
+    Type
+      Primitive i32

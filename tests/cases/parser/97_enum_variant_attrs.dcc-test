@@ -1,0 +1,20 @@
+=== FILE: main.dc ===
+module m;
+
+enum Maybe {
+    @implicit_construction Some(i32),
+    @[deprecated("use None instead")]
+    None,
+}
+
+=== EXPECT-AST ===
+TranslationUnit
+  Module m
+  Enum name=Maybe tagged
+    Variant name=Some
+      @implicit_construction
+      Payload
+        Primitive i32
+    Variant name=None
+      @deprecated
+        StringLiteral "use None instead"

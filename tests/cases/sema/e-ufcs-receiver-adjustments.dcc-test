@@ -1,0 +1,127 @@
+=== FILE: main.dc ===
+module m;
+
+public struct S {
+    i32 value;
+}
+
+i32 pref_exact(S s) {
+    return 1;
+}
+
+i64 pref_exact(S* s) {
+    return 2;
+}
+
+public i32 exact_beats_auto_ref(S s) {
+    return s.pref_exact();
+}
+
+i64 auto_ref_only(S* s) {
+    return 3;
+}
+
+public i64 auto_ref_works(S s) {
+    return s.auto_ref_only();
+}
+
+i64 ptr_pref(S* s) {
+    return 4;
+}
+
+bool ptr_pref(const S* s) {
+    return false;
+}
+
+public i64 mutable_pointer_wins(S s) {
+    return s.ptr_pref();
+}
+
+i32 const_exact(const S* s) {
+    return 5;
+}
+
+public i32 const_pointer_exact(const S* s) {
+    return s.const_exact();
+}
+
+i32 deref_only(S s) {
+    return 6;
+}
+
+public i32 auto_deref_works(S* s) {
+    return s.deref_only();
+}
+
+=== EXPECT-BODY ===
+Module m
+  Func pref_exact diverging=true
+    Param s type=struct S storage=param offset=0 index=0
+    Body
+      Return
+        IntLiteral 1 [type=i32 const=1 constant]
+  Func pref_exact diverging=true
+    Param s type=ptr(struct S) storage=param offset=0 index=0
+    Body
+      Return
+        IntLiteral 2 [type=i64 const=2 constant]
+  Func exact_beats_auto_ref diverging=true
+    Param s type=struct S storage=param offset=0 index=0
+    Body
+      Return
+        Call [type=i32 const=<none> decl=pref_exact ufcs=pref_exact]
+          FieldAccess pref_exact [type=<unresolved> const=<none> decl=pref_exact ufcs=pref_exact]
+            Ident s [type=struct S const=<none> lvalue decl=s]
+  Func auto_ref_only diverging=true
+    Param s type=ptr(struct S) storage=param offset=0 index=0
+    Body
+      Return
+        IntLiteral 3 [type=i64 const=3 constant]
+  Func auto_ref_works diverging=true
+    Param s type=struct S storage=param offset=0 index=0
+    Body
+      Return
+        Call [type=i64 const=<none> decl=auto_ref_only ufcs=auto_ref_only]
+          FieldAccess auto_ref_only [type=<unresolved> const=<none> decl=auto_ref_only ufcs=auto_ref_only]
+            Ident s [type=struct S const=<none> lvalue addr_of decl=s]
+  Func ptr_pref diverging=true
+    Param s type=ptr(struct S) storage=param offset=0 index=0
+    Body
+      Return
+        IntLiteral 4 [type=i64 const=4 constant]
+  Func ptr_pref diverging=true
+    Param s type=ptr(const struct S) storage=param offset=0 index=0
+    Body
+      Return
+        BoolLiteral false [type=bool const=false constant]
+  Func mutable_pointer_wins diverging=true
+    Param s type=struct S storage=param offset=0 index=0
+    Body
+      Return
+        Call [type=i64 const=<none> decl=ptr_pref ufcs=ptr_pref]
+          FieldAccess ptr_pref [type=<unresolved> const=<none> decl=ptr_pref ufcs=ptr_pref]
+            Ident s [type=struct S const=<none> lvalue addr_of decl=s]
+  Func const_exact diverging=true
+    Param s type=ptr(const struct S) storage=param offset=0 index=0
+    Body
+      Return
+        IntLiteral 5 [type=i32 const=5 constant]
+  Func const_pointer_exact diverging=true
+    Param s type=ptr(const struct S) storage=param offset=0 index=0
+    Body
+      Return
+        Call [type=i32 const=<none> decl=const_exact ufcs=const_exact]
+          FieldAccess const_exact [type=<unresolved> const=<none> decl=const_exact ufcs=const_exact]
+            Ident s [type=ptr(const struct S) const=<none> lvalue decl=s]
+  Func deref_only diverging=true
+    Param s type=struct S storage=param offset=0 index=0
+    Body
+      Return
+        IntLiteral 6 [type=i32 const=6 constant]
+  Func auto_deref_works diverging=true
+    Param s type=ptr(struct S) storage=param offset=0 index=0
+    Body
+      Return
+        Call [type=i32 const=<none> decl=deref_only ufcs=deref_only]
+          FieldAccess deref_only [type=<unresolved> const=<none> decl=deref_only ufcs=deref_only]
+            Ident s [type=ptr(struct S) const=<none> lvalue deref decl=s]

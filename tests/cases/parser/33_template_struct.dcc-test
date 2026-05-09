@@ -1,0 +1,18 @@
+=== FILE: main.dc ===
+module m;
+struct Pair(T, U) {
+    T first;
+    U second;
+}
+
+=== EXPECT-AST ===
+TranslationUnit
+  Module m
+  Struct name=Pair
+    TemplateParams
+      Param name=T
+      Param name=U
+    Field name=first
+      Named T
+    Field name=second
+      Named U

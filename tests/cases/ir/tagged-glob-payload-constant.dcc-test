@@ -1,0 +1,23 @@
+=== FILE: test.dc ===
+module test;
+
+public enum Option {
+    None,
+    Some(i32),
+}
+
+Option g_some = Option::Some(42);
+
+public Option get_some() { return g_some; }
+
+=== EXPECT-IR ===
+module "test"
+
+global @_DC0G1.4.test6.g_someD1.4.test6.Option0. : {@0 u8, @4 [4 x u8]} = aggregate {@0 u8, @4 [4 x u8]}, #1, #42
+
+
+{@0 u8, @4 [4 x u8]}@_DC0F1.4.test8.get_some0D1.4.test6.Option0.() {
+%entry:
+  %0 = load {@0 u8, @4 [4 x u8]}, ptr<{@0 u8, @4 [4 x u8]}> @_DC0G1.4.test6.g_someD1.4.test6.Option0.
+  ret {@0 u8, @4 [4 x u8]} %0
+}

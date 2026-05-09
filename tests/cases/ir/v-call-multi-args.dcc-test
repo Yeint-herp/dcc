@@ -1,0 +1,36 @@
+=== FILE: test.dc ===
+module test;
+
+public i32 add(i32 a, i32 b) { return a + b; }
+
+public i32 get_one() { return 1; }
+
+public i32 get_two() { return 2; }
+
+public i32 multi_call() { return add(get_one(), get_two()); }
+
+=== EXPECT-IR ===
+module "test"
+i32@_DC0F1.4.test3.add2i32si32si32s(i32, i32) {
+%entry(i32 %a, i32 %b):
+  %0 = add i32 %a, i32 %b
+  ret i32 %0
+}
+
+i32@_DC0F1.4.test7.get_one0i32s() {
+%entry:
+  ret i32 #1
+}
+
+i32@_DC0F1.4.test7.get_two0i32s() {
+%entry:
+  ret i32 #2
+}
+
+i32@_DC0F1.4.test10.multi_call0i32s() {
+%entry:
+  %0 = call fn(@_DC0F1.4.test7.get_one0i32s)() -> i32
+  %1 = call fn(@_DC0F1.4.test7.get_two0i32s)() -> i32
+  %2 = call fn(@_DC0F1.4.test3.add2i32si32si32s)(i32 %0, i32 %1) -> i32
+  ret i32 %2
+}

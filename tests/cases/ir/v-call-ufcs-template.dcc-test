@@ -1,0 +1,28 @@
+=== FILE: test.dc ===
+module test;
+
+T testt(T)(T x) {
+    return x + 2;
+}
+
+void main() {
+    u64 u = 0;
+    u.testt();
+}
+
+=== EXPECT-IR ===
+module "test"
+void@_DC0F1.4.test4.main0v() {
+%entry:
+  %0 = alloca u64
+  store u64 #0, ptr<u64> %0
+  %1 = load u64, ptr<u64> %0
+  %2 = call fn(@_DC0S1.4.test5.testt1i64ui64uX1ti64u)(u64 %1) -> u64
+  ret void
+}
+
+u64@_DC0S1.4.test5.testt1i64ui64uX1ti64u(u64) {
+%entry(u64 %x):
+  %0 = add u64 %x, u64 #2
+  ret u64 %0
+}

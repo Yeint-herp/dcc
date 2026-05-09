@@ -1,0 +1,22 @@
+=== FILE: test.dc ===
+module test;
+
+T identity(T)(T x) { return x; }
+
+void store_ref() {
+  i32(*)(i32) p = &identity!i32;
+}
+
+=== EXPECT-IR ===
+module "test"
+void@_DC0F1.4.test9.store_ref0v() {
+%entry:
+  %0 = alloca ptr<fn(i32) -> i32>
+  store fn(i32) -> i32 @_DC0S1.4.test8.identity1i32si32sX1ti32s, ptr<ptr<fn(i32) -> i32>> %0
+  ret void
+}
+
+i32@_DC0S1.4.test8.identity1i32si32sX1ti32s(i32) {
+%entry(i32 %x):
+  ret i32 %x
+}

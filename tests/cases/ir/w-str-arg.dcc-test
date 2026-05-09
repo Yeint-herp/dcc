@@ -1,0 +1,25 @@
+=== FILE: test.dc ===
+module test;
+
+public void print(const char* msg) {}
+
+public void test() {
+    print("hello");
+}
+
+=== EXPECT-IR ===
+module "test"
+
+const global @.str.0 : [6 x u8] = aggregate [6 x u8], #104, #101, #108, #108, #111, #0
+
+
+void@_DC0F1.4.test5.print1PCqcv(ptr<u8>) {
+%entry(ptr<u8> %msg):
+  ret void
+}
+
+void@_DC0F1.4.test4.test0v() {
+%entry:
+  call fn(@_DC0F1.4.test5.print1PCqcv)(ptr<u8> @.str.0)
+  ret void
+}

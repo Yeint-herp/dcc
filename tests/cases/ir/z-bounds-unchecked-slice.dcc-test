@@ -1,0 +1,19 @@
+=== FILE: test.dc ===
+module test;
+
+public i64 test([]i64 s, i64 i) {
+    return s[i];
+}
+=== EXPECT-IR ===
+module "test"
+i64@_DC0F1.4.test4.test2Sqi64si64si64s([]i64, i64) {
+%entry([]i64 %s, i64 %i):
+  %0 = alloca []i64
+  store []i64 %s, ptr<[]i64> %0
+  %1 = load []i64, ptr<[]i64> %0
+  %2 = extract []i64 %1, field #0
+  %3 = extract []i64 %1, field #1
+  %4 = gep ptr<i64> %2, %i
+  %5 = load i64, ptr<i64> %4
+  ret i64 %5
+}

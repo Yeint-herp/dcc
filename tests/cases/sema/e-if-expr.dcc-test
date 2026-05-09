@@ -1,0 +1,20 @@
+=== FILE: main.dc ===
+module m;
+
+i64 f(bool cond) {
+    return if cond { 1 } else { 2 };
+}
+
+=== EXPECT-BODY ===
+Module m
+  Func f diverging=true
+    Param cond type=bool storage=param offset=0 index=0
+    Body
+      Return
+        If [type=i64 const=<none>]
+          Ident cond [type=bool const=<none> lvalue decl=cond]
+          Body
+            IntLiteral 1 [type=i64 const=1 constant]
+          Block [type=i64 const=2 constant]
+            Body
+              IntLiteral 2 [type=i64 const=2 constant]

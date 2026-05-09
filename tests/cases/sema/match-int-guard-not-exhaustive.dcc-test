@@ -1,0 +1,15 @@
+=== FILE: main.dc ===
+module m;
+
+bool cond() {
+    return true;
+}
+
+i32 f(u8 x) {
+    return match x {
+        0..=255 if cond() => 1,
+    };
+}
+
+=== EXPECT-ERRORS ===
+main.dc:8: match expression not exhaustive: missing range 0..255

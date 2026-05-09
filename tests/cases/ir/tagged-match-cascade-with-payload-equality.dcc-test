@@ -1,0 +1,62 @@
+=== FILE: test.dc ===
+module test;
+
+public enum Result {
+    Ok(i32),
+    Err(i32),
+}
+
+public i32 f(Result r) {
+    return match r {
+        Result::Ok(0) => 1,
+        Result::Ok(x) => x,
+        Result::Err(_) => -1,
+    };
+}
+
+=== EXPECT-IR ===
+module "test"
+i32@_DC0F1.4.test1.f1D1.4.test6.Result0.i32s({@0 u8, @4 [4 x u8]}) {
+%entry({@0 u8, @4 [4 x u8]} %r):
+  %0 = alloca {@0 u8, @4 [4 x u8]}
+  store {@0 u8, @4 [4 x u8]} %r, ptr<{@0 u8, @4 [4 x u8]}> %0
+  %1 = load {@0 u8, @4 [4 x u8]}, ptr<{@0 u8, @4 [4 x u8]}> %0
+  br label %match.arm0.test3
+%match.merge1:
+  %18 = phi i32 [ i32 #1, label %match.arm0.body4 ],  [ i32 %14, label %match.arm1.body6 ],  [ i32 %17, label %match.arm2.body8 ]
+  ret i32 %18
+%match.fail2:
+  unreachable
+%match.arm0.test3:
+  %2 = extract {@0 u8, @4 [4 x u8]} %1, field #0
+  %3 = cmp.eq u8 %2, #0
+  br.cond %3, label %match.payload.check9, label %match.arm1.test5
+%match.arm0.body4:
+  br label %match.merge1
+%match.arm1.test5:
+  %9 = extract {@0 u8, @4 [4 x u8]} %1, field #0
+  %10 = cmp.eq u8 %9, #0
+  br.cond %10, label %match.arm1.body6, label %match.arm2.test7
+%match.arm1.body6:
+  %11 = extract {@0 u8, @4 [4 x u8]} %1, field #1
+  %12 = alloca i32
+  %13 = bitcast ptr<i32> %12 to ptr<[4 x u8]>
+  store [4 x u8] %11, ptr<[4 x u8]> %13
+  %14 = load i32, ptr<i32> %12
+  br label %match.merge1
+%match.arm2.test7:
+  %15 = extract {@0 u8, @4 [4 x u8]} %1, field #0
+  %16 = cmp.eq u8 %15, #1
+  br.cond %16, label %match.arm2.body8, label %match.fail2
+%match.arm2.body8:
+  %17 = neg i32 #1
+  br label %match.merge1
+%match.payload.check9:
+  %4 = extract {@0 u8, @4 [4 x u8]} %1, field #1
+  %5 = alloca i32
+  %6 = bitcast ptr<i32> %5 to ptr<[4 x u8]>
+  store [4 x u8] %4, ptr<[4 x u8]> %6
+  %7 = load i32, ptr<i32> %5
+  %8 = cmp.eq i32 %7, #0
+  br.cond %8, label %match.arm0.body4, label %match.arm1.test5
+}

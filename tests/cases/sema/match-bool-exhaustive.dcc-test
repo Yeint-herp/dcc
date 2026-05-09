@@ -1,0 +1,9 @@
+=== FILE: main.dc ===
+module m;
+
+i32 f(bool x) {
+    return match x {
+        true => 1,
+        false => 2,
+    };
+}

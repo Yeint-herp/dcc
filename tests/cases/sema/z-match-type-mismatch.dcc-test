@@ -1,0 +1,14 @@
+=== FILE: main.dc ===
+module m;
+
+i32 f() {
+    return match 42 {
+        1 => 10,
+        2 => "hello",
+        _ => 99,
+    };
+}
+
+=== EXPECT-ERRORS ===
+main.dc:6: match arm result type mismatch
+

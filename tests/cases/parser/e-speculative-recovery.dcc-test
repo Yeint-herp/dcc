@@ -1,0 +1,23 @@
+=== FILE: main.dc ===
+module m;
+
+void f() {
+    i32 broken = 1 + ;
+    i32 ok = 2;
+}
+
+=== EXPECT-ERRORS ===
+main.dc:4: expected ';' or '}' after expression
+
+=== EXPECT-AST ===
+TranslationUnit
+  Module m
+  Func name=f
+    Return
+      Primitive void
+    Body
+      Var name=ok
+        Type
+          Primitive i32
+        Init
+          IntLiteral 2

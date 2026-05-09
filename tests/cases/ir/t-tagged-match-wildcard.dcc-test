@@ -1,0 +1,41 @@
+=== FILE: test.dc ===
+module test;
+
+public enum Option {
+    None,
+    Some(i32),
+}
+
+public i32 unwrap_wildcard(Option opt) {
+    return match opt {
+        Option::Some(_) => 0,
+        Option::None => 1,
+    };
+}
+
+=== EXPECT-IR ===
+module "test"
+i32@_DC0F1.4.test15.unwrap_wildcard1D1.4.test6.Option0.i32s({@0 u8, @4 [4 x u8]}) {
+%entry({@0 u8, @4 [4 x u8]} %opt):
+  %0 = alloca {@0 u8, @4 [4 x u8]}
+  store {@0 u8, @4 [4 x u8]} %opt, ptr<{@0 u8, @4 [4 x u8]}> %0
+  %1 = load {@0 u8, @4 [4 x u8]}, ptr<{@0 u8, @4 [4 x u8]}> %0
+  br label %match.arm0.test3
+%match.merge1:
+  %6 = phi i32 [ i32 #0, label %match.arm0.body4 ],  [ i32 #1, label %match.arm1.body6 ]
+  ret i32 %6
+%match.fail2:
+  unreachable
+%match.arm0.test3:
+  %2 = extract {@0 u8, @4 [4 x u8]} %1, field #0
+  %3 = cmp.eq u8 %2, #1
+  br.cond %3, label %match.arm0.body4, label %match.arm1.test5
+%match.arm0.body4:
+  br label %match.merge1
+%match.arm1.test5:
+  %4 = extract {@0 u8, @4 [4 x u8]} %1, field #0
+  %5 = cmp.eq u8 %4, #0
+  br.cond %5, label %match.arm1.body6, label %match.fail2
+%match.arm1.body6:
+  br label %match.merge1
+}

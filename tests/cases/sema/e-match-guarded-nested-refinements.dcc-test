@@ -1,0 +1,64 @@
+=== FILE: main.dc ===
+module m;
+
+enum Maybe {
+    Some(i32),
+    None,
+}
+
+struct Point {
+    i32 x;
+    i32 y;
+}
+
+struct Envelope {
+    Maybe maybe;
+    Point point;
+}
+
+struct PairFields {
+    Point point;
+    Maybe maybe;
+}
+
+enum Packet {
+    Pair(PairFields),
+    Wrap(Envelope),
+    Empty,
+}
+
+i64 score(Packet packet) {
+    return match packet {
+        Packet::Pair(PairFields { point => Point { x, y }, maybe => Maybe::Some(extra) }) if x < y && extra > 0 => (x + y + extra) as i64,
+        Packet::Wrap(Envelope { maybe => Maybe::Some(code), point => Point { x => left, y => right } }) if code > left && right > 0 => (code + left + right) as i64,
+        _ => 0,
+    };
+}
+
+=== EXPECT-BODY ===
+Module m
+  Func score diverging=true
+    Param packet type=enum Packet storage=param offset=0 index=0
+    Body
+      Return
+        Match [type=i64 const=<none>]
+          Ident packet [type=enum Packet const=<none> lvalue decl=packet]
+          Arm
+            EnumDestructurePattern Pair
+            Cast [type=i64 const=<none>]
+              Binary + [type=i32 const=<none>]
+                Binary + [type=i32 const=<none>]
+                  Ident x [type=i32 const=<none> lvalue decl=x]
+                  Ident y [type=i32 const=<none> lvalue decl=y]
+                Ident extra [type=i32 const=<none> lvalue decl=extra]
+          Arm
+            EnumDestructurePattern Wrap
+            Cast [type=i64 const=<none>]
+              Binary + [type=i32 const=<none>]
+                Binary + [type=i32 const=<none>]
+                  Ident code [type=i32 const=<none> lvalue decl=code]
+                  Ident left [type=i32 const=<none> lvalue decl=left]
+                Ident right [type=i32 const=<none> lvalue decl=right]
+          Arm
+            WildcardPattern
+            IntLiteral 0 [type=i64 const=0 constant]

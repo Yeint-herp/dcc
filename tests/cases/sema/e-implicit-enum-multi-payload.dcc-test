@@ -1,0 +1,93 @@
+=== FILE: main.dc ===
+module m;
+
+enum SinglePayload {
+    @implicit_construction A(i32),
+    @implicit_construction B(bool),
+    NoPayload,
+}
+
+enum MultiPayload {
+    @implicit_construction Pair(i32, i32),
+    @implicit_construction Triple(i32, i32, i32),
+    Empty,
+}
+
+enum MixedAttr {
+    @implicit_construction WithPayload(bool),
+    NoPayloadNeither,
+}
+
+i32 test_single_payload_1() {
+    SinglePayload a = { 1 };
+    return 1;
+}
+
+bool test_single_payload_2() {
+    SinglePayload b = { true };
+    return true;
+}
+
+i32 test_mixed_attr() {
+    MixedAttr m = { true };
+    return 1;
+}
+
+i32 test_func_arg(SinglePayload s) {
+    return 1;
+}
+
+i32 call_with_brace() {
+    return test_func_arg({ 99 });
+}
+
+SinglePayload return_brace() {
+    return { true };
+}
+
+=== ENTRY: main.dc ===
+
+=== EXPECT-ERRORS ===
+main.dc:10: variant `Pair` has multiple payload types; wrap them in a struct
+main.dc:11: variant `Triple` has multiple payload types; wrap them in a struct
+
+=== EXPECT-BODY ===
+Module m
+  Func test_single_payload_1 diverging=true
+    Body
+      Var a type=enum SinglePayload storage=local offset=0
+        StructLiteral [type=enum SinglePayload const=agg(0, 1) constant]
+          IntLiteral 1 [type=i32 const=1 constant]
+      Return
+        IntLiteral 1 [type=i32 const=1 constant]
+  Func test_single_payload_2 diverging=true
+    Body
+      Var b type=enum SinglePayload storage=local offset=0
+        StructLiteral [type=enum SinglePayload const=agg(1, true) constant]
+          BoolLiteral true [type=bool const=true constant]
+      Return
+        BoolLiteral true [type=bool const=true constant]
+  Func test_mixed_attr diverging=true
+    Body
+      Var m type=enum MixedAttr storage=local offset=0
+        StructLiteral [type=enum MixedAttr const=agg(0, true) constant]
+          BoolLiteral true [type=bool const=true constant]
+      Return
+        IntLiteral 1 [type=i32 const=1 constant]
+  Func test_func_arg diverging=true
+    Param s type=enum SinglePayload storage=param offset=0 index=0
+    Body
+      Return
+        IntLiteral 1 [type=i32 const=1 constant]
+  Func call_with_brace diverging=true
+    Body
+      Return
+        Call [type=i32 const=<none> decl=test_func_arg]
+          Ident test_func_arg [type=<unresolved> const=<none>]
+          StructLiteral [type=enum SinglePayload const=agg(0, 99) constant]
+            IntLiteral 99 [type=i32 const=99 constant]
+  Func return_brace diverging=true
+    Body
+      Return
+        StructLiteral [type=enum SinglePayload const=agg(1, true) constant]
+          BoolLiteral true [type=bool const=true constant]

@@ -1,0 +1,11 @@
+=== FILE: main.dc ===
+module m;
+
+public enum Bad {
+    First(i32),
+    Second(i32, bool),
+    Third,
+}
+
+=== EXPECT-ERRORS ===
+main.dc:5: variant `Second` has multiple payload types; wrap them in a struct

@@ -1,0 +1,11 @@
+=== FILE: test.dc ===
+module m;
+
+T identity(T)(T x) { return x; }
+
+void test() {
+    &identity;
+}
+
+=== EXPECT-ERRORS ===
+test.dc:6: cannot take address of generic function

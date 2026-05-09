@@ -1,0 +1,16 @@
+=== FILE: main.dc ===
+module m;
+
+f64 nan_val(f64 X)(f64 x) {
+    return X;
+}
+
+void use() {
+    nan_val!(0.0 / 0.0)(1.0);
+    nan_val!(0.0 / 0.0)(2.0);
+}
+
+=== ENTRY: main.dc ===
+
+=== EXPECT-REGISTRY ===
+fn=nan_val args=[-nan] state=2

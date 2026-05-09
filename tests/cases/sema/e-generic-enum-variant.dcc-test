@@ -1,0 +1,60 @@
+=== FILE: main.dc ===
+module m;
+
+enum Result(T) {
+    @implicit_construction Ok(T),
+    None,
+}
+
+enum Simple {
+    A,
+    B(i32),
+}
+
+i32 test_non_generic_payload_less() {
+    Simple s = Simple::A;
+    return 0;
+}
+
+i32 test_non_generic_constructor() {
+    Simple s = Simple::B(42);
+    return 0;
+}
+
+i32 test_generic_payload_less() {
+    Result(i32) y = Result::None;
+    return 0;
+}
+
+i32 test_generic_payload_less_u8() {
+    Result(u8) y = Result::None;
+    return 0;
+}
+
+i32 test_generic_constructor_lhs() {
+    Result(i32) y = Result::Ok(23);
+    return 0;
+}
+
+i32 test_constructor_mismatch() {
+    Result(i32) y = Result::Ok("hello");
+    return 0;
+}
+
+i32 test_implicit_construction_assign() {
+    Result(i32) y = 23;
+    return 0;
+}
+
+Result(i32) test_implicit_construction_return() {
+    return 23;
+}
+
+i32 test_implicit_construction_fail() {
+    Result(i32) y = "hello";
+    return 0;
+}
+
+=== EXPECT-ERRORS ===
+main.dc:39: enum variant `Ok` payload type mismatch
+main.dc:53: initializer type mismatch

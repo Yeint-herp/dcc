@@ -1,0 +1,19 @@
+=== FILE: main.dc ===
+module m;
+void serial_write(u8 COM_BASE)(u8 byte) {
+}
+
+=== EXPECT-AST ===
+TranslationUnit
+  Module m
+  Func name=serial_write
+    TemplateParams
+      Param name=COM_BASE
+        ValueType
+          Primitive u8
+    Return
+      Primitive void
+    Params
+      Param name=byte
+        Primitive u8
+    Body

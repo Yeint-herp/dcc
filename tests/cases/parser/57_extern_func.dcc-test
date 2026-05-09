@@ -1,0 +1,16 @@
+=== FILE: main.dc ===
+module m;
+@nomangle
+extern void c_func(i32 x);
+
+=== EXPECT-AST ===
+TranslationUnit
+  Module m
+  Func name=c_func
+    @nomangle
+    extern
+    Return
+      Primitive void
+    Params
+      Param name=x
+        Primitive i32

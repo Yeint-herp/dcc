@@ -1,0 +1,49 @@
+=== FILE: main.dc ===
+module m;
+
+enum Option {
+    Some(i32),
+    None,
+}
+
+enum Multi {
+    A(i32),
+    B(i32),
+    C,
+}
+
+i32 bare_payload_variant(Option opt) {
+    return match opt {
+        Option::Some => 0,
+        Option::None => 1,
+    };
+}
+
+i32 parens_on_payloadless(Option opt) {
+    return match opt {
+        Option::Some(_) => 0,
+        Option::None() => 1,
+    };
+}
+
+i32 parens_on_payloadless_nested(Multi m) {
+    return match m {
+        Multi::A(x) => 0,
+        Multi::B(x) => 1,
+        Multi::C() => 2,
+    };
+}
+
+i32 wrong_arity(Option opt) {
+    return match opt {
+        Option::Some() => 0,
+        Option::None => 1,
+    };
+}
+
+=== EXPECT-ERRORS ===
+main.dc:16: tagged enum variant with payload requires parenthesized pattern
+main.dc:24: payloadless tagged enum variant must not use parenthesized pattern
+main.dc:32: payloadless tagged enum variant must not use parenthesized pattern
+main.dc:38: enum pattern payload arity mismatch
+

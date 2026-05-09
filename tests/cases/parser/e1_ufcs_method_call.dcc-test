@@ -1,0 +1,57 @@
+=== FILE: main.dc ===
+module m;
+public struct Point { f32 x; f32 y; }
+
+public f64 length(const Point* self) {
+    return 0.0;
+}
+
+void f() {
+    Point p = Point { x = 3.0, y = 4.0 };
+    f64 len = p.length();
+}
+
+=== EXPECT-AST ===
+TranslationUnit
+  Module m
+  Struct name=Point
+    public
+    Field name=x
+      Primitive f32
+    Field name=y
+      Primitive f32
+  Func name=length
+    public
+    Return
+      Primitive f64
+    Params
+      Param name=self
+        Pointer
+          Qualified const
+            Named Point
+    Body
+      Return
+        FloatLiteral 0
+  Func name=f
+    Return
+      Primitive void
+    Body
+      Var name=p
+        Type
+          Named Point
+        Init
+          StructLiteral
+            Type
+              Named Point
+            Field name=x
+              FloatLiteral 3
+            Field name=y
+              FloatLiteral 4
+      Var name=len
+        Type
+          Primitive f64
+        Init
+          Call
+            Callee
+              FieldAccess field=length
+                Ident p

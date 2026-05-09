@@ -1,0 +1,43 @@
+=== FILE: main.dc ===
+module m;
+
+public i64 show(i64 x) {
+    return x;
+}
+
+public T show(T)(T x) {
+    return x;
+}
+
+public i64 direct_concrete() {
+    return 1.show();
+}
+
+public bool direct_template() {
+    return true.show();
+}
+
+=== EXPECT-BODY ===
+Module m
+  Func show diverging=true
+    Param x type=i64 storage=param offset=0 index=0
+    Body
+      Return
+        Ident x [type=i64 const=<none> lvalue decl=x]
+  Func show diverging=false
+    Param x type=T#0 storage=param offset=0 index=0
+    Body
+      Return
+        Ident x [type=<unresolved> const=<none>]
+  Func direct_concrete diverging=true
+    Body
+      Return
+        Call [type=i64 const=<none> decl=show ufcs=show]
+          FieldAccess show [type=<unresolved> const=<none> decl=show ufcs=show]
+            IntLiteral 1 [type=i64 const=1 constant]
+  Func direct_template diverging=true
+    Body
+      Return
+        Call [type=bool const=<none> decl=show spec=show ufcs=show]
+          FieldAccess show [type=<unresolved> const=<none> decl=show ufcs=show]
+            BoolLiteral true [type=bool const=true constant]

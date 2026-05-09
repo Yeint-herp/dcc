@@ -1,0 +1,52 @@
+=== FILE: test.dc ===
+module test;
+
+public i64 f() {
+    i64[3] arr = {10, 20, 30};
+    i64 sum = 0;
+
+    for &item in arr {
+        sum = sum + *item;
+    }
+
+    return sum;
+}
+
+=== EXPECT-IR ===
+module "test"
+i64@_DC0F1.4.test1.f0i64s() {
+%entry:
+  %0 = alloca [3 x i64]
+  %1 = aggregate [3 x i64], #10, #20, #30
+  store [3 x i64] %1, ptr<[3 x i64]> %0
+  %2 = alloca i64
+  store i64 #0, ptr<i64> %2
+  %3 = load [3 x i64], ptr<[3 x i64]> %0
+  %4 = alloca [3 x i64]
+  store [3 x i64] %3, ptr<[3 x i64]> %4
+  %5 = gep ptr<[3 x i64]> %4, #0
+  %6 = alloca u64
+  store u64 #0, ptr<u64> %6
+  br label %forin.header1
+%forin.header1:
+  %7 = load u64, ptr<u64> %6
+  %8 = cmp.ult u64 %7, #3
+  br.cond %8, label %forin.body2, label %forin.exit4
+%forin.body2:
+  %9 = load u64, ptr<u64> %6
+  %10 = gep ptr<i64> %5, %9
+  %11 = load i64, ptr<i64> %2
+  %12 = load i64, ptr<i64> %10
+  %13 = add i64 %11, i64 %12
+  store i64 %13, ptr<i64> %2
+  br label %forin.step3
+%forin.step3:
+  %14 = load u64, ptr<u64> %6
+  %15 = add u64 %14, u64 #1
+  store u64 %15, ptr<u64> %6
+  br label %forin.header1
+%forin.exit4:
+  %16 = load i64, ptr<i64> %2
+  ret i64 %16
+}
+

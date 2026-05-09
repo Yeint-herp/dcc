@@ -1,0 +1,45 @@
+=== FILE: main.dc ===
+module m;
+void f() {
+    i32 r = match value {
+        0 => 10,
+        1 | 2 | 3 => 20,
+        _ => 0,
+    };
+}
+
+=== EXPECT-AST ===
+TranslationUnit
+  Module m
+  Func name=f
+    Return
+      Primitive void
+    Body
+      Var name=r
+        Type
+          Primitive i32
+        Init
+          Match
+            Operand
+              Ident value
+            Arm
+              LiteralPattern
+                IntLiteral 0
+              Body
+                IntLiteral 10
+            Arm
+              OrPattern
+                LiteralPattern
+                  IntLiteral 1
+                LiteralPattern
+                  IntLiteral 2
+                LiteralPattern
+                  IntLiteral 3
+              Body
+                IntLiteral 20
+            Arm
+              WildcardPattern
+              Body
+                IntLiteral 0
+
+=== EXPECT-ERRORS ===

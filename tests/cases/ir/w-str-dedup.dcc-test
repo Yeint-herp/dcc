@@ -1,0 +1,26 @@
+=== FILE: test.dc ===
+module test;
+
+public const char* get_greeting1() {
+    return "hello";
+}
+
+public const char* get_greeting2() {
+    return "hello";
+}
+
+=== EXPECT-IR ===
+module "test"
+
+const global @.str.0 : [6 x u8] = aggregate [6 x u8], #104, #101, #108, #108, #111, #0
+
+
+ptr<u8>@_DC0F1.4.test13.get_greeting10PCqc() {
+%entry:
+  ret ptr<u8> @.str.0
+}
+
+ptr<u8>@_DC0F1.4.test13.get_greeting20PCqc() {
+%entry:
+  ret ptr<u8> @.str.0
+}

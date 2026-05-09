@@ -1,0 +1,6 @@
+=== FILE: main.dc ===
+module graphics;
+
+=== EXPECT-AST ===
+TranslationUnit
+  Module graphics

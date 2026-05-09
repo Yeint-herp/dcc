@@ -1,0 +1,43 @@
+=== FILE: main.dc ===
+module m;
+
+struct Point {
+    f64 x;
+    f64 y;
+}
+
+struct Holder {
+    Point[3] points;
+    i32 tag;
+}
+
+void f(Holder h) {
+    sizeof(Point);
+    sizeof(Holder);
+    alignof(Point);
+    alignof(Holder);
+    offsetof(Point, x);
+    offsetof(Point, y);
+    offsetof(Holder, points);
+    offsetof(Holder, tag);
+    h.points[0].x;
+}
+
+=== EXPECT-BODY ===
+Module m
+  Func f diverging=false
+    Param h type=struct Holder storage=param offset=0 index=0
+    Body
+      Sizeof [type=u64 const=16 constant]
+      Sizeof [type=u64 const=56 constant]
+      Alignof [type=u64 const=8 constant]
+      Alignof [type=u64 const=8 constant]
+      Offsetof [type=u64 const=0 constant]
+      Offsetof [type=u64 const=8 constant]
+      Offsetof [type=u64 const=0 constant]
+      Offsetof [type=u64 const=48 constant]
+      FieldAccess x [type=f64 const=<none> lvalue decl=Point]
+        Index [type=struct Point const=<none> lvalue decl=Holder]
+          FieldAccess points [type=[struct Point; 3] const=<none> lvalue decl=Holder]
+            Ident h [type=struct Holder const=<none> lvalue decl=h]
+          IntLiteral 0 [type=i32 const=0 constant]

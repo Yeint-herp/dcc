@@ -1,0 +1,36 @@
+=== FILE: main.dc ===
+module m;
+u8[256] arr;
+[]u8 slice;
+extern u8[] fam;
+
+struct S {
+    u32 len;
+    u8[] fam;
+}
+
+=== EXPECT-AST ===
+TranslationUnit
+  Module m
+  Var name=arr
+    Type
+      Array
+        Element
+          Primitive u8
+        Size
+          IntLiteral 256
+  Var name=slice
+    Type
+      Slice
+        Primitive u8
+  Var name=fam
+    extern
+    Type
+      Fam
+        Primitive u8
+  Struct name=S
+    Field name=len
+      Primitive u32
+    Field name=fam
+      Fam
+        Primitive u8

@@ -1,0 +1,26 @@
+=== FILE: a.dc ===
+module a;
+public import b;
+public struct A { i32 v; }
+
+=== FILE: b.dc ===
+module b;
+struct Secret { i32 v; }
+public struct Public { i32 v; }
+
+=== ENTRY: a.dc ===
+
+=== EXPECT-SCOPE FOR: a ===
+Module a
+  OwnScope
+    Binding A
+      Type: struct exported
+    Binding b
+      Namespace: module exported
+        (foreign-scope)
+  ExportScope
+    Binding A
+      Type: struct exported
+    Binding b
+      Namespace: module exported
+        (foreign-scope)

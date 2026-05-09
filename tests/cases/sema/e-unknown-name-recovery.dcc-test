@@ -1,0 +1,21 @@
+=== FILE: main.dc ===
+module m;
+
+void f() {
+    missing;
+    i32 x = 1;
+    return x;
+}
+
+=== EXPECT-ERRORS ===
+main.dc:4: unknown name `missing`
+
+=== EXPECT-BODY ===
+Module m
+  Func f diverging=true
+    Body
+      Ident missing [type=<error> const=<none>]
+      Var x type=i32 storage=local offset=0
+        IntLiteral 1 [type=i32 const=1 constant]
+      Return
+        Ident x [type=i32 const=1 lvalue constant decl=x]

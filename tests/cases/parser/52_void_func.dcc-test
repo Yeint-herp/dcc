@@ -1,0 +1,12 @@
+=== FILE: main.dc ===
+module m;
+void noop() {
+}
+
+=== EXPECT-AST ===
+TranslationUnit
+  Module m
+  Func name=noop
+    Return
+      Primitive void
+    Body

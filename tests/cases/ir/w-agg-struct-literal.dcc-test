@@ -1,0 +1,24 @@
+=== FILE: test.dc ===
+module test;
+
+struct Point {
+    i64 x;
+    i64 y;
+}
+
+public i64 test() {
+    Point p = {x = 1, y = 2};
+    return p.x;
+}
+
+=== EXPECT-IR ===
+module "test"
+i64@_DC0F1.4.test4.test0i64s() {
+%entry:
+  %0 = alloca {@0 i64, @8 i64}
+  %1 = aggregate {@0 i64, @8 i64}, #1, #2
+  store {@0 i64, @8 i64} %1, ptr<{@0 i64, @8 i64}> %0
+  %2 = gep ptr<{@0 i64, @8 i64}> %0, field #0
+  %3 = load i64, ptr<i64> %2
+  ret i64 %3
+}

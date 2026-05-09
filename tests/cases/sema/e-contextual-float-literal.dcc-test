@@ -1,0 +1,21 @@
+=== FILE: main.dc ===
+module m;
+
+f32 a() {
+    return 3.5;
+}
+
+f64 b() {
+    return 4.25;
+}
+
+=== EXPECT-BODY ===
+Module m
+  Func a diverging=true
+    Body
+      Return
+        FloatLiteral 3.5 [type=f32 const=3.5 constant]
+  Func b diverging=true
+    Body
+      Return
+        FloatLiteral 4.25 [type=f64 const=4.25 constant]

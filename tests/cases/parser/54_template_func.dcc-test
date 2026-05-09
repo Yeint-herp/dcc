@@ -1,0 +1,33 @@
+=== FILE: main.dc ===
+module m;
+T max(T)(T a, T b) {
+    return if a > b { a } else { b };
+}
+
+=== EXPECT-AST ===
+TranslationUnit
+  Module m
+  Func name=max
+    TemplateParams
+      Param name=T
+    Return
+      Named T
+    Params
+      Param name=a
+        Named T
+      Param name=b
+        Named T
+    Body
+      Return
+        If
+          Cond
+            Binary op=>
+              Ident a
+              Ident b
+          Then
+            Tail
+              Ident a
+          Else
+            Block
+              Tail
+                Ident b

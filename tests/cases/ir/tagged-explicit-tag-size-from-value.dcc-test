@@ -1,0 +1,27 @@
+=== FILE: test.dc ===
+module test;
+
+public enum Big {
+    A = 0,
+    B = 1,
+    C = 300,
+}
+
+public Big make_a() {
+    return Big::A;
+}
+
+public Big make_c() {
+    return Big::C;
+}
+=== EXPECT-IR ===
+module "test"
+u16@_DC0F1.4.test6.make_a0D1.4.test3.Big0.() {
+%entry:
+  ret u16 #0
+}
+
+u16@_DC0F1.4.test6.make_c0D1.4.test3.Big0.() {
+%entry:
+  ret u16 #300
+}

@@ -1,0 +1,26 @@
+=== FILE: main.dc ===
+module m;
+union Register {
+    u32 full;
+    u16[2] halves;
+    u8[4] bytes;
+}
+
+=== EXPECT-AST ===
+TranslationUnit
+  Module m
+  Union name=Register
+    Field name=full
+      Primitive u32
+    Field name=halves
+      Array
+        Element
+          Primitive u16
+        Size
+          IntLiteral 2
+    Field name=bytes
+      Array
+        Element
+          Primitive u8
+        Size
+          IntLiteral 4

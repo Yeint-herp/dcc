@@ -1,0 +1,46 @@
+=== FILE: main.dc ===
+module main;
+
+i32 add_n(u64 N)(i32 x) {
+    return x + N as i32;
+}
+
+void a() {
+    add_n!4;
+}
+
+void b() {
+    add_n!(2 + 2);
+}
+
+void c() {
+    add_n!(1 + 3);
+}
+
+=== ENTRY: main.dc ===
+
+=== EXPECT-REGISTRY ===
+fn=add_n args=[4] state=2
+
+=== EXPECT-BODY ===
+Module main
+  Func add_n diverging=false
+    Param x type=i32 storage=param offset=0 index=0
+    Body
+      Return
+        Binary + [type=<unresolved> const=<none>]
+          Ident x [type=<unresolved> const=<none>]
+          Cast [type=<unresolved> const=<none>]
+            Ident N [type=<unresolved> const=<none>]
+  Func a diverging=false
+    Body
+      TemplateInst [type=fn(i32) -> i32 const=<none> decl=add_n spec=add_n]
+        Ident add_n [type=fn(i32) -> i32 const=<none> decl=add_n]
+  Func b diverging=false
+    Body
+      TemplateInst [type=fn(i32) -> i32 const=<none> decl=add_n spec=add_n]
+        Ident add_n [type=fn(i32) -> i32 const=<none> decl=add_n]
+  Func c diverging=false
+    Body
+      TemplateInst [type=fn(i32) -> i32 const=<none> decl=add_n spec=add_n]
+        Ident add_n [type=fn(i32) -> i32 const=<none> decl=add_n]

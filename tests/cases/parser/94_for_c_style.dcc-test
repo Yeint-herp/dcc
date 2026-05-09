@@ -1,0 +1,38 @@
+=== FILE: main.dc ===
+module m;
+void f() {
+    for i32 i = 0; i < n; i++ {
+        body(i);
+    }
+}
+
+=== EXPECT-AST ===
+TranslationUnit
+  Module m
+  Func name=f
+    Return
+      Primitive void
+    Body
+      For
+        Init
+          Var name=i
+            Type
+              Primitive i32
+            Init
+              IntLiteral 0
+        Cond
+          Binary op=<
+            Ident i
+            Ident n
+        Update
+          Postfix op=++
+            Ident i
+        Body
+          ExprStmt
+            Call
+              Callee
+                Ident body
+              Args
+                Ident i
+
+=== EXPECT-ERRORS ===

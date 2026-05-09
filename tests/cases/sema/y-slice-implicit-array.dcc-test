@@ -1,0 +1,19 @@
+=== FILE: main.dc ===
+module test;
+
+public void test() {
+    i64[3] arr = {10, 20, 30};
+    []i64 s = arr;
+}
+
+=== EXPECT-BODY ===
+Module test
+  Func test diverging=false
+    Body
+      Var arr type=[i64; 3] storage=local offset=0
+        StructLiteral [type=[i64; 3] const=agg(10, 20, 30) constant]
+          IntLiteral 10 [type=i64 const=10 constant]
+          IntLiteral 20 [type=i64 const=20 constant]
+          IntLiteral 30 [type=i64 const=30 constant]
+      Var s type=slice(i64) storage=local offset=24
+        Ident arr [type=[i64; 3] const=agg(10, 20, 30) lvalue constant decl=arr]

@@ -1,0 +1,17 @@
+=== FILE: test.dc ===
+module test;
+
+public enum Codes {
+    A = 1000,
+    B = 2000,
+}
+
+public Codes get_a() {
+    return Codes::A;
+}
+=== EXPECT-IR ===
+module "test"
+u16@_DC0F1.4.test5.get_a0D1.4.test5.Codes0.() {
+%entry:
+  ret u16 #1000
+}

@@ -1,0 +1,11 @@
+=== FILE: test.dc ===
+module test;
+
+@nomangle
+extern void c_func(i32 x);
+
+=== EXPECT-IR ===
+module "test"
+@nomangle
+void@c_func(i32) {
+}

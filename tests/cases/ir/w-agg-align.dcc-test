@@ -1,0 +1,22 @@
+=== FILE: test.dc ===
+module test;
+
+@align(16)
+public struct AlignedS {
+    u64 a;
+    u8 b;
+    u32 c;
+}
+
+public u64 get_a(AlignedS p) { return p.a; }
+
+=== EXPECT-IR ===
+module "test"
+u64@_DC0F1.4.test5.get_a1D1.4.test8.AlignedS0.i64u({@0 u64, @8 u8, @12 u32}) {
+%entry({@0 u64, @8 u8, @12 u32} %p):
+  %0 = alloca {@0 u64, @8 u8, @12 u32}
+  store {@0 u64, @8 u8, @12 u32} %p, ptr<{@0 u64, @8 u8, @12 u32}> %0
+  %1 = gep ptr<{@0 u64, @8 u8, @12 u32}> %0, field #0
+  %2 = load u64, ptr<u64> %1
+  ret u64 %2
+}

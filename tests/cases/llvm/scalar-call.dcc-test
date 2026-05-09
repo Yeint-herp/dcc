@@ -1,0 +1,32 @@
+=== FILE: test.dc ===
+module test;
+
+public bool check(i32 x) { return x > 0; }
+
+public i32 scalar_call(i32 x) { if (check(x)) { return 1; } else { return 0; } }
+
+=== EXPECT-LLVM ===
+; ModuleID = 'test'
+source_filename = "test"
+target triple = "x86_64-elf"
+
+define i1 @_DC0F1.4.test5.check1i32sb(i32 %x) {
+entry:
+  %"0" = icmp sgt i32 %x, 0
+  ret i1 %"0"
+}
+
+define i32 @_DC0F1.4.test11.scalar_call1i32si32s(i32 %x) {
+entry:
+  %"0" = call i1 @_DC0F1.4.test5.check1i32sb(i32 %x)
+  br i1 %"0", label %if.then1, label %if.else2
+
+if.then1:                                         ; preds = %entry
+  ret i32 1
+
+if.else2:                                         ; preds = %entry
+  ret i32 0
+
+if.merge3:                                        ; No predecessors!
+  unreachable
+}

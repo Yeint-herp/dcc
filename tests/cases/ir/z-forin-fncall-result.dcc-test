@@ -1,0 +1,62 @@
+=== FILE: test.dc ===
+module test;
+
+public []i64 id([]i64 s) {
+    return s;
+}
+
+public i64 test([]i64 s) {
+    i64 sum = 0;
+    for i64 item in id(s) {
+        sum = sum + item;
+    }
+    return sum;
+}
+
+=== EXPECT-IR ===
+module "test"
+[]i64@_DC0F1.4.test2.id1Sqi64sSqi64s([]i64) {
+%entry([]i64 %s):
+  %0 = alloca []i64
+  store []i64 %s, ptr<[]i64> %0
+  %1 = load []i64, ptr<[]i64> %0
+  ret []i64 %1
+}
+
+i64@_DC0F1.4.test4.test1Sqi64si64s([]i64) {
+%entry([]i64 %s):
+  %0 = alloca []i64
+  store []i64 %s, ptr<[]i64> %0
+  %1 = alloca i64
+  store i64 #0, ptr<i64> %1
+  %2 = load []i64, ptr<[]i64> %0
+  %3 = call fn(@_DC0F1.4.test2.id1Sqi64sSqi64s)([]i64 %2) -> []i64
+  %4 = extract []i64 %3, field #1
+  %5 = extract []i64 %3, field #0
+  %6 = alloca u64
+  store u64 #0, ptr<u64> %6
+  br label %forin.header1
+%forin.header1:
+  %7 = load u64, ptr<u64> %6
+  %8 = cmp.ult u64 %7, %4
+  br.cond %8, label %forin.body2, label %forin.exit4
+%forin.body2:
+  %9 = load u64, ptr<u64> %6
+  %10 = gep ptr<i64> %5, %9
+  %11 = alloca i64
+  %12 = load i64, ptr<i64> %10
+  store i64 %12, ptr<i64> %11
+  %13 = load i64, ptr<i64> %1
+  %14 = load i64, ptr<i64> %11
+  %15 = add i64 %13, i64 %14
+  store i64 %15, ptr<i64> %1
+  br label %forin.step3
+%forin.step3:
+  %16 = load u64, ptr<u64> %6
+  %17 = add u64 %16, u64 #1
+  store u64 %17, ptr<u64> %6
+  br label %forin.header1
+%forin.exit4:
+  %18 = load i64, ptr<i64> %1
+  ret i64 %18
+}

@@ -1,0 +1,11 @@
+=== FILE: main.dc ===
+module m;
+
+i32 base = 100;
+
+enum X {
+    A = base,
+}
+
+=== EXPECT-ERRORS ===
+main.dc:6: discriminant expression references non-const variable `base`

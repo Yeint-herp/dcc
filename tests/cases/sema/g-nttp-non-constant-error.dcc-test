@@ -1,0 +1,19 @@
+=== FILE: main.dc ===
+module main;
+
+i32 add_n(u64 N)(i32 x) {
+    return x + N as i32;
+}
+
+i32 get_val() {
+    return 42;
+}
+
+void test() {
+    i32 r = add_n!(get_val())(10);
+}
+
+=== EXPECT-ERRORS ===
+main.dc:12: template argument count mismatch for `add_n`
+
+=== EXPECT-REGISTRY ===

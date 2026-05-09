@@ -1,0 +1,108 @@
+=== FILE: main.dc ===
+module m;
+
+enum Result(T) {
+    @implicit_construction Ok(T),
+    None,
+}
+
+enum Simple {
+    A,
+    B(i32),
+}
+
+i32 test_non_generic_payload_less() {
+    Simple s = Simple::A;
+    return 0;
+}
+
+i32 test_non_generic_constructor() {
+    Simple s = Simple::B(42);
+    return 0;
+}
+
+i32 test_generic_payload_less_i32() {
+    Result(i32) y = Result::None;
+    return 0;
+}
+
+i32 test_generic_payload_less_u8() {
+    Result(u8) y = Result::None;
+    return 0;
+}
+
+i32 test_generic_constructor_lhs() {
+    Result(i32) y = Result::Ok(23);
+    return 0;
+}
+
+i32 test_generic_constructor_u8() {
+    Result(u8) y = Result::Ok(42);
+    return 0;
+}
+
+i32 test_implicit_construction_assign() {
+    Result(i32) y = 23;
+    return 0;
+}
+
+Result(i32) test_implicit_construction_return() {
+    return 23;
+}
+
+=== ENTRY: main.dc ===
+
+=== EXPECT-BODY ===
+Module m
+  Func test_non_generic_payload_less diverging=true
+    Body
+      Var s type=enum Simple storage=local offset=0
+        Path Simple::A [type=enum Simple const=agg(0) constant decl=Simple]
+      Return
+        IntLiteral 0 [type=i32 const=0 constant]
+  Func test_non_generic_constructor diverging=true
+    Body
+      Var s type=enum Simple storage=local offset=0
+        Call [type=enum Simple const=agg(1, 42) constant decl=Simple]
+          Path Simple::B [type=enum Simple const=<none> decl=Simple]
+          IntLiteral 42 [type=i32 const=42 constant]
+      Return
+        IntLiteral 0 [type=i32 const=0 constant]
+  Func test_generic_payload_less_i32 diverging=true
+    Body
+      Var y type=enum Result storage=local offset=0
+        Path Result::None [type=enum Result const=agg(1) constant decl=Result]
+      Return
+        IntLiteral 0 [type=i32 const=0 constant]
+  Func test_generic_payload_less_u8 diverging=true
+    Body
+      Var y type=enum Result storage=local offset=0
+        Path Result::None [type=enum Result const=agg(1) constant decl=Result]
+      Return
+        IntLiteral 0 [type=i32 const=0 constant]
+  Func test_generic_constructor_lhs diverging=true
+    Body
+      Var y type=enum Result storage=local offset=0
+        Call [type=enum Result const=agg(0, 23) constant decl=Result]
+          Path Result::Ok [type=enum Result const=<none> decl=Result]
+          IntLiteral 23 [type=i32 const=23 constant]
+      Return
+        IntLiteral 0 [type=i32 const=0 constant]
+  Func test_generic_constructor_u8 diverging=true
+    Body
+      Var y type=enum Result storage=local offset=0
+        Call [type=enum Result const=agg(0, 42) constant decl=Result]
+          Path Result::Ok [type=enum Result const=<none> decl=Result]
+          IntLiteral 42 [type=u8 const=42 constant]
+      Return
+        IntLiteral 0 [type=i32 const=0 constant]
+  Func test_implicit_construction_assign diverging=true
+    Body
+      Var y type=enum Result storage=local offset=0
+        IntLiteral 23 [type=i32 const=23 constant]
+      Return
+        IntLiteral 0 [type=i32 const=0 constant]
+  Func test_implicit_construction_return diverging=true
+    Body
+      Return
+        IntLiteral 23 [type=i32 const=23 constant]

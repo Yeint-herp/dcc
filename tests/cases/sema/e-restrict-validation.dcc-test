@@ -1,0 +1,12 @@
+=== FILE: main.dc ===
+module m;
+
+restrict i32* p1;
+restrict []i32 s1;
+restrict i32 x1;
+restrict i32[10] a1;
+
+=== ENTRY: main.dc ===
+
+=== EXPECT-ERRORS ===
+main.dc:5: restrict qualifier is only allowed on pointer or slice types

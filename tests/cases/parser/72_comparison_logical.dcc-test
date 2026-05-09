@@ -1,0 +1,23 @@
+=== FILE: main.dc ===
+module m;
+bool b = (a < b) && (c == d) || !e;
+
+=== EXPECT-AST ===
+TranslationUnit
+  Module m
+  Var name=b
+    Type
+      Primitive bool
+    Init
+      Binary op=||
+        Binary op=&&
+          Binary op=<
+            Ident a
+            Ident b
+          Binary op===
+            Ident c
+            Ident d
+        Unary op=!
+          Ident e
+
+=== EXPECT-ERRORS ===

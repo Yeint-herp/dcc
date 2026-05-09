@@ -1,0 +1,93 @@
+=== FILE: main.dc ===
+module geom;
+import std::math;
+
+public struct Point {
+    f32 x;
+    f32 y;
+}
+
+public Point new_point(f32 x, f32 y) {
+    return Point { x, y };
+}
+
+public f64 length(const Point* self) {
+    f64 dx = self.x as f64;
+    f64 dy = self.y as f64;
+    return std::math::sqrt(dx * dx + dy * dy);
+}
+
+=== FILE: std/math.dc ===
+module std::math;
+public extern f64 sqrt(f64 x);
+
+=== EXPECT-AST ===
+TranslationUnit
+  Module geom
+  Import std::math
+  Struct name=Point
+    public
+    Field name=x
+      Primitive f32
+    Field name=y
+      Primitive f32
+  Func name=new_point
+    public
+    Return
+      Named Point
+    Params
+      Param name=x
+        Primitive f32
+      Param name=y
+        Primitive f32
+    Body
+      Return
+        StructLiteral
+          Type
+            Named Point
+          Field name=x
+            Ident x
+          Field name=y
+            Ident y
+  Func name=length
+    public
+    Return
+      Primitive f64
+    Params
+      Param name=self
+        Pointer
+          Qualified const
+            Named Point
+    Body
+      Var name=dx
+        Type
+          Primitive f64
+        Init
+          Cast
+            Target
+              Primitive f64
+            Operand
+              FieldAccess field=x
+                Ident self
+      Var name=dy
+        Type
+          Primitive f64
+        Init
+          Cast
+            Target
+              Primitive f64
+            Operand
+              FieldAccess field=y
+                Ident self
+      Return
+        Call
+          Callee
+            Path std::math::sqrt
+          Args
+            Binary op=+
+              Binary op=*
+                Ident dx
+                Ident dx
+              Binary op=*
+                Ident dy
+                Ident dy

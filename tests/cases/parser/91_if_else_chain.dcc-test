@@ -1,0 +1,45 @@
+=== FILE: main.dc ===
+module m;
+void f() {
+    if a {
+        x();
+    } else if b {
+        y();
+    } else {
+        z();
+    }
+}
+
+=== EXPECT-AST ===
+TranslationUnit
+  Module m
+  Func name=f
+    Return
+      Primitive void
+    Body
+      Tail
+        If
+          Cond
+            Ident a
+          Then
+            ExprStmt
+              Call
+                Callee
+                  Ident x
+          Else
+            If
+              Cond
+                Ident b
+              Then
+                ExprStmt
+                  Call
+                    Callee
+                      Ident y
+              Else
+                Block
+                  ExprStmt
+                    Call
+                      Callee
+                        Ident z
+
+=== EXPECT-ERRORS ===

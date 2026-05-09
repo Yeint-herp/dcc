@@ -1,0 +1,51 @@
+=== FILE: main.dc ===
+module m;
+
+using Numeric(T) = compiles(T a, T b) {
+    a + b;
+};
+
+using Combined(T) = Numeric(T) & !Numeric(T) | Numeric(T);
+
+=== EXPECT-AST ===
+TranslationUnit
+  Module m
+  Using kind=concept
+    alias=Numeric
+    TemplateParams
+      Param name=T
+    TargetExpr
+      Compiles
+        Params
+          Param name=a
+            Named T
+          Param name=b
+            Named T
+        Body
+          ExprStmt
+            Binary op=+
+              Ident a
+              Ident b
+  Using kind=concept
+    alias=Combined
+    TemplateParams
+      Param name=T
+    TargetExpr
+      Binary op=|
+        Binary op=&
+          Call
+            Callee
+              Ident Numeric
+            Args
+              Ident T
+          Unary op=!
+            Call
+              Callee
+                Ident Numeric
+              Args
+                Ident T
+        Call
+          Callee
+            Ident Numeric
+          Args
+            Ident T

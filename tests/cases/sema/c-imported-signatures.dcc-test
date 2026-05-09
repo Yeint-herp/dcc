@@ -1,0 +1,33 @@
+=== FILE: lib.dc ===
+module lib;
+
+public struct Vec3 {
+    i32 x;
+    i32 y;
+    i32 z;
+}
+
+public using VecAlias = Vec3;
+
+=== FILE: main.dc ===
+module main;
+
+public import lib;
+
+public using Exposed = lib::VecAlias;
+public lib::Vec3 make(lib::VecAlias v) {
+    return v;
+}
+
+public lib::VecAlias current;
+
+=== ENTRY: main.dc ===
+
+=== EXPECT-TYPES FOR: main ===
+Module main
+  Using Exposed
+    Alias: struct Vec3
+  Func make
+    Return: struct Vec3
+    Param v: struct Vec3
+  Var current: struct Vec3

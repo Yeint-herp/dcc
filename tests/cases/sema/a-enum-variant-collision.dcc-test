@@ -1,0 +1,11 @@
+=== FILE: m.dc ===
+module m;
+
+enum E {
+    Foo,
+    Foo,
+}
+
+=== EXPECT-ERRORS ===
+m.dc:5: duplicate enum variant
+m.dc:4: previous variant was here

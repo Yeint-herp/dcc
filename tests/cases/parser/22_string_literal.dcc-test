@@ -1,0 +1,14 @@
+=== FILE: main.dc ===
+module m;
+const char* s = "hello";
+
+=== EXPECT-AST ===
+TranslationUnit
+  Module m
+  Var name=s
+    Type
+      Pointer
+        Qualified const
+          Primitive char
+    Init
+      StringLiteral "hello"

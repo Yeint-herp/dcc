@@ -1,0 +1,23 @@
+=== FILE: test.dc ===
+module test;
+
+public enum Option {
+    None,
+    Some(i32),
+}
+
+const Option c_none = Option::None;
+
+public Option get_c_none() { return c_none; }
+
+=== EXPECT-IR ===
+module "test"
+
+const global @_DC0G1.4.test6.c_noneD1.4.test6.Option0. : {@0 u8, @4 [4 x u8]} = aggregate {@0 u8, @4 [4 x u8]}, #0, aggregate [4 x u8], #0, #0, #0, #0
+
+
+{@0 u8, @4 [4 x u8]}@_DC0F1.4.test10.get_c_none0D1.4.test6.Option0.() {
+%entry:
+  %0 = load {@0 u8, @4 [4 x u8]}, ptr<{@0 u8, @4 [4 x u8]}> @_DC0G1.4.test6.c_noneD1.4.test6.Option0.
+  ret {@0 u8, @4 [4 x u8]} %0
+}

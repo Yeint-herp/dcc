@@ -1,0 +1,19 @@
+=== FILE: main.dc ===
+module m;
+
+using Addable(T) = compiles(T a, T b) {
+    a + b;
+};
+
+struct S { i32 x; }
+
+T sum(T)(T value) if Addable(T) {
+    return value;
+}
+
+void use() {
+    sum!S;
+}
+
+=== EXPECT-ERRORS ===
+main.dc:14: template constraint not satisfied for `sum`

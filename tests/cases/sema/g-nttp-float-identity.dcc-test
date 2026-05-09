@@ -1,0 +1,18 @@
+=== FILE: main.dc ===
+module m;
+
+f64 id(f64 X)(f64 x) {
+    return X;
+}
+
+void use() {
+    id!1.5(1.0);
+    id!1.5(2.0);
+    id!2.5(3.0);
+}
+
+=== ENTRY: main.dc ===
+
+=== EXPECT-REGISTRY ===
+fn=id args=[1.5] state=2
+fn=id args=[2.5] state=2

@@ -1,0 +1,56 @@
+=== FILE: main.dc ===
+module m;
+using Addable(T) = compiles(T a, T b) { a + b; };
+
+T sum(T)([]const T items) if Addable(T) {
+    T acc = items[0];
+    return acc;
+}
+
+=== EXPECT-AST ===
+TranslationUnit
+  Module m
+  Using kind=concept
+    alias=Addable
+    TemplateParams
+      Param name=T
+    TargetExpr
+      Compiles
+        Params
+          Param name=a
+            Named T
+          Param name=b
+            Named T
+        Body
+          ExprStmt
+            Binary op=+
+              Ident a
+              Ident b
+  Func name=sum
+    TemplateParams
+      Param name=T
+    Return
+      Named T
+    Params
+      Param name=items
+        Slice
+          Qualified const
+            Named T
+    Constraint
+      Call
+        Callee
+          Ident Addable
+        Args
+          Ident T
+    Body
+      Var name=acc
+        Type
+          Named T
+        Init
+          Index
+            Object
+              Ident items
+            Subscript
+              IntLiteral 0
+      Return
+        Ident acc

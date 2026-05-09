@@ -1,0 +1,10 @@
+=== FILE: main.dc ===
+module m;
+
+void test_div_zero() {
+    static if (1 / 0) == 0 {
+        i32 x = 0;
+    }
+}
+
+=== EXPECT-ERRORS ===

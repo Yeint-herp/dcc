@@ -1,0 +1,24 @@
+=== FILE: main.dc ===
+module main;
+
+T copy_n(T, u64 N)(T x) {
+    return x;
+}
+
+void a() {
+    i32 r = copy_n!(i32, 4)(10);
+}
+
+void b() {
+    i32 r = copy_n!(i32, 4)(20);
+}
+
+void c() {
+    i64 r = copy_n!(i64, 4)(30);
+}
+
+=== ENTRY: main.dc ===
+
+=== EXPECT-REGISTRY ===
+fn=copy_n args=[i32, 4] state=2
+fn=copy_n args=[i64, 4] state=2

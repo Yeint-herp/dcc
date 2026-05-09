@@ -1,0 +1,22 @@
+=== FILE: main.dc ===
+module m;
+
+void choose() {
+    static if 1 + 1 == 2 {
+        i32 x = 1;
+    }
+}
+
+=== EXPECT-BODY ===
+Module m
+  Func choose diverging=false
+    Body
+      StaticIf taken=0
+        Binary == [type=bool const=true constant]
+          Binary + [type=i32 const=2 constant]
+            IntLiteral 1 [type=i32 const=1 constant]
+            IntLiteral 1 [type=i32 const=1 constant]
+          IntLiteral 2 [type=i32 const=2 constant]
+        Body
+          Var x type=i32 storage=local offset=0
+            IntLiteral 1 [type=i32 const=1 constant]

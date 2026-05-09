@@ -1,0 +1,23 @@
+=== FILE: std/win.dc ===
+module std::win;
+public struct Window { i32 id; }
+
+=== FILE: main.dc ===
+module main;
+import std::win;
+using platform = std::win;
+
+=== ENTRY: main.dc ===
+
+=== EXPECT-SCOPE FOR: main ===
+Module main
+  OwnScope
+    Binding platform
+      Namespace: module via-using
+        (foreign-scope)
+    Binding std
+      Namespace: group
+        Binding win
+          Namespace: module
+            (foreign-scope)
+  ExportScope

@@ -1,0 +1,67 @@
+=== FILE: main.dc ===
+module m;
+
+@inline
+void hot_path() {}
+
+@noinline
+void cold_path() {}
+
+@section(".text.cold")
+void in_section() {}
+
+@calling_conv("Cdecl")
+void cdecl_func() {}
+
+@deprecated("use new_api instead")
+void old_api() {}
+
+@align(16)
+void aligned_fn() {}
+
+@align(64)
+extern i32 aligned_global;
+
+=== EXPECT-AST ===
+TranslationUnit
+  Module m
+  Func name=hot_path
+    @inline
+    Return
+      Primitive void
+    Body
+  Func name=cold_path
+    @noinline
+    Return
+      Primitive void
+    Body
+  Func name=in_section
+    @section
+      StringLiteral ".text.cold"
+    Return
+      Primitive void
+    Body
+  Func name=cdecl_func
+    @calling_conv
+      StringLiteral "Cdecl"
+    Return
+      Primitive void
+    Body
+  Func name=old_api
+    @deprecated
+      StringLiteral "use new_api instead"
+    Return
+      Primitive void
+    Body
+  Func name=aligned_fn
+    @align
+      IntLiteral 16
+    Return
+      Primitive void
+    Body
+  Var name=aligned_global
+    @align
+      IntLiteral 64
+    extern
+    Type
+      Primitive i32

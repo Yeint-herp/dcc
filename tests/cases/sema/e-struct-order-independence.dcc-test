@@ -1,0 +1,32 @@
+=== FILE: main.dc ===
+module m;
+
+struct A {
+    B b;
+    i32 y;
+}
+
+struct B {
+    i32 x;
+}
+
+void f(A a) {
+    sizeof(A);
+    alignof(A);
+    offsetof(A, b);
+    offsetof(A, y);
+    a.b.x;
+}
+
+=== EXPECT-BODY ===
+Module m
+  Func f diverging=false
+    Param a type=struct A storage=param offset=0 index=0
+    Body
+      Sizeof [type=u64 const=8 constant]
+      Alignof [type=u64 const=4 constant]
+      Offsetof [type=u64 const=0 constant]
+      Offsetof [type=u64 const=4 constant]
+      FieldAccess x [type=i32 const=<none> lvalue decl=B]
+        FieldAccess b [type=struct B const=<none> lvalue decl=A]
+          Ident a [type=struct A const=<none> lvalue decl=a]

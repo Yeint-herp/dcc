@@ -1,0 +1,95 @@
+=== FILE: main.dc ===
+module m;
+
+struct Vec3 {
+    i32 x;
+    i32 y;
+    i32 z;
+}
+
+enum TriState {
+    @implicit_construction On(i32),
+    @implicit_construction Off(bool),
+    @implicit_construction Maybe(f32),
+}
+
+i32 consume(TriState ts) {
+    return 40;
+}
+
+i32 consume(Vec3 v) {
+    return 10;
+}
+
+i32 consume(i32[3] arr) {
+    return 20;
+}
+
+i32 consume([]i32 sl) {
+    return 30;
+}
+
+i32 test_enum_bool_dispatch() {
+    return consume({ false });
+}
+
+i32 test_struct_dispatch() {
+    return consume({ 1, 2, 3 });
+}
+
+i32 test_array_dispatch() {
+    i32[3] arr = { 4, 5, 6 };
+    return consume(arr);
+}
+
+=== ENTRY: main.dc ===
+
+=== EXPECT-BODY ===
+Module m
+  Func consume diverging=true
+    Param ts type=enum TriState storage=param offset=0 index=0
+    Body
+      Return
+        IntLiteral 40 [type=i32 const=40 constant]
+  Func consume diverging=true
+    Param v type=struct Vec3 storage=param offset=0 index=0
+    Body
+      Return
+        IntLiteral 10 [type=i32 const=10 constant]
+  Func consume diverging=true
+    Param arr type=[i32; 3] storage=param offset=0 index=0
+    Body
+      Return
+        IntLiteral 20 [type=i32 const=20 constant]
+  Func consume diverging=true
+    Param sl type=slice(i32) storage=param offset=0 index=0
+    Body
+      Return
+        IntLiteral 30 [type=i32 const=30 constant]
+  Func test_enum_bool_dispatch diverging=true
+    Body
+      Return
+        Call [type=i32 const=<none> decl=consume]
+          Ident consume [type=<unresolved> const=<none>]
+          StructLiteral [type=enum TriState const=agg(1, false) constant]
+            BoolLiteral false [type=bool const=false constant]
+  Func test_struct_dispatch diverging=true
+    Body
+      Return
+        Call [type=i32 const=<none> decl=consume]
+          Ident consume [type=<unresolved> const=<none>]
+          StructLiteral [type=struct Vec3 const=agg(1, 2, 3) constant]
+            IntLiteral 1 [type=i32 const=1 constant]
+            IntLiteral 2 [type=i32 const=2 constant]
+            IntLiteral 3 [type=i32 const=3 constant]
+  Func test_array_dispatch diverging=true
+    Body
+      Var arr type=[i32; 3] storage=local offset=0
+        StructLiteral [type=[i32; 3] const=agg(4, 5, 6) constant]
+          IntLiteral 4 [type=i32 const=4 constant]
+          IntLiteral 5 [type=i32 const=5 constant]
+          IntLiteral 6 [type=i32 const=6 constant]
+      Return
+        Call [type=i32 const=<none> decl=consume]
+          Ident consume [type=<unresolved> const=<none>]
+          Ident arr [type=[i32; 3] const=agg(4, 5, 6) lvalue constant decl=arr]

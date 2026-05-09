@@ -1,0 +1,38 @@
+=== FILE: main.dc ===
+module m;
+
+i64 test_range_match(i64 v) {
+    return match v {
+        0 => 10,
+        1 | 2 => 20,
+        3..=5 => 30,
+        x => 40,
+        _ => 50,
+    };
+}
+
+=== ENTRY: main.dc ===
+
+=== EXPECT-BODY ===
+Module m
+  Func test_range_match diverging=true
+    Param v type=i64 storage=param offset=0 index=0
+    Body
+      Return
+        Match [type=i64 const=<none>]
+          Ident v [type=i64 const=<none> lvalue decl=v]
+          Arm
+            LiteralPattern
+            IntLiteral 10 [type=i64 const=10 constant]
+          Arm
+            OrPattern
+            IntLiteral 20 [type=i64 const=20 constant]
+          Arm
+            RangePattern
+            IntLiteral 30 [type=i64 const=30 constant]
+          Arm
+            BindingPattern x
+            IntLiteral 40 [type=i64 const=40 constant]
+          Arm
+            WildcardPattern
+            IntLiteral 50 [type=i64 const=50 constant]

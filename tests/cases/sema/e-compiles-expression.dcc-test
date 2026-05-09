@@ -1,0 +1,25 @@
+=== FILE: main.dc ===
+module m;
+
+struct HasFoo {
+    i32 foo;
+}
+
+struct NoFoo {
+    i32 bar;
+}
+
+void test() {
+    HasFoo h;
+    NoFoo n;
+    static if compiles {
+        h.foo;
+    } {
+        i32 unused1 = 1;
+    }
+    static if compiles {
+        n.foo;
+    } {
+        i32 unused2 = 1;
+    }
+}

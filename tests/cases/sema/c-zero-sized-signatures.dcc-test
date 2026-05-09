@@ -1,0 +1,25 @@
+=== FILE: m.dc ===
+module m;
+
+public struct Empty {}
+public union EmptyUnion {}
+public enum EmptyEnum {}
+
+public Empty[0] empty_structs;
+public EmptyUnion[0] empty_unions;
+public EmptyEnum[0] empty_enums;
+public Empty* empty_ptr;
+public []Empty empty_slice;
+public extern Empty[] empty_fam;
+
+=== EXPECT-TYPES FOR: m ===
+Module m
+  Struct Empty
+  Union EmptyUnion
+  Enum EmptyEnum
+  Var empty_structs: [struct Empty; 0]
+  Var empty_unions: [union EmptyUnion; 0]
+  Var empty_enums: [enum EmptyEnum; 0]
+  Var empty_ptr: ptr(struct Empty)
+  Var empty_slice: slice(struct Empty)
+  Var empty_fam: fam(struct Empty)

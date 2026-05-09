@@ -1,0 +1,39 @@
+=== FILE: test.dc ===
+module test;
+
+public i32 cast_int_int(i32 a) { return a as i32; }
+public i64 cast_i32_i64(i32 a) { return a as i64; }
+public i8 cast_i32_i8(i32 a) { return a as i8; }
+public f64 cast_i32_f64(i32 a) { return a as f64; }
+public i32 cast_f64_i32(f64 a) { return a as i32; }
+
+=== EXPECT-IR ===
+module "test"
+i32@_DC0F1.4.test12.cast_int_int1i32si32s(i32) {
+%entry(i32 %a):
+  ret i32 %a
+}
+
+i64@_DC0F1.4.test12.cast_i32_i641i32si64s(i32) {
+%entry(i32 %a):
+  %0 = sext i32 %a to i64
+  ret i64 %0
+}
+
+i8@_DC0F1.4.test11.cast_i32_i81i32si8s(i32) {
+%entry(i32 %a):
+  %0 = trunc i32 %a to i8
+  ret i8 %0
+}
+
+f64@_DC0F1.4.test12.cast_i32_f641i32sf64.(i32) {
+%entry(i32 %a):
+  %0 = itofp i32 %a to f64
+  ret f64 %0
+}
+
+i32@_DC0F1.4.test12.cast_f64_i321f64.i32s(f64) {
+%entry(f64 %a):
+  %0 = fptoi f64 %a to i32
+  ret i32 %0
+}

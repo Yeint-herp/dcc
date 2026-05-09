@@ -1,0 +1,19 @@
+=== FILE: pkg/main.dc ===
+module pkg::main;
+import pkg::sub::tool;
+
+=== FILE: pkg/sub/tool.dc ===
+module pkg::sub::tool;
+public f32 run() { return 0.0; }
+
+=== ENTRY: pkg/main.dc ===
+
+=== EXPECT-SCOPE FOR: pkg::main ===
+Module pkg::main
+  OwnScope
+    Binding sub
+      Namespace: group
+        Binding tool
+          Namespace: module
+            (foreign-scope)
+  ExportScope

@@ -1,0 +1,35 @@
+=== FILE: test.dc ===
+module test;
+
+public i32 or_high(u64 v) {
+    return match v {
+        0x8000_0000_0000_0000 | 0x8000_0000_0000_0001 => 10,
+        0x8000_0000_0000_0002 | 0x8000_0000_0000_0003 => 20,
+        _ => 99,
+    };
+}
+
+=== EXPECT-IR ===
+module "test"
+i32@_DC0F1.4.test7.or_high1i64ui32s(u64) {
+%entry(u64 %v):
+  switch u64 %v {
+    #9223372036854775808..=#9223372036854775809 => label %match.arm0.body4
+    #9223372036854775810..=#9223372036854775811 => label %match.arm1.body6
+    default => label %match.arm2.body8
+  }
+%match.merge1:
+  %0 = phi i32 [ i32 #10, label %match.arm0.body4 ],  [ i32 #20, label %match.arm1.body6 ],  [ i32 #99, label %match.arm2.body8 ]
+  ret i32 %0
+%match.fail2:
+  unreachable
+%match.arm0.test3:
+%match.arm0.body4:
+  br label %match.merge1
+%match.arm1.test5:
+%match.arm1.body6:
+  br label %match.merge1
+%match.arm2.test7:
+%match.arm2.body8:
+  br label %match.merge1
+}

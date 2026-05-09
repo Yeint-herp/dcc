@@ -1,0 +1,15 @@
+=== FILE: main.dc ===
+module m;
+
+enum Simple {
+    A(i32),
+    B,
+}
+
+public i32 test_bare_payload_error() {
+    Simple s = Simple::A;
+    return 0;
+}
+
+=== EXPECT-ERRORS ===
+main.dc:9: enum variant `Simple::A` requires a payload argument

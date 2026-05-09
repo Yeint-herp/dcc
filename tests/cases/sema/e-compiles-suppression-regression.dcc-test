@@ -1,0 +1,18 @@
+=== FILE: main.dc ===
+module m;
+
+void probe() {
+    static if compiles(i32 x) {
+        continue;
+    } {
+    }
+}
+
+=== EXPECT-BODY ===
+Module m
+  Func probe diverging=false
+    Body
+      StaticIf taken=1
+        Compiles [type=bool const=false constant]
+        Body
+          Continue

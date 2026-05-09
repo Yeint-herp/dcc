@@ -1,0 +1,23 @@
+=== FILE: test.dc ===
+module test;
+
+public struct Point {
+    i64 x;
+    i64 y;
+}
+
+public Point make_point(i64 x, i64 y) {
+    Point p = {x = x, y = y};
+    return p;
+}
+
+=== EXPECT-IR ===
+module "test"
+{@0 i64, @8 i64}@_DC0F1.4.test10.make_point2i64si64sD1.4.test5.Point0.(i64, i64) {
+%entry(i64 %x, i64 %y):
+  %0 = alloca {@0 i64, @8 i64}
+  %1 = aggregate {@0 i64, @8 i64}, %x, %y
+  store {@0 i64, @8 i64} %1, ptr<{@0 i64, @8 i64}> %0
+  %2 = load {@0 i64, @8 i64}, ptr<{@0 i64, @8 i64}> %0
+  ret {@0 i64, @8 i64} %2
+}

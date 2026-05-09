@@ -1,0 +1,77 @@
+=== FILE: test.dc ===
+module test;
+
+public i32 if_stmt(i32 x) {
+    i32 r = 0;
+    if (x) { r = 1; }
+    return r;
+}
+
+public i32 if_else_stmt(i32 x) {
+    i32 r = 0;
+    if (x) { r = 10; } else { r = 20; }
+    return r;
+}
+
+public i32 if_return(i32 x) {
+    if (x) { return 10; } else { return 20; }
+}
+
+=== EXPECT-LLVM ===
+; ModuleID = 'test'
+source_filename = "test"
+target triple = "x86_64-elf"
+
+define i32 @_DC0F1.4.test7.if_stmt1i32si32s(i32 %x) {
+entry:
+  %"0" = alloca i32, align 4
+  store i32 0, ptr %"0", align 4
+  %tobool = icmp ne i32 %x, 0
+  br i1 %tobool, label %if.then1, label %if.else2
+
+if.then1:                                         ; preds = %entry
+  store i32 1, ptr %"0", align 4
+  br label %if.merge3
+
+if.else2:                                         ; preds = %entry
+  br label %if.merge3
+
+if.merge3:                                        ; preds = %if.else2, %if.then1
+  %"1" = load i32, ptr %"0", align 4
+  ret i32 %"1"
+}
+
+define i32 @_DC0F1.4.test12.if_else_stmt1i32si32s(i32 %x) {
+entry:
+  %"0" = alloca i32, align 4
+  store i32 0, ptr %"0", align 4
+  %tobool = icmp ne i32 %x, 0
+  br i1 %tobool, label %if.then1, label %if.else2
+
+if.then1:                                         ; preds = %entry
+  store i32 10, ptr %"0", align 4
+  br label %if.merge3
+
+if.else2:                                         ; preds = %entry
+  store i32 20, ptr %"0", align 4
+  br label %if.merge3
+
+if.merge3:                                        ; preds = %if.else2, %if.then1
+  %"1" = load i32, ptr %"0", align 4
+  ret i32 %"1"
+}
+
+define i32 @_DC0F1.4.test9.if_return1i32si32s(i32 %x) {
+entry:
+  %tobool = icmp ne i32 %x, 0
+  br i1 %tobool, label %if.then1, label %if.else2
+
+if.then1:                                         ; preds = %entry
+  ret i32 10
+
+if.else2:                                         ; preds = %entry
+  ret i32 20
+
+if.merge3:                                        ; No predecessors!
+  unreachable
+}

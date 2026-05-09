@@ -1,0 +1,83 @@
+{
+    "name": "dcc-vscode",
+    "displayName": "DC Language Support",
+    "description": "Syntax highlighting and language server support for the DC programming language",
+    "publisher": "dcc",
+    "version": "0.1.0",
+    "license": "GPL-2.0-only",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/yeint-herp/dcc.git",
+        "directory": "vscode"
+    },
+    "bugs": {
+        "url": "https://github.com/yeint-herp/dcc/issues"
+    },
+    "homepage": "https://github.com/yeint-herp/dcc#readme",
+    "engines": {
+        "vscode": "^1.82.0"
+    },
+    "categories": [
+        "Programming Languages"
+    ],
+    "activationEvents": [
+        "onLanguage:dc"
+    ],
+    "main": "./out/extension.js",
+    "scripts": {
+        "compile": "tsc -p .",
+        "watch": "tsc -watch -p .",
+        "vscode:prepublish": "npm run esbuild-base -- --minify",
+        "esbuild-base": "esbuild ./src/extension.ts --bundle --outfile=out/extension.js --external:vscode --format=cjs --platform=node"
+    },
+    "contributes": {
+        "languages": [
+            {
+                "id": "dc",
+                "extensions": [
+                    ".dc"
+                ],
+                "aliases": [
+                    "DCC",
+                    "dc"
+                ],
+                "configuration": "./language-configuration.json"
+            }
+        ],
+        "grammars": [
+            {
+                "language": "dc",
+                "scopeName": "source.dc",
+                "path": "./syntaxes/dcc.tmLanguage.json"
+            }
+        ],
+        "configuration": {
+            "type": "object",
+            "title": "DCC Language Server Configuration",
+            "properties": {
+                "dcc.serverPath": {
+                    "type": "string",
+                    "default": "dccd",
+                    "description": "Path to the DCC language server executable (dccd)"
+                },
+                "dcc.includePaths": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "default": [],
+                    "description": "Additional include/import paths used to resolve modules. Relative paths are resolved from the first workspace folder."
+                }
+            }
+        }
+    },
+    "dependencies": {
+        "vscode-languageclient": "^9.0.1"
+    },
+    "devDependencies": {
+        "@types/node": "^20.19.41",
+        "@types/vscode": "^1.82.0",
+        "esbuild": "^0.28.0",
+        "typescript": "^5.3.3"
+    }
+}

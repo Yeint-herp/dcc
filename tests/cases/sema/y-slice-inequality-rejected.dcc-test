@@ -1,0 +1,12 @@
+=== FILE: test.dc ===
+module test;
+
+public void test() {
+    []i64 a;
+    []i64 b;
+
+    if (a != b) {}
+}
+
+=== EXPECT-ERRORS ===
+test.dc:7: slice values cannot be compared for equality (use .ptr/.len comparison or a library function)

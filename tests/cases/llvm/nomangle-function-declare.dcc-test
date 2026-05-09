@@ -1,0 +1,12 @@
+=== FILE: test.dc ===
+module test;
+
+@nomangle
+extern i32 process_data(f64 input);
+
+=== EXPECT-LLVM FLAGS: -verify ===
+; ModuleID = 'test'
+source_filename = "test"
+target triple = "x86_64-elf"
+
+declare i32 @process_data(double)

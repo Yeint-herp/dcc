@@ -1,0 +1,12 @@
+=== FILE: main.dc ===
+module m;
+
+i32 f(bool v) {
+    return match v {
+        true => 1,
+    };
+}
+
+=== EXPECT-ERRORS ===
+main.dc:4: match expression not exhaustive: missing case 'false'
+

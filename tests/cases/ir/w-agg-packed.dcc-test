@@ -1,0 +1,42 @@
+=== FILE: test.dc ===
+module test;
+
+@packed
+public struct PackedS {
+    u64 a;
+    u8 b;
+    u32 c;
+}
+
+public u64 get_a(PackedS p) { return p.a; }
+public u8  get_b(PackedS p) { return p.b; }
+public u32 get_c(PackedS p) { return p.c; }
+
+=== EXPECT-IR ===
+module "test"
+u64@_DC0F1.4.test5.get_a1D1.4.test7.PackedS0.i64u({@0 u64, @8 u8, @9 u32}) {
+%entry({@0 u64, @8 u8, @9 u32} %p):
+  %0 = alloca {@0 u64, @8 u8, @9 u32}
+  store {@0 u64, @8 u8, @9 u32} %p, ptr<{@0 u64, @8 u8, @9 u32}> %0
+  %1 = gep ptr<{@0 u64, @8 u8, @9 u32}> %0, field #0
+  %2 = load u64, ptr<u64> %1
+  ret u64 %2
+}
+
+u8@_DC0F1.4.test5.get_b1D1.4.test7.PackedS0.i8u({@0 u64, @8 u8, @9 u32}) {
+%entry({@0 u64, @8 u8, @9 u32} %p):
+  %0 = alloca {@0 u64, @8 u8, @9 u32}
+  store {@0 u64, @8 u8, @9 u32} %p, ptr<{@0 u64, @8 u8, @9 u32}> %0
+  %1 = gep ptr<{@0 u64, @8 u8, @9 u32}> %0, field #1
+  %2 = load u8, ptr<u8> %1
+  ret u8 %2
+}
+
+u32@_DC0F1.4.test5.get_c1D1.4.test7.PackedS0.i32u({@0 u64, @8 u8, @9 u32}) {
+%entry({@0 u64, @8 u8, @9 u32} %p):
+  %0 = alloca {@0 u64, @8 u8, @9 u32}
+  store {@0 u64, @8 u8, @9 u32} %p, ptr<{@0 u64, @8 u8, @9 u32}> %0
+  %1 = gep ptr<{@0 u64, @8 u8, @9 u32}> %0, field #2
+  %2 = load u32, ptr<u32> %1
+  ret u32 %2
+}

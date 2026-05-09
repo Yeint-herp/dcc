@@ -1,0 +1,27 @@
+=== FILE: test.dc ===
+module test;
+
+public enum Color : u8 {
+    Red,
+    Blue = 10,
+    Green,
+}
+
+public Color get_red() {
+    return Color::Red;
+}
+
+public Color get_blue() {
+    return Color::Blue;
+}
+=== EXPECT-IR ===
+module "test"
+u8@_DC0F1.4.test7.get_red0D1.4.test5.Color0.() {
+%entry:
+  ret u8 #0
+}
+
+u8@_DC0F1.4.test8.get_blue0D1.4.test5.Color0.() {
+%entry:
+  ret u8 #10
+}

@@ -1,0 +1,25 @@
+=== FILE: lib.dc ===
+module lib;
+public i64 stdout = 1;
+public i64 write(i64 fd, i64 count) { return 0; }
+
+=== FILE: main.dc ===
+module main;
+import lib;
+using lib::{stdout, write};
+
+i64 test() {
+    return stdout.write(0);
+}
+
+=== ENTRY: main.dc ===
+
+=== EXPECT-BODY ===
+Module main
+  Func test diverging=true
+    Body
+      Return
+        Call [type=i64 const=<none> decl=write ufcs=write]
+          FieldAccess write [type=<unresolved> const=<none> decl=write ufcs=write]
+            Ident stdout [type=i64 const=<none> lvalue decl=stdout]
+          IntLiteral 0 [type=i64 const=0 constant]

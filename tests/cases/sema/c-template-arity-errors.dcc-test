@@ -1,0 +1,13 @@
+=== FILE: m.dc ===
+module m;
+
+public struct Box(T) {
+    T value;
+}
+
+public Box missing;
+public Box(i32, u8) extra;
+
+=== EXPECT-ERRORS ===
+m.dc:7: template argument count mismatch
+m.dc:8: template argument count mismatch

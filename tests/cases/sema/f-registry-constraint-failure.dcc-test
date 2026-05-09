@@ -1,0 +1,26 @@
+=== FILE: main.dc ===
+module m;
+
+using Never(T) = compiles(T a) {
+    continue;
+};
+
+T constrained_sum(T)(T value) if Never(T) {
+    return value;
+}
+
+void call1() {
+    i32 x = 0;
+    constrained_sum(&x);
+}
+
+void call2() {
+    i32 y = 0;
+    constrained_sum(&y);
+}
+
+=== EXPECT-ERRORS ===
+main.dc:13: template constraint not satisfied for `constrained_sum`
+main.dc:18: template constraint not satisfied for `constrained_sum`
+
+=== EXPECT-REGISTRY ===

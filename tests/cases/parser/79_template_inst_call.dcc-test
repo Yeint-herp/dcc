@@ -1,0 +1,41 @@
+=== FILE: main.dc ===
+module m;
+void f() {
+    i32 a = max!i32(1, 2);
+    i32 b = max(1, 2);
+}
+
+=== EXPECT-AST ===
+TranslationUnit
+  Module m
+  Func name=f
+    Return
+      Primitive void
+    Body
+      Var name=a
+        Type
+          Primitive i32
+        Init
+          Call
+            Callee
+              TemplateInst
+                Callee
+                  Ident max
+                TemplateArgs
+                  Arg
+                    Primitive i32
+            Args
+              IntLiteral 1
+              IntLiteral 2
+      Var name=b
+        Type
+          Primitive i32
+        Init
+          Call
+            Callee
+              Ident max
+            Args
+              IntLiteral 1
+              IntLiteral 2
+
+=== EXPECT-ERRORS ===

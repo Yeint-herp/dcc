@@ -1,0 +1,29 @@
+=== FILE: main.dc ===
+module m;
+
+i32 ret_i64_to_i32() {
+    i64 v = 100;
+    return v;
+}
+
+i32 ret_f64_to_i32() {
+    f64 v = 3.14;
+    return v;
+}
+
+i32 ret_null_to_int() {
+    return null;
+}
+
+i16 ret_i32_to_i16() {
+    i32 v = 5;
+    return v;
+}
+
+=== ENTRY: main.dc ===
+
+=== EXPECT-ERRORS ===
+main.dc:5: return type mismatch
+main.dc:10: return type mismatch
+main.dc:14: return type mismatch
+main.dc:19: return type mismatch

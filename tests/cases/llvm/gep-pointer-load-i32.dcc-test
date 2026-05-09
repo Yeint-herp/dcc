@@ -1,0 +1,19 @@
+=== FILE: test.dc ===
+module test;
+
+@nomangle
+public i32 load_idx(i32* p, i64 idx) {
+    return p[idx];
+}
+
+=== EXPECT-LLVM FLAGS: -verify ===
+; ModuleID = 'test'
+source_filename = "test"
+target triple = "x86_64-elf"
+
+define i32 @load_idx(ptr %p, i64 %idx) {
+entry:
+  %"0" = getelementptr i32, ptr %p, i64 %idx
+  %"1" = load i32, ptr %"0", align 4
+  ret i32 %"1"
+}

@@ -1,0 +1,31 @@
+=== FILE: test.dc ===
+module test;
+
+public i32 dowhile_basic(i32 n) {
+    i32 i = 0;
+
+    do { i = i + 1; } while (i < n);
+
+    return i;
+}
+
+=== EXPECT-IR ===
+module "test"
+i32@_DC0F1.4.test13.dowhile_basic1i32si32s(i32) {
+%entry(i32 %n):
+  %0 = alloca i32
+  store i32 #0, ptr<i32> %0
+  br label %dowhile.body1
+%dowhile.body1:
+  %1 = load i32, ptr<i32> %0
+  %2 = add i32 %1, i32 #1
+  store i32 %2, ptr<i32> %0
+  br label %dowhile.cond2
+%dowhile.cond2:
+  %3 = load i32, ptr<i32> %0
+  %4 = cmp.lt i32 %3, %n
+  br.cond %4, label %dowhile.body1, label %dowhile.exit3
+%dowhile.exit3:
+  %5 = load i32, ptr<i32> %0
+  ret i32 %5
+}

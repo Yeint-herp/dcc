@@ -1,0 +1,38 @@
+=== FILE: main.dc ===
+module m;
+
+using Addable(T) = compiles(T a, T b) {
+    a + b;
+};
+
+using Divisible(T) = compiles(T a, T b) {
+    a / b;
+};
+
+using PointerLike(T) = compiles(T* p) {
+    p[0];
+};
+
+using Arithmetic(T) = Addable(T) & (Divisible(T) | !PointerLike(T));
+
+T sum(T)(T value) if Arithmetic(T) {
+    return value;
+}
+
+i32 ok() {
+    return sum(1);
+}
+
+=== EXPECT-BODY ===
+Module m
+  Func sum diverging=false
+    Param value type=T#0 storage=param offset=0 index=0
+    Body
+      Return
+        Ident value [type=<unresolved> const=<none>]
+  Func ok diverging=true
+    Body
+      Return
+        Call [type=i32 const=<none> decl=sum spec=sum]
+          Ident sum [type=<unresolved> const=<none>]
+          IntLiteral 1 [type=i32 const=1 constant]

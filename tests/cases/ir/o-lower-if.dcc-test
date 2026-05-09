@@ -1,0 +1,94 @@
+=== FILE: test.dc ===
+module test;
+
+public i32 if_plain(i32 x) {
+    i32 r = 0;
+    if (x) { r = 1; }
+
+    return r;
+}
+
+public i32 if_else(i32 x) {
+    i32 r = 0;
+    if (x) { r = 1; } else { r = 2; }
+
+    return r;
+}
+
+public i32 if_expr_phi(i32 x) {
+    return if (x) { 10 } else { 20 };
+}
+
+public i32 if_one_returns(i32 x) {
+    return if (x) { 10 } else { return 20; };
+}
+
+public i32 if_both_return(i32 x) {
+    if (x) { return 10; } else { return 20; }
+}
+
+=== EXPECT-IR ===
+module "test"
+i32@_DC0F1.4.test8.if_plain1i32si32s(i32) {
+%entry(i32 %x):
+  %0 = alloca i32
+  store i32 #0, ptr<i32> %0
+  br.cond %x, label %if.then1, label %if.else2
+%if.then1:
+  store i32 #1, ptr<i32> %0
+  br label %if.merge3
+%if.else2:
+  br label %if.merge3
+%if.merge3:
+  %1 = load i32, ptr<i32> %0
+  ret i32 %1
+}
+
+i32@_DC0F1.4.test7.if_else1i32si32s(i32) {
+%entry(i32 %x):
+  %0 = alloca i32
+  store i32 #0, ptr<i32> %0
+  br.cond %x, label %if.then1, label %if.else2
+%if.then1:
+  store i32 #1, ptr<i32> %0
+  br label %if.merge3
+%if.else2:
+  store i32 #2, ptr<i32> %0
+  br label %if.merge3
+%if.merge3:
+  %1 = load i32, ptr<i32> %0
+  ret i32 %1
+}
+
+i32@_DC0F1.4.test11.if_expr_phi1i32si32s(i32) {
+%entry(i32 %x):
+  br.cond %x, label %if.then1, label %if.else2
+%if.then1:
+  br label %if.merge3
+%if.else2:
+  br label %if.merge3
+%if.merge3:
+  %0 = phi i32 [ i32 #10, label %if.then1 ],  [ i32 #20, label %if.else2 ]
+  ret i32 %0
+}
+
+i32@_DC0F1.4.test14.if_one_returns1i32si32s(i32) {
+%entry(i32 %x):
+  br.cond %x, label %if.then1, label %if.else2
+%if.then1:
+  br label %if.merge3
+%if.else2:
+  ret i32 #20
+%if.merge3:
+  ret i32 #10
+}
+
+i32@_DC0F1.4.test14.if_both_return1i32si32s(i32) {
+%entry(i32 %x):
+  br.cond %x, label %if.then1, label %if.else2
+%if.then1:
+  ret i32 #10
+%if.else2:
+  ret i32 #20
+%if.merge3:
+}

@@ -1,0 +1,26 @@
+=== FILE: main.dc ===
+module m;
+
+public enum First {
+    X = 10,
+    Y = 20,
+}
+
+public enum Second {
+    A = First::X,
+    B = First::Y,
+}
+
+public Second get_a() { return Second::A; }
+public Second get_b() { return Second::B; }
+
+=== EXPECT-BODY ===
+Module m
+  Func get_a diverging=true
+    Body
+      Return
+        Path Second::A [type=enum Second const=10 constant decl=Second]
+  Func get_b diverging=true
+    Body
+      Return
+        Path Second::B [type=enum Second const=20 constant decl=Second]

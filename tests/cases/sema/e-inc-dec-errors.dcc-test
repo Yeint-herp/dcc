@@ -1,0 +1,39 @@
+=== FILE: main.dc ===
+module m;
+
+struct Point {
+    i32 x;
+    i32 y;
+}
+
+void test_postfix_rvalue() {
+    5++;
+}
+
+void test_prefix_rvalue() {
+    ++10;
+}
+
+void test_postfix_non_numeric(Point p) {
+    p++;
+}
+
+void test_prefix_non_numeric(Point q) {
+    ++q;
+}
+
+void test_postfix_bool(bool b) {
+    b++;
+}
+
+void test_prefix_bool(bool c) {
+    ++c;
+}
+
+=== EXPECT-ERRORS ===
+main.dc:9: postfix increment/decrement requires an lvalue
+main.dc:13: pre-increment/decrement requires an lvalue
+main.dc:17: postfix increment/decrement requires numeric or pointer type
+main.dc:21: pre-increment/decrement requires numeric or pointer type
+main.dc:25: postfix increment/decrement requires numeric or pointer type
+main.dc:29: pre-increment/decrement requires numeric or pointer type

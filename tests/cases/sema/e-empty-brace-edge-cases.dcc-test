@@ -1,0 +1,15 @@
+=== FILE: main.dc ===
+module m;
+
+enum Maybe {
+    @implicit_construction Just(i32),
+    Nothing,
+}
+
+i32 test_empty_brace_enum_error() {
+    Maybe m = {};
+    return 0;
+}
+
+=== EXPECT-ERRORS ===
+main.dc:9: no matching enum construction

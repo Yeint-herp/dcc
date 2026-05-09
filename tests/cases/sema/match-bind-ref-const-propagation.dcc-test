@@ -1,0 +1,19 @@
+=== FILE: main.dc ===
+module m;
+
+public void f(i64 v) {
+    match v {
+        &p => {}
+    };
+}
+=== EXPECT-BODY ===
+Module m
+  Func f diverging=false
+    Param v type=i64 storage=param offset=0 index=0
+    Body
+      Match [type=void const=<none>]
+        Ident v [type=i64 const=<none> lvalue decl=v]
+        Arm
+          BindingPattern p by_ref=true
+          Block [type=void const=<none>]
+            Body

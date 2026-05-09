@@ -1,0 +1,27 @@
+=== FILE: test.dc ===
+module test;
+
+public enum Signed {
+    Neg = -1,
+    Zero = 0,
+    Pos = 1,
+}
+
+public Signed get_neg() {
+    return Signed::Neg;
+}
+
+public Signed get_pos() {
+    return Signed::Pos;
+}
+=== EXPECT-IR ===
+module "test"
+i8@_DC0F1.4.test7.get_neg0D1.4.test6.Signed0.() {
+%entry:
+  ret i8 #-1
+}
+
+i8@_DC0F1.4.test7.get_pos0D1.4.test6.Signed0.() {
+%entry:
+  ret i8 #1
+}

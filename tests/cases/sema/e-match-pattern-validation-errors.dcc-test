@@ -1,0 +1,82 @@
+=== FILE: main.dc ===
+module m;
+
+enum Result {
+    Ok(i32),
+    Err(i32),
+}
+
+enum Other {
+    X(i32),
+}
+
+struct Point {
+    i32 x;
+    i32 y;
+}
+
+i64 bad_variant(Result r) {
+    return match r {
+        Result::Missing => 0,
+        _ => 1,
+    };
+}
+
+i64 bad_payload(Result r) {
+    return match r {
+        Result::Ok() => 0,
+        _ => 1,
+    };
+}
+
+i64 bad_wrong_enum(Result r) {
+    return match r {
+        Other::X(v) => 0,
+        _ => 1,
+    };
+}
+
+i64 bad_field(Point p) {
+    return match p {
+        Point { z } => 0,
+        _ => 1,
+    };
+}
+
+i64 bad_struct(Result r) {
+    return match r {
+        Point { x } => 0,
+        _ => 1,
+    };
+}
+
+i64 bad_range(bool v) {
+    return match v {
+        false..=true => 0,
+        _ => 1,
+    };
+}
+
+i64 bad_or(i64 v) {
+    return match v {
+        x | y => 0,
+        _ => 1,
+    };
+}
+
+void bad_static(i64 v) {
+    static match v {
+        1 => 0,
+        _ => 1,
+    }
+}
+
+=== EXPECT-ERRORS ===
+main.dc:19: unknown enum variant `Missing`
+main.dc:26: enum pattern payload arity mismatch
+main.dc:33: enum variant `X` does not belong to `Other`
+main.dc:40: unknown field `z` in struct pattern
+main.dc:47: struct pattern requires struct operand
+main.dc:54: range pattern requires an ordered scalar operand
+main.dc:61: or-pattern alternatives must bind the same names
+main.dc:67: static match operand must be constant

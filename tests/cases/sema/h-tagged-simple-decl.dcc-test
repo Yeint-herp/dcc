@@ -1,0 +1,18 @@
+=== FILE: main.dc ===
+module m;
+
+public enum Option {
+    None,
+    Some(i32),
+}
+
+public Option opt1;
+public Option opt2;
+
+=== EXPECT-TYPES FOR: m ===
+Module m
+  Enum Option
+    Variant None
+    Variant Some(i32)
+  Var opt1: enum Option
+  Var opt2: enum Option

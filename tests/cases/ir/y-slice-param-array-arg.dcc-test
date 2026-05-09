@@ -1,0 +1,34 @@
+=== FILE: test.dc ===
+module test;
+
+public i64 take_slice([]i64 s) { return s.len; }
+
+public i64 test() {
+    i64[3] arr = {10, 20, 30};
+    return take_slice(arr);
+}
+
+=== EXPECT-IR ===
+module "test"
+i64@_DC0F1.4.test10.take_slice1Sqi64si64s([]i64) {
+%entry([]i64 %s):
+  %0 = alloca []i64
+  store []i64 %s, ptr<[]i64> %0
+  %1 = gep ptr<[]i64> %0, field #1
+  %2 = load u64, ptr<u64> %1
+  ret u64 %2
+}
+
+i64@_DC0F1.4.test4.test0i64s() {
+%entry:
+  %0 = alloca [3 x i64]
+  %1 = aggregate [3 x i64], #10, #20, #30
+  store [3 x i64] %1, ptr<[3 x i64]> %0
+  %2 = load [3 x i64], ptr<[3 x i64]> %0
+  %3 = alloca [3 x i64]
+  store [3 x i64] %2, ptr<[3 x i64]> %3
+  %4 = gep ptr<[3 x i64]> %3, #0
+  %5 = aggregate []i64, %4, #3
+  %6 = call fn(@_DC0F1.4.test10.take_slice1Sqi64si64s)([]i64 %5) -> i64
+  ret i64 %6
+}

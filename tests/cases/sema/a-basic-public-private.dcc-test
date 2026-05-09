@@ -1,0 +1,42 @@
+=== FILE: m.dc ===
+module m;
+
+public struct Point {
+    f32 x;
+    f32 y;
+}
+
+struct Hidden {
+    i32 v;
+}
+
+public f32 distance(Point a, Point b) { return 0.0; }
+
+f32 helper() { return 0.0; }
+
+public i32 GLOBAL = 42;
+
+i32 INTERNAL = 0;
+
+=== EXPECT-SCOPE FOR: m ===
+Module m
+  OwnScope
+    Binding GLOBAL
+      Value: variable exported
+    Binding Hidden
+      Type: struct
+    Binding INTERNAL
+      Value: variable
+    Binding Point
+      Type: struct exported
+    Binding distance
+      Value: function exported
+    Binding helper
+      Value: function
+  ExportScope
+    Binding GLOBAL
+      Value: variable exported
+    Binding Point
+      Type: struct exported
+    Binding distance
+      Value: function exported

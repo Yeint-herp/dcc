@@ -1,0 +1,18 @@
+=== FILE: main.dc ===
+module m;
+
+i32 pick(i32 x) {
+    return x;
+}
+
+void ret_missing() {
+    return missing;
+}
+
+void call_missing() {
+    pick(missing);
+}
+
+=== EXPECT-ERRORS ===
+main.dc:8: unknown name `missing`
+main.dc:12: unknown name `missing`

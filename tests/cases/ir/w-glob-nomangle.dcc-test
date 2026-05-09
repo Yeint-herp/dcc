@@ -1,0 +1,19 @@
+=== FILE: test.dc ===
+module test;
+
+@nomangle
+i32 my_var = 42;
+
+public i32 get_val() { return my_var; }
+
+=== EXPECT-IR ===
+module "test"
+
+global @my_var : i32 = #42
+
+
+i32@_DC0F1.4.test7.get_val0i32s() {
+%entry:
+  %0 = load i32, ptr<i32> @my_var
+  ret i32 %0
+}

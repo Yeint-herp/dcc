@@ -1,0 +1,16 @@
+=== FILE: main.dc ===
+module m;
+
+void write(const char* str, []const char* args) {
+}
+
+void test_invalid_brace() {
+    "Hello {}".write({1});
+}
+
+void test_valid_brace() {
+    "Hello {}".write({"world"});
+}
+
+=== EXPECT-ERRORS ===
+main.dc:7: slice element type mismatch

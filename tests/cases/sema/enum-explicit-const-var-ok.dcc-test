@@ -1,0 +1,25 @@
+=== FILE: main.dc ===
+module m;
+
+const i32 BASE = 100;
+
+public enum X {
+    A = BASE,
+    B = BASE + 1,
+}
+
+public X get_a() { return X::A; }
+public X get_b() { return X::B; }
+
+=== EXPECT-BODY ===
+Module m
+  Var BASE type=i32 storage=module offset=0
+    IntLiteral 100 [type=i32 const=100 constant]
+  Func get_a diverging=true
+    Body
+      Return
+        Path X::A [type=enum X const=100 constant decl=X]
+  Func get_b diverging=true
+    Body
+      Return
+        Path X::B [type=enum X const=101 constant decl=X]

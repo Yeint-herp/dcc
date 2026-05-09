@@ -1,0 +1,26 @@
+=== FILE: main.dc ===
+module m;
+
+struct Point { i32 x; i32 y; }
+
+i32 add(Point P)(i32 v) {
+    return v;
+}
+
+void a() {
+    i32 r = add!(Point{1, 2})(10);
+}
+
+void b() {
+    i32 r = add!(Point{1, 2})(20);
+}
+
+void c() {
+    i32 r = add!(Point{3, 4})(30);
+}
+
+=== ENTRY: main.dc ===
+
+=== EXPECT-REGISTRY ===
+fn=add args=[<value>] state=2
+fn=add args=[<value>] state=2

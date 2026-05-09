@@ -1,0 +1,15 @@
+=== FILE: main.dc ===
+module main;
+
+T recurse(T)(T x) {
+    return recurse(x);
+}
+
+void test() {
+    recurse(42);
+}
+
+=== ENTRY: main.dc ===
+
+=== EXPECT-REGISTRY ===
+fn=recurse args=[i32] state=2

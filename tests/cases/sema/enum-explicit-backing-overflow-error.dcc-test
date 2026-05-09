@@ -1,0 +1,10 @@
+=== FILE: main.dc ===
+module m;
+
+enum Big : u8 {
+    A = 200,
+    B = 300,
+}
+
+=== EXPECT-ERRORS ===
+main.dc:5: discriminant value 300 does not fit in backing type u8

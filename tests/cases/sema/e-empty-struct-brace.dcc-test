@@ -1,0 +1,39 @@
+=== FILE: main.dc ===
+module m;
+
+struct Empty {
+}
+
+struct Container {
+    i32 tag;
+    Empty payload;
+}
+
+Empty test_empty_struct() {
+    Empty e = {};
+    return e;
+}
+
+Container test_nested_empty() {
+    Container c = { 1, {} };
+    return c;
+}
+
+=== ENTRY: main.dc ===
+
+=== EXPECT-BODY ===
+Module m
+  Func test_empty_struct diverging=true
+    Body
+      Var e type=struct Empty storage=local offset=0
+        StructLiteral [type=struct Empty const=agg() constant]
+      Return
+        Ident e [type=struct Empty const=agg() lvalue constant decl=e]
+  Func test_nested_empty diverging=true
+    Body
+      Var c type=struct Container storage=local offset=0
+        StructLiteral [type=struct Container const=agg(1, agg()) constant]
+          IntLiteral 1 [type=i32 const=1 constant]
+          StructLiteral [type=struct Empty const=agg() constant]
+      Return
+        Ident c [type=struct Container const=agg(1, agg()) lvalue constant decl=c]

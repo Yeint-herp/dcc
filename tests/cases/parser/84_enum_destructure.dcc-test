@@ -1,0 +1,41 @@
+=== FILE: main.dc ===
+module m;
+void f() {
+    i32 r = match res {
+        Result::Ok(inner) => inner,
+        Result::Err(e) => -1,
+        Result::Cancelled => 0,
+    };
+}
+
+=== EXPECT-AST ===
+TranslationUnit
+  Module m
+  Func name=f
+    Return
+      Primitive void
+    Body
+      Var name=r
+        Type
+          Primitive i32
+        Init
+          Match
+            Operand
+              Ident res
+            Arm
+              EnumDestructurePattern variant=Result::Ok
+                BindingPattern name=inner
+              Body
+                Ident inner
+            Arm
+              EnumDestructurePattern variant=Result::Err
+                BindingPattern name=e
+              Body
+                Unary op=-
+                  IntLiteral 1
+            Arm
+              EnumDestructurePattern variant=Result::Cancelled
+              Body
+                IntLiteral 0
+
+=== EXPECT-ERRORS ===

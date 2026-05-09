@@ -1,0 +1,9 @@
+=== FILE: main.dc ===
+module m;
+
+enum X {
+    A = "string",
+}
+
+=== EXPECT-ERRORS ===
+main.dc:4: expression is not a valid enum discriminant

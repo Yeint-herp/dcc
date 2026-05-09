@@ -1,0 +1,12 @@
+=== FILE: main.dc ===
+module m;
+
+i32 f(char c) {
+    return match c {
+        0..=97 => 1,
+        99..=255 => 2,
+    };
+}
+
+=== EXPECT-ERRORS ===
+main.dc:4: match expression not exhaustive: missing value 'b'

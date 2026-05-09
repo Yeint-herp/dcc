@@ -1,0 +1,15 @@
+=== FILE: main.dc ===
+module m;
+
+enum Simple {
+    A(i32),
+    B,
+}
+
+public i32 test_payloadless_with_parens_error() {
+    Simple s = Simple::B();
+    return 0;
+}
+
+=== EXPECT-ERRORS ===
+main.dc:9: enum variant `Simple::B` is payloadless and cannot be called with '()'

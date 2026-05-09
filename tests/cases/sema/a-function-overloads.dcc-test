@@ -1,0 +1,19 @@
+=== FILE: m.dc ===
+module m;
+
+public void print(i32 x) {}
+public void print(f64 x) {}
+public void print(bool x) {}
+
+=== EXPECT-SCOPE FOR: m ===
+Module m
+  OwnScope
+    Binding print
+      Value: function exported
+      Value: function exported
+      Value: function exported
+  ExportScope
+    Binding print
+      Value: function exported
+      Value: function exported
+      Value: function exported

@@ -1,0 +1,41 @@
+=== FILE: main.dc ===
+module m;
+
+void cleanup() {}
+void cleanup2() {}
+
+void f() {
+    while true {
+        defer cleanup();
+        break;
+    }
+    do {
+        defer cleanup2();
+        continue;
+    } while false;
+}
+
+=== EXPECT-BODY ===
+Module m
+  Func cleanup diverging=false
+    Body
+  Func cleanup2 diverging=false
+    Body
+  Func f diverging=false
+    Body
+      While
+        BoolLiteral true [type=bool const=true constant]
+        Body
+          Defer
+            Call [type=void const=<none> decl=cleanup]
+              Ident cleanup [type=<unresolved> const=<none>]
+          Break
+          RunsDefer
+      DoWhile
+        Body
+          Defer
+            Call [type=void const=<none> decl=cleanup2]
+              Ident cleanup2 [type=<unresolved> const=<none>]
+          Continue
+          RunsDefer
+        BoolLiteral false [type=bool const=false constant]

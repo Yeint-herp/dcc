@@ -1,0 +1,21 @@
+=== FILE: math.dc ===
+module math;
+public struct Vec3 { f32 x; f32 y; f32 z; }
+
+=== FILE: main.dc ===
+module main;
+import math;
+
+using V = math::Vec3;
+
+=== ENTRY: main.dc ===
+
+=== EXPECT-SCOPE FOR: main ===
+Module main
+  OwnScope
+    Binding V
+      Type: struct via-using
+    Binding math
+      Namespace: module
+        (foreign-scope)
+  ExportScope

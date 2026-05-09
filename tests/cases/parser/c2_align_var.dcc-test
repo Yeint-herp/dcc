@@ -1,0 +1,17 @@
+=== FILE: main.dc ===
+module m;
+@align(16)
+u8[64] buffer;
+
+=== EXPECT-AST ===
+TranslationUnit
+  Module m
+  Var name=buffer
+    @align
+      IntLiteral 16
+    Type
+      Array
+        Element
+          Primitive u8
+        Size
+          IntLiteral 64

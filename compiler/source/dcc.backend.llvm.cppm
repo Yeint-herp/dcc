@@ -1,0 +1,2438 @@
+module;
+
+#include <array>
+#include <cstdio>
+#include <llvm-c/Core.h>
+#include <llvm-c/DebugInfo.h>
+#include <llvm-c/Target.h>
+#include <llvm-c/TargetMachine.h>
+
+export module dcc.backend.llvm;
+
+import std;
+import dcc.backend;
+import dcc.ir;
+import dcc.target;
+import dcc.sm;
+
+export namespace dcc::backend
+{
+    [[nodiscard]] auto make_llvm_backend() -> std::unique_ptr<Backend>;
+
+} // namespace dcc::backend
+
+module :private;
+
+namespace dcc::backend
+{
+    namespace
+    {
+        using namespace dcc::ir;
+        using namespace dcc::target;
+
+        struct DebugEmitContext
+        {
+            LLVMDIBuilderRef dibuilder = nullptr;
+            LLVMMetadataRef difile = nullptr;
+            LLVMMetadataRef dicu = nullptr;
+            std::unordered_map<IrFunction const*, LLVMMetadataRef> subprogram_map;
+            bool finalized = false;
+
+            void finalize()
+            {
+                if (finalized)
+                    return;
+
+                if (dibuilder)
+                    LLVMDIBuilderFinalize(dibuilder);
+
+                finalized = true;
+            }
+
+            ~DebugEmitContext()
+            {
+                finalize();
+                if (dibuilder)
+                    LLVMDisposeDIBuilder(dibuilder);
+            }
+        };
+
+        [[nodiscard]] std::string llvm_codegen_triple(TargetConfig const& cfg)
+        {
+            auto const& t = cfg.triple;
+            if (t == "x86_64-elf")
+                return "x86_64-unknown-linux-gnu";
+            if (t == "x86-elf")
+                return "i386-unknown-linux-gnu";
+            if (t == "x86_64-coff")
+                return "x86_64-pc-windows-msvc";
+            if (t == "x86-coff")
+                return "i386-pc-windows-msvc";
+
+            return t;
+        }
+
+        [[nodiscard]] bool is_bool_type(IrType const* t)
+        {
+            return t && t->kind == IrTypeKind::Bool;
+        }
+
+        void add_diag(std::vector<BackendDiagnostic>& diags, sm::SourceRange where, std::string msg)
+        {
+            diags.push_back(BackendDiagnostic{where, std::move(msg)});
+        }
+
+        [[nodiscard]] LLVMTypeRef c_api_type(IrType const* t, LLVMContextRef ctx, bool for_memory = false)
+        {
+            if (!t)
+                return LLVMVoidTypeInContext(ctx);
+
+            switch (t->kind)
+            {
+                case IrTypeKind::Void:
+                    return LLVMVoidTypeInContext(ctx);
+                case IrTypeKind::Bool:
+                    return for_memory ? LLVMInt8TypeInContext(ctx) : LLVMInt1TypeInContext(ctx);
+                case IrTypeKind::Int: {
+                    auto* it = static_cast<IrIntType const*>(t);
+                    return LLVMIntTypeInContext(ctx, it->bits);
+                }
+                case IrTypeKind::Float: {
+                    auto* ft = static_cast<IrFloatType const*>(t);
+                    if (ft->bits == 32)
+                        return LLVMFloatTypeInContext(ctx);
+                    if (ft->bits == 64)
+                        return LLVMDoubleTypeInContext(ctx);
+                    return LLVMFloatTypeInContext(ctx);
+                }
+                case IrTypeKind::Pointer:
+                    return LLVMPointerTypeInContext(ctx, 0);
+                default:
+                    return nullptr;
+            }
+        }
+
+        struct TypeCache
+        {
+            LLVMContextRef ctx;
+            std::unordered_map<IrType const*, LLVMTypeRef> map;
+            std::unordered_map<IrType const*, std::vector<unsigned>> field_index_map;
+
+            explicit TypeCache(LLVMContextRef c) : ctx(c) {}
+
+            [[nodiscard]] LLVMTypeRef get(IrType const* t, bool for_memory)
+            {
+                if (!t)
+                    return LLVMVoidTypeInContext(ctx);
+
+                if (is_simple_type(t->kind))
+                    return c_api_type(t, ctx, for_memory);
+
+                auto it = map.find(t);
+                if (it != map.end())
+                    return it->second;
+
+                auto* opaque = LLVMStructCreateNamed(ctx, "");
+                map[t] = opaque;
+
+                auto* result = build_complex(t);
+                map[t] = result;
+                return result;
+            }
+
+            [[nodiscard]] unsigned get_llvm_field_index(IrAggregateType const* at, unsigned ir_field_idx) const
+            {
+                auto it = field_index_map.find(at);
+                if (it != field_index_map.end() && ir_field_idx < it->second.size())
+                    return it->second[ir_field_idx];
+
+                return ir_field_idx;
+            }
+
+        private:
+            [[nodiscard]] static bool is_simple_type(IrTypeKind k)
+            {
+                switch (k)
+                {
+                    case IrTypeKind::Void:
+                    case IrTypeKind::Bool:
+                    case IrTypeKind::Int:
+                    case IrTypeKind::Float:
+                    case IrTypeKind::Pointer:
+                        return true;
+                    default:
+                        return false;
+                }
+            }
+
+            [[nodiscard]] LLVMTypeRef build_complex(IrType const* t)
+            {
+                switch (t->kind)
+                {
+                    case IrTypeKind::Aggregate: {
+                        auto* at = static_cast<IrAggregateType const*>(t);
+                        std::vector<LLVMTypeRef> elems;
+                        elems.reserve(at->members.size() + 1);
+                        std::vector<unsigned> index_map;
+                        index_map.reserve(at->members.size());
+
+                        std::uint64_t expected_offset = 0;
+                        unsigned next_llvm_idx = 0;
+                        for (std::size_t i = 0; i < at->members.size(); ++i)
+                        {
+                            auto* m = at->members[i];
+                            auto offset = i < at->member_offsets.size() ? at->member_offsets[i] : 0;
+
+                            if (offset > expected_offset)
+                            {
+                                auto pad_size = offset - expected_offset;
+                                auto* pad_ty = LLVMArrayType2(LLVMInt8TypeInContext(ctx), static_cast<unsigned>(pad_size));
+                                elems.push_back(pad_ty);
+                                ++next_llvm_idx;
+                            }
+
+                            auto* mem_ty = get(m, true);
+                            elems.push_back(mem_ty);
+                            index_map.push_back(next_llvm_idx);
+                            ++next_llvm_idx;
+
+                            expected_offset = offset + (m ? m->byte_size : 0);
+                        }
+
+                        if (expected_offset < at->byte_size)
+                        {
+                            auto pad_size = at->byte_size - expected_offset;
+                            auto* pad_ty = LLVMArrayType2(LLVMInt8TypeInContext(ctx), static_cast<unsigned>(pad_size));
+                            elems.push_back(pad_ty);
+                        }
+
+                        field_index_map[t] = std::move(index_map);
+
+                        auto* struct_ty = LLVMStructCreateNamed(ctx, "");
+                        LLVMStructSetBody(struct_ty, elems.data(), static_cast<unsigned>(elems.size()), 0);
+                        return struct_ty;
+                    }
+                    case IrTypeKind::Array: {
+                        auto* at2 = static_cast<IrArrayType const*>(t);
+                        auto* elem_ty = get(at2->element, true);
+                        return LLVMArrayType2(elem_ty, static_cast<unsigned>(at2->count));
+                    }
+                    case IrTypeKind::Slice: {
+                        LLVMTypeRef fields[] = {
+                            LLVMPointerTypeInContext(ctx, 0),
+                            LLVMInt64TypeInContext(ctx),
+                        };
+                        return LLVMStructTypeInContext(ctx, fields, 2, 0);
+                    }
+                    default:
+                        return LLVMVoidTypeInContext(ctx);
+                }
+            }
+        };
+
+        [[nodiscard]] LLVMTypeRef c_api_type_cached(TypeCache& tc, IrType const* t, bool for_memory = false)
+        {
+            if (!t)
+                return LLVMVoidTypeInContext(tc.ctx);
+
+            auto* simple = c_api_type(t, tc.ctx, for_memory);
+            if (simple)
+                return simple;
+
+            return tc.get(t, for_memory);
+        }
+
+        [[nodiscard]] LLVMTypeRef llvm_type_cached(TypeCache& tc, IrType const* t)
+        {
+            return c_api_type_cached(tc, t, false);
+        }
+        [[nodiscard]] LLVMTypeRef llvm_mem_type_cached(TypeCache& tc, IrType const* t)
+        {
+            return c_api_type_cached(tc, t, true);
+        }
+
+        [[nodiscard]] LLVMValueRef c_api_constant(IrValue const* v, LLVMContextRef ctx, TypeCache& tc,
+                                                  std::unordered_map<IrValue const*, LLVMValueRef>& val_map, LLVMTypeRef expected_mem_type = nullptr)
+        {
+            if (!v)
+                return nullptr;
+
+            switch (v->kind)
+            {
+                case IrNodeKind::IntConstant: {
+                    auto* ic = static_cast<IrIntConstant const*>(v);
+                    auto* ty = expected_mem_type ? expected_mem_type : c_api_type_cached(tc, v->type);
+                    if (!ty)
+                        return nullptr;
+
+                    return LLVMConstInt(ty, static_cast<unsigned long long>(ic->value), v->type && static_cast<IrIntType const*>(v->type)->is_signed);
+                }
+                case IrNodeKind::FloatConstant: {
+                    auto* fc = static_cast<IrFloatConstant const*>(v);
+                    auto* ty = c_api_type_cached(tc, v->type);
+                    if (!ty)
+                        return nullptr;
+
+                    if (LLVMGetTypeKind(ty) == LLVMFloatTypeKind)
+                        return LLVMConstReal(ty, static_cast<float>(fc->value));
+                    else
+                        return LLVMConstReal(ty, fc->value);
+                }
+                case IrNodeKind::BoolConstant: {
+                    auto* bc = static_cast<IrBoolConstant const*>(v);
+                    auto* ty = expected_mem_type ? expected_mem_type : LLVMInt1TypeInContext(ctx);
+                    return LLVMConstInt(ty, bc->value ? 1 : 0, false);
+                }
+                case IrNodeKind::NullConstant:
+                    return LLVMConstPointerNull(LLVMPointerTypeInContext(ctx, 0));
+                case IrNodeKind::GlobalRef: {
+                    auto* g = static_cast<IrGlobalRef const*>(v);
+
+                    LLVMValueRef result = nullptr;
+
+                    if (g->function)
+                        if (auto it = val_map.find(g->function); it != val_map.end())
+                            result = it->second;
+
+                    if (!result && g->global)
+                        if (auto it = val_map.find(g->global); it != val_map.end())
+                            result = it->second;
+
+                    if (!result)
+                        if (auto it = val_map.find(g); it != val_map.end())
+                            result = it->second;
+
+                    if (!result)
+                        return nullptr;
+
+                    if (expected_mem_type && LLVMGetTypeKind(expected_mem_type) == LLVMPointerTypeKind)
+                    {
+                        LLVMTypeRef gv_value_type = nullptr;
+                        if (g->global)
+                            gv_value_type = LLVMGlobalGetValueType(result);
+
+                        if (gv_value_type && LLVMGetTypeKind(gv_value_type) == LLVMArrayTypeKind)
+                        {
+                            LLVMValueRef indices[] = {
+                                LLVMConstInt(LLVMInt32TypeInContext(ctx), 0, 0),
+                                LLVMConstInt(LLVMInt32TypeInContext(ctx), 0, 0),
+                            };
+                            result = LLVMConstGEP2(gv_value_type, result, indices, 2);
+                        }
+                    }
+
+                    return result;
+                }
+                case IrNodeKind::StringConstant: {
+                    auto* sc = static_cast<IrStringConstant const*>(v);
+
+                    auto* mem_ty = c_api_type_cached(tc, v->type, true);
+                    if (!mem_ty)
+                        return nullptr;
+
+                    if (LLVMGetTypeKind(mem_ty) == LLVMArrayTypeKind)
+                    {
+                        auto* elem_ty = LLVMGetElementType(mem_ty);
+                        std::vector<LLVMValueRef> elems;
+                        elems.reserve(sc->value.size());
+                        bool is_i8 = (LLVMGetTypeKind(elem_ty) == LLVMIntegerTypeKind && LLVMGetIntTypeWidth(elem_ty) == 8);
+
+                        for (auto ch : sc->value)
+                            if (is_i8)
+                                elems.push_back(LLVMConstInt(elem_ty, static_cast<unsigned char>(ch), false));
+                            else
+                                elems.push_back(LLVMConstInt(elem_ty, static_cast<unsigned char>(ch), false));
+
+                        auto count = LLVMGetArrayLength2(mem_ty);
+                        while (elems.size() < count)
+                            elems.push_back(LLVMConstNull(elem_ty));
+
+                        return LLVMConstArray2(elem_ty, elems.data(), static_cast<unsigned>(elems.size()));
+                    }
+
+                    return LLVMConstNull(mem_ty);
+                }
+                case IrNodeKind::Aggregate: {
+                    auto* agg = static_cast<IrAggregateInst const*>(v);
+                    auto* mem_ty = c_api_type_cached(tc, v->type, true);
+                    if (!mem_ty)
+                        return nullptr;
+
+                    auto ty_kind = LLVMGetTypeKind(mem_ty);
+
+                    if (ty_kind == LLVMStructTypeKind)
+                    {
+                        auto llvm_field_count = LLVMCountStructElementTypes(mem_ty);
+                        std::vector<LLVMValueRef> fields(llvm_field_count, nullptr);
+
+                        if (agg->type && agg->type->kind == IrTypeKind::Aggregate)
+                        {
+                            auto* ir_agg_type = static_cast<IrAggregateType const*>(agg->type);
+                            for (std::size_t i = 0; i < agg->values.size(); ++i)
+                            {
+                                unsigned llvm_idx = tc.get_llvm_field_index(ir_agg_type, static_cast<unsigned>(i));
+                                if (llvm_idx < llvm_field_count)
+                                {
+                                    auto* field_ty = LLVMStructGetTypeAtIndex(mem_ty, llvm_idx);
+                                    auto* cv = c_api_constant(agg->values[i], ctx, tc, val_map, field_ty);
+                                    if (!cv)
+                                        return nullptr;
+                                    fields[llvm_idx] = cv;
+                                }
+                            }
+                        }
+                        else
+                        {
+                            for (unsigned i = 0; i < llvm_field_count; ++i)
+                            {
+                                if (i < agg->values.size())
+                                {
+                                    auto* field_ty = LLVMStructGetTypeAtIndex(mem_ty, i);
+                                    auto* cv = c_api_constant(agg->values[i], ctx, tc, val_map, field_ty);
+                                    if (!cv)
+                                        return nullptr;
+                                    fields[i] = cv;
+                                }
+                            }
+                        }
+
+                        for (unsigned i = 0; i < llvm_field_count; ++i)
+                            if (!fields[i])
+                                fields[i] = LLVMConstNull(LLVMStructGetTypeAtIndex(mem_ty, i));
+
+                        return LLVMConstStructInContext(ctx, fields.data(), static_cast<unsigned>(fields.size()), 0);
+                    }
+
+                    if (ty_kind == LLVMArrayTypeKind)
+                    {
+                        auto* elem_ty = LLVMGetElementType(mem_ty);
+                        std::vector<LLVMValueRef> elems;
+                        elems.reserve(agg->values.size());
+                        for (auto* mv : agg->values)
+                        {
+                            auto* cv = c_api_constant(mv, ctx, tc, val_map, elem_ty);
+                            if (!cv)
+                                return nullptr;
+
+                            elems.push_back(cv);
+                        }
+
+                        auto count = LLVMGetArrayLength2(mem_ty);
+                        while (elems.size() < count)
+                            elems.push_back(LLVMConstNull(elem_ty));
+
+                        return LLVMConstArray2(elem_ty, elems.data(), static_cast<unsigned>(elems.size()));
+                    }
+
+                    return LLVMConstNull(mem_ty);
+                }
+                default:
+                    return nullptr;
+            }
+        }
+
+        struct LlvmCtxGuard
+        {
+            LLVMContextRef ctx;
+            ~LlvmCtxGuard()
+            {
+                if (ctx)
+                    LLVMContextDispose(ctx);
+            }
+        };
+
+        struct LlvmBuilderGuard
+        {
+            LLVMBuilderRef bld;
+            ~LlvmBuilderGuard()
+            {
+                if (bld)
+                    LLVMDisposeBuilder(bld);
+            }
+        };
+
+        [[gnu::constructor]] void ensure_llvm_initialized()
+        {
+            LLVMInitializeAllTargetInfos();
+            LLVMInitializeAllTargets();
+            LLVMInitializeAllTargetMCs();
+            LLVMInitializeAllAsmParsers();
+            LLVMInitializeAllAsmPrinters();
+        }
+
+        class LlvmBackendImpl : public Backend
+        {
+        public:
+            LlvmBackendImpl() = default;
+
+            [[nodiscard]] std::string_view name() const override { return "llvm"; }
+
+            [[nodiscard]] std::set<ArtifactKind> supported_artifacts() const override
+            {
+                return {ArtifactKind::LlvmIrText, ArtifactKind::AsmText, ArtifactKind::ObjectBytes, ArtifactKind::ExecutableBytes};
+            }
+
+            [[nodiscard]] BackendArtifact emit(IrModule const& module, BackendOptions const& opts) override
+            {
+                ensure_llvm_initialized();
+
+                BackendArtifact artifact;
+                auto& diags = artifact.diagnostics;
+
+                bool has_unsupported = precheck_module(module, diags);
+                if (has_unsupported && !opts.requested_artifacts.empty())
+                    return artifact;
+
+                auto* ctx = LLVMContextCreate();
+                LlvmCtxGuard ctx_guard{ctx};
+
+                std::string mod_name = module.name.empty() ? "dcc_module" : std::string{module.name};
+                auto* llvm_mod = LLVMModuleCreateWithNameInContext(mod_name.c_str(), ctx);
+
+                LLVMSetTarget(llvm_mod, opts.target.triple.c_str());
+
+                DebugEmitContext debug;
+
+                if (opts.emit_debug_info)
+                {
+                    debug.dibuilder = LLVMCreateDIBuilder(llvm_mod);
+
+                    std::string file_name = module.name.empty() ? "<unknown>" : std::string{module.name};
+                    std::string file_dir = ".";
+
+                    debug.difile = LLVMDIBuilderCreateFile(debug.dibuilder, file_name.c_str(), file_name.size(), file_dir.c_str(), file_dir.size());
+
+                    debug.dicu = LLVMDIBuilderCreateCompileUnit(debug.dibuilder, LLVMDWARFSourceLanguageC, debug.difile, "dcc", 3, false, "", 0, 0, "", 0,
+                                                                LLVMDWARFEmissionFull, 0, false, false, "", 0, "", 0);
+
+                    {
+                        auto* ver_md = LLVMValueAsMetadata(LLVMConstInt(LLVMInt32TypeInContext(ctx), static_cast<unsigned long long>(3), false));
+
+                        LLVMAddModuleFlag(llvm_mod, LLVMModuleFlagBehaviorWarning, "Debug Info Version", 19, ver_md);
+                    }
+
+                    bool is_elf = opts.target.object_format == ObjectFormat::Elf;
+                    bool is_coff = opts.target.object_format == ObjectFormat::Coff;
+                    if (!is_elf && !is_coff)
+                    {
+                        std::string const& t = opts.target.triple;
+                        is_elf = t.contains("elf") || t.contains("linux");
+                        is_coff = t.contains("windows") || t.contains("msvc") || t.contains("coff");
+                    }
+
+                    if (is_elf)
+                    {
+                        auto* dwarf_ver_md = LLVMValueAsMetadata(LLVMConstInt(LLVMInt32TypeInContext(ctx), 5, false));
+                        LLVMAddModuleFlag(llvm_mod, static_cast<LLVMModuleFlagBehavior>(7), // Max
+                                          "Dwarf Version", 13, dwarf_ver_md);
+                    }
+                    else if (is_coff)
+                    {
+                        auto* cv_md = LLVMValueAsMetadata(LLVMConstInt(LLVMInt32TypeInContext(ctx), 1, false));
+                        LLVMAddModuleFlag(llvm_mod, LLVMModuleFlagBehaviorWarning, "CodeView", 8, cv_md);
+                    }
+                }
+
+                std::unordered_map<IrValue const*, LLVMValueRef> val_map;
+                TypeCache type_cache{ctx};
+
+                for (auto* g : module.globals)
+                {
+                    if (!g || !g->type)
+                        continue;
+
+                    auto* gv = emit_global(g, llvm_mod, ctx, type_cache, val_map, diags);
+                    if (gv)
+                        val_map[g] = gv;
+                }
+
+                auto* debug_ptr = opts.emit_debug_info ? &debug : nullptr;
+
+                for (auto* func : module.functions)
+                {
+                    if (!func)
+                        continue;
+
+                    if (!create_function_decl(func, llvm_mod, ctx, type_cache, val_map, opts.target, diags, debug_ptr))
+                        has_unsupported = true;
+                }
+
+                for (auto* func : module.functions)
+                {
+                    if (!func)
+                        continue;
+
+                    if (!emit_function_body(func, ctx, type_cache, val_map, opts.target, diags, debug_ptr))
+                        has_unsupported = true;
+                }
+
+                debug.finalize();
+
+                if (has_unsupported)
+                {
+                    LLVMDisposeModule(llvm_mod);
+                    return artifact;
+                }
+
+                bool want_ir = opts.requested_artifacts.contains(ArtifactKind::LlvmIrText);
+                bool want_asm = opts.requested_artifacts.contains(ArtifactKind::AsmText);
+                bool want_obj = opts.requested_artifacts.contains(ArtifactKind::ObjectBytes);
+                bool want_exe = opts.requested_artifacts.contains(ArtifactKind::ExecutableBytes);
+
+                if (want_exe && opts.target.triple != "x86_64-elf")
+                {
+                    add_diag(diags, {}, "executable emission is currently only supported for x86_64-elf");
+                    LLVMDisposeModule(llvm_mod);
+                    return artifact;
+                }
+
+                if (want_ir)
+                {
+                    char* ir_str = LLVMPrintModuleToString(llvm_mod);
+                    artifact.llvm_ir_text = std::string{ir_str};
+                    LLVMDisposeMessage(ir_str);
+                }
+
+                bool need_codegen = want_asm || want_obj || want_exe;
+                std::vector<std::byte> obj_bytes_for_link;
+
+                if (need_codegen)
+                {
+                    auto cg_triple = llvm_codegen_triple(opts.target);
+                    LLVMTargetRef target_ref = nullptr;
+                    char* err_msg = nullptr;
+
+                    if (LLVMGetTargetFromTriple(cg_triple.c_str(), &target_ref, &err_msg))
+                    {
+                        add_diag(diags, {}, std::format("LLVM backend: unsupported target triple '{}': {}", cg_triple, err_msg ? err_msg : "unknown error"));
+                        if (err_msg)
+                            LLVMDisposeMessage(err_msg);
+
+                        LLVMDisposeModule(llvm_mod);
+                        return artifact;
+                    }
+
+                    const auto* const cpu = (opts.target.arch == Arch::X86_64) ? "generic" : "i686";
+                    auto* tm = LLVMCreateTargetMachine(target_ref, cg_triple.c_str(), cpu, "", LLVMCodeGenLevelDefault, LLVMRelocDefault, LLVMCodeModelDefault);
+                    if (!tm)
+                    {
+                        add_diag(diags, {}, std::format("LLVM backend: could not create TargetMachine for '{}'", cg_triple));
+                        LLVMDisposeModule(llvm_mod);
+                        return artifact;
+                    }
+
+                    {
+                        auto* td = LLVMCreateTargetDataLayout(tm);
+                        char* dl_str = LLVMCopyStringRepOfTargetData(td);
+                        LLVMSetDataLayout(llvm_mod, dl_str);
+                        LLVMDisposeMessage(dl_str);
+                        LLVMDisposeTargetData(td);
+                    }
+
+                    if (want_asm)
+                    {
+                        LLVMMemoryBufferRef membuf = nullptr;
+                        char* emit_err = nullptr;
+                        if (LLVMTargetMachineEmitToMemoryBuffer(tm, llvm_mod, LLVMAssemblyFile, &emit_err, &membuf))
+                        {
+                            add_diag(diags, {}, std::format("LLVM backend: assembly emission failed: {}", emit_err ? emit_err : "unknown error"));
+                            if (emit_err)
+                                LLVMDisposeMessage(emit_err);
+                        }
+                        else
+                        {
+                            auto const* data = LLVMGetBufferStart(membuf);
+                            auto size = LLVMGetBufferSize(membuf);
+                            artifact.asm_text = std::string(data, data + size);
+                            LLVMDisposeMemoryBuffer(membuf);
+                        }
+
+                        if (emit_err)
+                            LLVMDisposeMessage(emit_err);
+                    }
+
+                    if (want_obj || want_exe)
+                    {
+                        LLVMMemoryBufferRef membuf = nullptr;
+                        char* emit_err = nullptr;
+                        if (LLVMTargetMachineEmitToMemoryBuffer(tm, llvm_mod, LLVMObjectFile, &emit_err, &membuf))
+                        {
+                            add_diag(diags, {}, std::format("LLVM backend: object emission failed: {}", emit_err ? emit_err : "unknown error"));
+                            if (emit_err)
+                                LLVMDisposeMessage(emit_err);
+                        }
+                        else
+                        {
+                            auto const* data = LLVMGetBufferStart(membuf);
+                            auto size = LLVMGetBufferSize(membuf);
+                            std::vector<std::byte> bytes(reinterpret_cast<std::byte const*>(data), reinterpret_cast<std::byte const*>(data) + size);
+
+                            if (want_obj)
+                                artifact.object_bytes = bytes;
+                            if (want_exe)
+                                obj_bytes_for_link = std::move(bytes);
+
+                            LLVMDisposeMemoryBuffer(membuf);
+                        }
+
+                        if (emit_err)
+                            LLVMDisposeMessage(emit_err);
+                    }
+
+                    LLVMDisposeTargetMachine(tm);
+                }
+
+                if (want_exe && !obj_bytes_for_link.empty())
+                {
+                    auto link_result = link_executable(obj_bytes_for_link, opts, diags);
+                    if (link_result)
+                        artifact.executable_bytes = std::move(*link_result);
+                }
+
+                LLVMDisposeModule(llvm_mod);
+                return artifact;
+            }
+
+        private:
+            [[nodiscard]] static std::optional<std::vector<std::byte>> link_executable(std::vector<std::byte> const& object_bytes, BackendOptions const& opts,
+                                                                                       std::vector<BackendDiagnostic>& diags)
+            {
+                namespace fs = std::filesystem;
+
+                std::error_code ec;
+                auto tmp_dir = fs::temp_directory_path(ec);
+                if (ec)
+                {
+                    add_diag(diags, {}, "failed to locate temporary directory for linking");
+                    return std::nullopt;
+                }
+
+                auto tag = std::format("dcc-link-{}", std::chrono::steady_clock::now().time_since_epoch().count());
+
+                auto obj_path = tmp_dir / std::format("{}.o", tag);
+                auto exe_path = tmp_dir / tag;
+
+                {
+                    std::ofstream obj_out{obj_path, std::ios::binary};
+                    if (!obj_out)
+                    {
+                        add_diag(diags, {}, "failed to write temporary object file for linking");
+                        return std::nullopt;
+                    }
+                    obj_out.write(reinterpret_cast<char const*>(object_bytes.data()), static_cast<std::streamsize>(object_bytes.size()));
+                    obj_out.close();
+                    if (!obj_out)
+                    {
+                        fs::remove(obj_path, ec);
+                        add_diag(diags, {}, "failed to write temporary object file for linking");
+                        return std::nullopt;
+                    }
+                }
+
+                struct TempCleanup
+                {
+                    fs::path obj;
+                    fs::path exe;
+                    ~TempCleanup()
+                    {
+                        std::error_code ec;
+                        fs::remove(obj, ec);
+                        fs::remove(exe, ec);
+                    }
+                } cleanup{.obj = obj_path, .exe = exe_path};
+
+                std::string cmd = "ld.lld --static --no-dynamic-linker --fatal-warnings -o ";
+                cmd += exe_path.string();
+                cmd += " ";
+                cmd += obj_path.string();
+
+                for (auto const& extra_obj : opts.additional_objects)
+                {
+                    cmd += " ";
+                    cmd += extra_obj;
+                }
+
+                for (auto const& lp : opts.library_paths)
+                {
+                    cmd += " -L";
+                    cmd += lp;
+                }
+
+                for (auto const& lib : opts.libraries)
+                {
+                    cmd += " -l";
+                    cmd += lib;
+                }
+
+                for (auto const& la : opts.linker_args)
+                {
+                    cmd += " ";
+                    cmd += la;
+                }
+
+                cmd += " 2>&1";
+
+                std::array<char, 4096> buf{};
+                std::string captured;
+                auto* pipe = popen(cmd.c_str(), "r");
+                if (pipe)
+                {
+                    while (std::fgets(buf.data(), static_cast<int>(buf.size()), pipe))
+                        captured += buf.data();
+                    auto rc = pclose(pipe);
+
+                    if (rc != 0)
+                    {
+                        std::string msg;
+                        if (!captured.empty())
+                            msg = std::format("linker error:\n{}", captured);
+                        else
+                            msg = "linker failed with unknown error";
+
+                        add_diag(diags, {}, msg);
+                        return std::nullopt;
+                    }
+                }
+                else
+                {
+                    add_diag(diags, {}, "failed to invoke linker");
+                    return std::nullopt;
+                }
+
+                std::error_code read_ec;
+                auto exe_size = fs::file_size(exe_path, read_ec);
+                if (read_ec || exe_size == 0)
+                {
+                    add_diag(diags, {}, "failed to read linked executable");
+                    return std::nullopt;
+                }
+
+                std::ifstream exe_in{exe_path, std::ios::binary};
+                if (!exe_in)
+                {
+                    add_diag(diags, {}, "failed to open linked executable");
+                    return std::nullopt;
+                }
+
+                std::vector<std::byte> exe_bytes(static_cast<std::size_t>(exe_size));
+                exe_in.read(reinterpret_cast<char*>(exe_bytes.data()), static_cast<std::streamsize>(exe_size));
+                if (!exe_in)
+                {
+                    add_diag(diags, {}, "failed to read linked executable");
+                    return std::nullopt;
+                }
+
+                return exe_bytes;
+            }
+
+            [[nodiscard]] static bool precheck_module(IrModule const& module, std::vector<BackendDiagnostic>& diags)
+            {
+                bool has_unsupported = false;
+
+                for (auto* func : module.functions)
+                {
+                    if (!func)
+                        continue;
+
+                    for (auto* bb : func->blocks)
+                    {
+                        if (!bb)
+                            continue;
+
+                        for (auto* inst : bb->instructions)
+                            has_unsupported |= precheck_instruction(inst, diags);
+                        if (bb->terminator)
+                            has_unsupported |= precheck_terminator(bb->terminator, diags);
+                    }
+                }
+
+                for (auto* g : module.globals)
+                {
+                    if (!g)
+                        continue;
+
+                    if (!g->type)
+                    {
+                        add_diag(diags, g->range, "global missing type");
+                        has_unsupported = true;
+                        continue;
+                    }
+
+                    switch (g->type->kind)
+                    {
+                        case IrTypeKind::Func:
+                            add_diag(diags, g->range, "LLVM backend does not yet support function-pointer globals");
+                            has_unsupported = true;
+                            break;
+                        default:
+                            break;
+                    }
+
+                    if (g->init)
+                        std::ignore = g->init->kind;
+                }
+
+                return has_unsupported;
+            }
+
+            [[nodiscard]] static bool precheck_instruction(IrValue const* inst, [[maybe_unused]] std::vector<BackendDiagnostic>& diags)
+            {
+                if (!inst)
+                    return false;
+
+                switch (inst->kind)
+                {
+                    default:
+                        break;
+                }
+                return false;
+            }
+
+            [[nodiscard]] static bool precheck_terminator(IrNode const* term, std::vector<BackendDiagnostic>& diags)
+            {
+                std::ignore = term;
+                std::ignore = diags;
+                return false;
+            }
+
+            [[nodiscard]] static LLVMValueRef emit_global(IrGlobal const* g, LLVMModuleRef mod, LLVMContextRef ctx, TypeCache& tc,
+                                                          std::unordered_map<IrValue const*, LLVMValueRef>& val_map, std::vector<BackendDiagnostic>& diags)
+            {
+                auto* mem_ty = llvm_mem_type_cached(tc, g->type);
+                if (!mem_ty)
+                    return nullptr;
+
+                auto* gv = LLVMAddGlobal(mod, mem_ty, std::string{g->name}.c_str());
+                LLVMSetLinkage(gv, LLVMInternalLinkage);
+
+                LLVMValueRef init_val = nullptr;
+                if (g->init)
+                {
+                    init_val = c_api_constant(g->init, ctx, tc, val_map, mem_ty);
+                    if (!init_val)
+                    {
+                        add_diag(diags, g->range, "LLVM backend: unsupported global initializer");
+                        return nullptr;
+                    }
+                    LLVMSetInitializer(gv, init_val);
+                }
+                else
+                    LLVMSetInitializer(gv, LLVMConstNull(mem_ty));
+
+                if (g->is_constant)
+                    LLVMSetGlobalConstant(gv, 1);
+
+                if (g->alignment > 0)
+                    LLVMSetAlignment(gv, g->alignment);
+
+                return gv;
+            }
+
+            [[nodiscard]] static std::optional<unsigned> map_calling_conv_to_llvm(IrFunction const* func, TargetConfig const& target,
+                                                                                  std::vector<BackendDiagnostic>& diags, bool& found_cc_attr)
+            {
+                std::string_view cc;
+                found_cc_attr = false;
+                for (auto const& a : func->attrs)
+                    if (a.kind == IrFuncAttr::CallingConv)
+                    {
+                        cc = a.value;
+                        found_cc_attr = true;
+                        break;
+                    }
+
+                if (!found_cc_attr)
+                    return std::nullopt;
+
+                if (cc.empty())
+                    return LLVMCCallConv;
+
+                unsigned llvm_cc;
+                auto eq = [](std::string_view x, std::string_view y) {
+                    return std::ranges::equal(
+                        x, y, [](char cx, char cy) { return std::tolower(static_cast<unsigned char>(cx)) == std::tolower(static_cast<unsigned char>(cy)); });
+                };
+
+                if (eq(cc, "cdecl"))
+                    llvm_cc = LLVMCCallConv;
+                else if (eq(cc, "stdcall"))
+                {
+                    if (target.arch != Arch::X86_64 && target.arch != Arch::X86)
+                    {
+                        add_diag(diags, func->range, std::format("calling convention '{}' requires x86 or x86_64 target (current: {})", cc, target.triple));
+                        return std::nullopt;
+                    }
+                    llvm_cc = LLVMX86StdcallCallConv;
+                }
+                else if (eq(cc, "fastcall"))
+                {
+                    if (target.arch != Arch::X86_64 && target.arch != Arch::X86)
+                    {
+                        add_diag(diags, func->range, std::format("calling convention '{}' requires x86 or x86_64 target (current: {})", cc, target.triple));
+                        return std::nullopt;
+                    }
+                    llvm_cc = LLVMX86FastcallCallConv;
+                }
+                else if (eq(cc, "vectorcall"))
+                {
+                    if (target.arch != Arch::X86_64 && target.arch != Arch::X86)
+                    {
+                        add_diag(diags, func->range, std::format("calling convention '{}' requires x86 or x86_64 target (current: {})", cc, target.triple));
+                        return std::nullopt;
+                    }
+                    llvm_cc = LLVMX86VectorCallCallConv;
+                }
+                else if (eq(cc, "systemv") || eq(cc, "sysv"))
+                {
+                    if (target.arch != Arch::X86_64)
+                    {
+                        add_diag(diags, func->range, std::format("calling convention '{}' requires x86_64 target (current: {})", cc, target.triple));
+                        return std::nullopt;
+                    }
+                    llvm_cc = LLVMX8664SysVCallConv;
+                }
+                else if (eq(cc, "win64"))
+                {
+                    if (target.arch != Arch::X86_64)
+                    {
+                        add_diag(diags, func->range, std::format("calling convention '{}' requires x86_64 target (current: {})", cc, target.triple));
+                        return std::nullopt;
+                    }
+                    llvm_cc = LLVMWin64CallConv;
+                }
+                else
+                {
+                    add_diag(diags, func->range, std::format("unknown calling convention '{}'", cc));
+                    return std::nullopt;
+                }
+
+                return llvm_cc;
+            }
+
+            [[nodiscard]] static std::optional<unsigned> get_calling_conv_for_call(IrValue const* callee, TargetConfig const& target,
+                                                                                   std::vector<BackendDiagnostic>& diags, bool& had_error)
+            {
+                had_error = false;
+                const auto* gref = ir_cast<IrGlobalRef>(callee);
+                if (!gref || !gref->function)
+                    return std::nullopt;
+
+                bool found = false;
+                auto result = map_calling_conv_to_llvm(gref->function, target, diags, found);
+                if (found && !result)
+                    had_error = true;
+                return result;
+            }
+
+            [[nodiscard]] static bool create_function_decl(IrFunction const* func, LLVMModuleRef mod, LLVMContextRef ctx, TypeCache& tc,
+                                                           std::unordered_map<IrValue const*, LLVMValueRef>& val_map, TargetConfig const& target,
+                                                           std::vector<BackendDiagnostic>& diags, DebugEmitContext* debug)
+            {
+                const auto* ft = func->func_type;
+                if (!ft)
+                    return false;
+
+                auto* ret_ty = llvm_type_cached(tc, ft->return_type);
+                if (!ret_ty)
+                    ret_ty = LLVMVoidTypeInContext(ctx);
+
+                std::vector<LLVMTypeRef> param_tys;
+                for (const auto* pt : ft->params)
+                {
+                    auto* lt = llvm_type_cached(tc, pt);
+                    if (!lt)
+                        lt = LLVMInt32TypeInContext(ctx);
+
+                    param_tys.push_back(lt);
+                }
+
+                auto* func_ty = LLVMFunctionType(ret_ty, param_tys.data(), static_cast<unsigned>(param_tys.size()), 0);
+                auto* llvm_func = LLVMAddFunction(mod, std::string{func->name}.c_str(), func_ty);
+                val_map[func] = llvm_func;
+
+                if (debug && debug->dibuilder && debug->difile)
+                {
+                    auto* sub_ty = LLVMDIBuilderCreateSubroutineType(debug->dibuilder, debug->difile, nullptr, 0, LLVMDIFlagZero);
+
+                    auto* sp = LLVMDIBuilderCreateFunction(debug->dibuilder, debug->dicu, std::string{func->name}.c_str(), func->name.size(),
+                                                           std::string{func->name}.c_str(), func->name.size(), debug->difile, 1, sub_ty, false, true, 1,
+                                                           LLVMDIFlagZero, false);
+
+                    debug->subprogram_map[func] = sp;
+
+                    LLVMSetSubprogram(llvm_func, sp);
+                }
+
+                bool found_cc_attr = false;
+                auto cc_opt = map_calling_conv_to_llvm(func, target, diags, found_cc_attr);
+                if (cc_opt)
+                    LLVMSetFunctionCallConv(llvm_func, *cc_opt);
+                else if (found_cc_attr)
+                    return false;
+
+                if (func->entry_block)
+                {
+                    auto num_params = LLVMCountParams(llvm_func);
+
+                    std::vector<LLVMValueRef> llvm_params(static_cast<std::size_t>(num_params));
+                    LLVMGetParams(llvm_func, llvm_params.data());
+
+                    std::size_t i = 0;
+                    for (auto* pv : llvm_params)
+                    {
+                        if (i < func->entry_block->params.size())
+                        {
+                            auto* param = func->entry_block->params[i];
+                            if (param && !param->name.empty())
+                                LLVMSetValueName2(pv, std::string{param->name}.c_str(), param->name.size());
+
+                            val_map[param] = pv;
+                        }
+                        ++i;
+                    }
+                }
+
+                return true;
+            }
+
+            [[nodiscard]] static bool emit_function_body(IrFunction const* func, LLVMContextRef ctx, TypeCache& tc,
+                                                         std::unordered_map<IrValue const*, LLVMValueRef>& val_map, TargetConfig const& target,
+                                                         std::vector<BackendDiagnostic>& diags, DebugEmitContext* debug)
+            {
+                if (func->blocks.empty())
+                    return true;
+
+                auto* llvm_func = lookup_function_val(func, val_map);
+                if (!llvm_func)
+                    return false;
+
+                struct LocKey
+                {
+                    std::uint32_t block_id;
+                    std::uint32_t instruction_index;
+                    bool is_terminator;
+
+                    bool operator==(LocKey const& o) const noexcept
+                    {
+                        return block_id == o.block_id && instruction_index == o.instruction_index && is_terminator == o.is_terminator;
+                    }
+                };
+
+                struct LocKeyHash
+                {
+                    std::size_t operator()(LocKey const& k) const noexcept
+                    {
+                        std::size_t h = std::hash<std::uint32_t>{}(k.block_id);
+                        h ^= std::hash<std::uint32_t>{}(k.instruction_index) + 0x9e3779b9 + (h << 6) + (h >> 2);
+                        h ^= std::hash<bool>{}(k.is_terminator) + 0x9e3779b9 + (h << 6) + (h >> 2);
+                        return h;
+                    }
+                };
+
+                std::unordered_map<LocKey, IrDebugLocation const*, LocKeyHash> loc_index;
+                std::unordered_map<std::uint32_t, LLVMMetadataRef> scope_map;
+                std::unordered_map<std::uint32_t, std::pair<unsigned, unsigned>> scope_first_loc;
+
+                if (debug)
+                {
+                    for (auto const& dl : func->debug_locations)
+                    {
+                        LocKey key{.block_id = dl.block_id, .instruction_index = dl.instruction_index, .is_terminator = dl.is_terminator};
+                        loc_index[key] = &dl;
+                    }
+
+                    for (auto const& dl : func->debug_locations)
+                    {
+                        if (dl.loc.scope_id == 0)
+                            continue;
+
+                        if (!scope_first_loc.contains(dl.loc.scope_id))
+                            scope_first_loc[dl.loc.scope_id] = {dl.loc.line, dl.loc.column};
+                    }
+                }
+
+                auto get_subprogram = [&](IrFunction const* f) -> LLVMMetadataRef {
+                    if (!debug)
+                        return nullptr;
+
+                    auto it = debug->subprogram_map.find(f);
+                    return it != debug->subprogram_map.end() ? it->second : nullptr;
+                };
+
+                auto get_scope = [&](IrFunction const* f, std::uint32_t scope_id) -> LLVMMetadataRef {
+                    if (!debug)
+                        return nullptr;
+
+                    if (scope_id == 0)
+                        return get_subprogram(f);
+
+                    auto it = scope_map.find(scope_id);
+                    if (it != scope_map.end())
+                        return it->second;
+
+                    auto* sp = get_subprogram(f);
+                    if (!sp || !debug->difile)
+                        return nullptr;
+
+                    unsigned line = 0;
+                    unsigned col = 0;
+                    auto loc_it = scope_first_loc.find(scope_id);
+                    if (loc_it != scope_first_loc.end())
+                    {
+                        line = loc_it->second.first;
+                        col = loc_it->second.second;
+                    }
+
+                    auto* lb = LLVMDIBuilderCreateLexicalBlock(debug->dibuilder, sp, debug->difile, line, col);
+                    scope_map[scope_id] = lb;
+                    return lb;
+                };
+
+                auto apply_debug_loc = [&](LLVMBuilderRef builder, LocKey key) {
+                    if (!debug)
+                        return;
+
+                    auto it = loc_index.find(key);
+                    if (it == loc_index.end() || it->second == nullptr)
+                    {
+                        LLVMSetCurrentDebugLocation2(builder, nullptr);
+                        return;
+                    }
+
+                    auto const& loc = it->second->loc;
+                    if (loc.line == 0)
+                    {
+                        LLVMSetCurrentDebugLocation2(builder, nullptr);
+                        return;
+                    }
+
+                    auto* scope = get_scope(func, loc.scope_id);
+                    if (!scope)
+                    {
+                        LLVMSetCurrentDebugLocation2(builder, nullptr);
+                        return;
+                    }
+
+                    auto* diloc = LLVMDIBuilderCreateDebugLocation(ctx, loc.line, loc.column, scope, nullptr);
+                    LLVMSetCurrentDebugLocation2(builder, diloc);
+                };
+
+                std::unordered_map<IrBasicBlock const*, LLVMBasicBlockRef> bb_map;
+                for (auto* bb : func->blocks)
+                {
+                    if (!bb)
+                        continue;
+
+                    std::string bb_name;
+                    if (!bb->name.empty())
+                        bb_name = std::string{bb->name};
+                    else
+                        bb_name = std::format("bb{}", bb->id);
+
+                    auto* llvm_bb = LLVMAppendBasicBlockInContext(ctx, llvm_func, bb_name.c_str());
+                    bb_map[bb] = llvm_bb;
+                }
+
+                auto* builder = LLVMCreateBuilderInContext(ctx);
+                LlvmBuilderGuard bld_guard{builder};
+
+                std::uint32_t instruction_index = 0;
+
+                for (auto* bb : func->blocks)
+                {
+                    if (!bb)
+                        continue;
+
+                    auto* llvm_bb = bb_map[bb];
+                    LLVMPositionBuilderAtEnd(builder, llvm_bb);
+
+                    instruction_index = 0;
+                    for (auto* inst : bb->instructions)
+                    {
+                        apply_debug_loc(builder, LocKey{bb->id, instruction_index, false});
+                        if (!emit_instruction(inst, builder, ctx, tc, val_map, bb_map, target, diags))
+                            return false;
+
+                        ++instruction_index;
+                    }
+
+                    if (bb->terminator)
+                    {
+                        apply_debug_loc(builder, LocKey{bb->id, instruction_index, true});
+                        if (!emit_terminator(bb->terminator, builder, ctx, tc, val_map, bb_map, diags, llvm_func))
+                            return false;
+                    }
+                    else
+                    {
+                        LLVMSetCurrentDebugLocation2(builder, nullptr);
+                        LLVMBuildUnreachable(builder);
+                    }
+
+                    ++instruction_index;
+                }
+
+                return true;
+            }
+
+            [[nodiscard]] static LLVMValueRef lookup_function_val(IrFunction const* func, std::unordered_map<IrValue const*, LLVMValueRef> const& val_map)
+            {
+                auto it = val_map.find(func);
+                return it != val_map.end() ? it->second : nullptr;
+            }
+
+            [[nodiscard]] static bool emit_instruction(IrValue const* inst, LLVMBuilderRef builder, LLVMContextRef ctx, TypeCache& tc,
+                                                       std::unordered_map<IrValue const*, LLVMValueRef>& val_map,
+                                                       std::unordered_map<IrBasicBlock const*, LLVMBasicBlockRef>& bb_map, TargetConfig const& target,
+                                                       std::vector<BackendDiagnostic>& diags)
+            {
+                if (!inst)
+                    return true;
+
+                auto set_name = [&](LLVMValueRef v) {
+                    if (!inst->name.empty())
+                        LLVMSetValueName2(v, std::string{inst->name}.c_str(), inst->name.size());
+                };
+
+                auto lookup = [&](IrValue const* v) -> LLVMValueRef {
+                    if (!v)
+                        return nullptr;
+
+                    if (auto it = val_map.find(v); it != val_map.end())
+                        return it->second;
+
+                    auto* c = c_api_constant(v, ctx, tc, val_map);
+                    if (c)
+                    {
+                        val_map[v] = c;
+                        return c;
+                    }
+
+                    return nullptr;
+                };
+
+                switch (inst->kind)
+                {
+                    case IrNodeKind::Alloca: {
+                        auto* a = static_cast<IrAllocaInst const*>(inst);
+                        auto* at = llvm_mem_type_cached(tc, a->allocated_type);
+                        if (!at)
+                            return false;
+
+                        auto* ai = LLVMBuildAlloca(builder, at, "");
+                        if (a->alignment > 0)
+                            LLVMSetAlignment(ai, a->alignment);
+
+                        set_name(ai);
+                        val_map[inst] = ai;
+                        break;
+                    }
+                    case IrNodeKind::Load: {
+                        auto* l = static_cast<IrLoadInst const*>(inst);
+                        auto* ptr = lookup(l->pointer);
+                        if (!ptr)
+                            return false;
+
+                        LLVMValueRef result = nullptr;
+                        if (is_bool_type(l->type))
+                        {
+                            auto* raw = LLVMBuildLoad2(builder, LLVMInt8TypeInContext(ctx), ptr, "");
+                            result = LLVMBuildTrunc(builder, raw, LLVMInt1TypeInContext(ctx), "");
+                        }
+                        else
+                        {
+                            auto* lt = llvm_type_cached(tc, l->type);
+                            if (!lt)
+                                return false;
+
+                            result = LLVMBuildLoad2(builder, lt, ptr, "");
+                        }
+
+                        set_name(result);
+                        val_map[inst] = result;
+                        break;
+                    }
+                    case IrNodeKind::Store: {
+                        auto* s = static_cast<IrStoreInst const*>(inst);
+                        auto* ptr = lookup(s->pointer);
+                        auto* val = lookup(s->value);
+                        if (!ptr || !val)
+                            return false;
+
+                        if (is_bool_type(s->value->type))
+                        {
+                            auto* ext = LLVMBuildZExt(builder, val, LLVMInt8TypeInContext(ctx), "");
+                            LLVMBuildStore(builder, ext, ptr);
+                        }
+                        else
+                            LLVMBuildStore(builder, val, ptr);
+
+                        break;
+                    }
+                    case IrNodeKind::LoadVolatile: {
+                        auto* l = static_cast<IrLoadVolatileInst const*>(inst);
+                        auto* ptr = lookup(l->pointer);
+                        if (!ptr)
+                            return false;
+
+                        LLVMValueRef result = nullptr;
+                        if (is_bool_type(l->type))
+                        {
+                            auto* raw = LLVMBuildLoad2(builder, LLVMInt8TypeInContext(ctx), ptr, "");
+                            LLVMSetVolatile(raw, 1);
+                            result = LLVMBuildTrunc(builder, raw, LLVMInt1TypeInContext(ctx), "");
+                        }
+                        else
+                        {
+                            auto* lt = llvm_type_cached(tc, l->type);
+                            if (!lt)
+                                return false;
+
+                            result = LLVMBuildLoad2(builder, lt, ptr, "");
+                            LLVMSetVolatile(result, 1);
+                        }
+
+                        set_name(result);
+                        val_map[inst] = result;
+                        break;
+                    }
+                    case IrNodeKind::StoreVolatile: {
+                        auto* s = static_cast<IrStoreVolatileInst const*>(inst);
+                        auto* ptr = lookup(s->pointer);
+                        auto* val = lookup(s->value);
+                        if (!ptr || !val)
+                            return false;
+
+                        if (is_bool_type(s->value->type))
+                        {
+                            auto* ext = LLVMBuildZExt(builder, val, LLVMInt8TypeInContext(ctx), "");
+                            auto* store_inst = LLVMBuildStore(builder, ext, ptr);
+                            LLVMSetVolatile(store_inst, 1);
+                        }
+                        else
+                        {
+                            auto* store_inst = LLVMBuildStore(builder, val, ptr);
+                            LLVMSetVolatile(store_inst, 1);
+                        }
+
+                        break;
+                    }
+                    case IrNodeKind::Gep: {
+                        auto* g = static_cast<IrGepInst const*>(inst);
+
+                        if (g->indices.empty())
+                        {
+                            add_diag(diags, inst->range, "LLVM backend cannot emit GEP with no indices");
+                            return false;
+                        }
+
+                        auto* base_ptr = lookup(g->base);
+                        if (!base_ptr)
+                            return false;
+
+                        IrType const* source_elem = nullptr;
+                        if (g->base && g->base->type && g->base->type->kind == IrTypeKind::Pointer)
+                        {
+                            auto* base_ptr_t = static_cast<IrPointerType const*>(g->base->type);
+                            source_elem = base_ptr_t->pointee;
+                        }
+
+                        if (!source_elem && g->type && g->type->kind == IrTypeKind::Pointer)
+                        {
+                            auto* res_ptr_t = static_cast<IrPointerType const*>(g->type);
+                            source_elem = res_ptr_t->pointee;
+                        }
+
+                        if (!source_elem)
+                        {
+                            add_diag(diags, inst->range, "LLVM backend cannot emit GEP without element type information");
+                            return false;
+                        }
+
+                        std::vector<LLVMValueRef> llvm_indices;
+                        IrType const* current_type = source_elem;
+
+                        bool const first_is_field = !g->indices.empty() && g->indices[0].kind == IrGepInst::IndexKind::Field;
+                        bool const need_leading_zero =
+                            (current_type && current_type->kind == IrTypeKind::Array) ||
+                            (current_type && (current_type->kind == IrTypeKind::Aggregate || current_type->kind == IrTypeKind::Slice) && first_is_field);
+
+                        if (need_leading_zero)
+                            llvm_indices.push_back(LLVMConstInt(LLVMInt32TypeInContext(ctx), 0, 0));
+
+                        for (auto const& ir_idx : g->indices)
+                        {
+                            if (ir_idx.kind == IrGepInst::IndexKind::Field)
+                            {
+                                unsigned llvm_field_idx = ir_idx.field_index;
+                                if (current_type && current_type->kind == IrTypeKind::Aggregate)
+                                    llvm_field_idx = tc.get_llvm_field_index(static_cast<IrAggregateType const*>(current_type), ir_idx.field_index);
+
+                                llvm_indices.push_back(LLVMConstInt(LLVMInt32TypeInContext(ctx), llvm_field_idx, 0));
+
+                                if (current_type && current_type->kind == IrTypeKind::Aggregate)
+                                {
+                                    auto* agg = static_cast<IrAggregateType const*>(current_type);
+                                    if (ir_idx.field_index < agg->members.size())
+                                        current_type = agg->members[ir_idx.field_index];
+                                    else
+                                        current_type = nullptr;
+                                }
+                                else if (current_type && current_type->kind == IrTypeKind::Slice)
+                                    current_type = nullptr;
+                                else
+                                    current_type = nullptr;
+                            }
+                            else
+                            {
+                                auto* idx_val = lookup(ir_idx.dynamic_index);
+                                if (!idx_val)
+                                    return false;
+
+                                llvm_indices.push_back(idx_val);
+
+                                if (current_type && current_type->kind == IrTypeKind::Array)
+                                {
+                                    auto* arr = static_cast<IrArrayType const*>(current_type);
+                                    current_type = arr->element;
+                                }
+                                else if (current_type && current_type->kind == IrTypeKind::Pointer)
+                                {
+                                    auto* ptr_t = static_cast<IrPointerType const*>(current_type);
+                                    current_type = ptr_t->pointee;
+                                }
+                                else
+                                    current_type = nullptr;
+                            }
+                        }
+
+                        auto* gep_source_ty = llvm_mem_type_cached(tc, source_elem);
+                        if (!gep_source_ty)
+                            return false;
+
+                        auto* gep_res = LLVMBuildGEP2(builder, gep_source_ty, base_ptr, llvm_indices.data(), static_cast<unsigned>(llvm_indices.size()), "");
+                        set_name(gep_res);
+                        val_map[inst] = gep_res;
+                        break;
+                    }
+                    case IrNodeKind::Add: {
+                        auto* a = static_cast<IrAddInst const*>(inst);
+                        auto* lhs = lookup(a->lhs);
+                        auto* rhs = lookup(a->rhs);
+                        if (!lhs || !rhs)
+                            return false;
+
+                        LLVMValueRef r = nullptr;
+                        if (a->type && a->type->kind == IrTypeKind::Float)
+                            r = LLVMBuildFAdd(builder, lhs, rhs, "");
+                        else
+                            r = LLVMBuildAdd(builder, lhs, rhs, "");
+                        set_name(r);
+                        val_map[inst] = r;
+                        break;
+                    }
+                    case IrNodeKind::Sub: {
+                        auto* s = static_cast<IrSubInst const*>(inst);
+                        auto* lhs = lookup(s->lhs);
+                        auto* rhs = lookup(s->rhs);
+                        if (!lhs || !rhs)
+                            return false;
+
+                        LLVMValueRef r = nullptr;
+                        if (s->type && s->type->kind == IrTypeKind::Float)
+                            r = LLVMBuildFSub(builder, lhs, rhs, "");
+                        else
+                            r = LLVMBuildSub(builder, lhs, rhs, "");
+                        set_name(r);
+                        val_map[inst] = r;
+                        break;
+                    }
+                    case IrNodeKind::Mul: {
+                        auto* m = static_cast<IrMulInst const*>(inst);
+                        auto* lhs = lookup(m->lhs);
+                        auto* rhs = lookup(m->rhs);
+                        if (!lhs || !rhs)
+                            return false;
+
+                        LLVMValueRef r = nullptr;
+                        if (m->type && m->type->kind == IrTypeKind::Float)
+                            r = LLVMBuildFMul(builder, lhs, rhs, "");
+                        else
+                            r = LLVMBuildMul(builder, lhs, rhs, "");
+                        set_name(r);
+                        val_map[inst] = r;
+                        break;
+                    }
+                    case IrNodeKind::SDiv: {
+                        auto* s = static_cast<IrSDivInst const*>(inst);
+                        auto* lhs = lookup(s->lhs);
+                        auto* rhs = lookup(s->rhs);
+                        if (!lhs || !rhs)
+                            return false;
+
+                        auto* r = LLVMBuildSDiv(builder, lhs, rhs, "");
+                        set_name(r);
+                        val_map[inst] = r;
+                        break;
+                    }
+                    case IrNodeKind::UDiv: {
+                        auto* u = static_cast<IrUDivInst const*>(inst);
+                        auto* lhs = lookup(u->lhs);
+                        auto* rhs = lookup(u->rhs);
+                        if (!lhs || !rhs)
+                            return false;
+
+                        auto* r = LLVMBuildUDiv(builder, lhs, rhs, "");
+                        set_name(r);
+                        val_map[inst] = r;
+                        break;
+                    }
+                    case IrNodeKind::SRem: {
+                        auto* s = static_cast<IrSRemInst const*>(inst);
+                        auto* lhs = lookup(s->lhs);
+                        auto* rhs = lookup(s->rhs);
+                        if (!lhs || !rhs)
+                            return false;
+
+                        auto* r = LLVMBuildSRem(builder, lhs, rhs, "");
+                        set_name(r);
+                        val_map[inst] = r;
+                        break;
+                    }
+                    case IrNodeKind::URem: {
+                        auto* u = static_cast<IrURemInst const*>(inst);
+                        auto* lhs = lookup(u->lhs);
+                        auto* rhs = lookup(u->rhs);
+                        if (!lhs || !rhs)
+                            return false;
+
+                        auto* r = LLVMBuildURem(builder, lhs, rhs, "");
+                        set_name(r);
+                        val_map[inst] = r;
+                        break;
+                    }
+                    case IrNodeKind::FDiv: {
+                        auto* f = static_cast<IrFDivInst const*>(inst);
+                        auto* lhs = lookup(f->lhs);
+                        auto* rhs = lookup(f->rhs);
+                        if (!lhs || !rhs)
+                            return false;
+
+                        auto* r = LLVMBuildFDiv(builder, lhs, rhs, "");
+                        set_name(r);
+                        val_map[inst] = r;
+                        break;
+                    }
+                    case IrNodeKind::FRem: {
+                        auto* f = static_cast<IrFRemInst const*>(inst);
+                        auto* lhs = lookup(f->lhs);
+                        auto* rhs = lookup(f->rhs);
+                        if (!lhs || !rhs)
+                            return false;
+
+                        auto* r = LLVMBuildFRem(builder, lhs, rhs, "");
+                        set_name(r);
+                        val_map[inst] = r;
+                        break;
+                    }
+                    case IrNodeKind::And: {
+                        auto* a = static_cast<IrAndInst const*>(inst);
+                        auto* lhs = lookup(a->lhs);
+                        auto* rhs = lookup(a->rhs);
+                        if (!lhs || !rhs)
+                            return false;
+
+                        auto* r = LLVMBuildAnd(builder, lhs, rhs, "");
+                        set_name(r);
+                        val_map[inst] = r;
+                        break;
+                    }
+                    case IrNodeKind::Or: {
+                        auto* o = static_cast<IrOrInst const*>(inst);
+                        auto* lhs = lookup(o->lhs);
+                        auto* rhs = lookup(o->rhs);
+                        if (!lhs || !rhs)
+                            return false;
+
+                        auto* r = LLVMBuildOr(builder, lhs, rhs, "");
+                        set_name(r);
+                        val_map[inst] = r;
+                        break;
+                    }
+                    case IrNodeKind::Xor: {
+                        auto* x = static_cast<IrXorInst const*>(inst);
+                        auto* lhs = lookup(x->lhs);
+                        auto* rhs = lookup(x->rhs);
+                        if (!lhs || !rhs)
+                            return false;
+
+                        auto* r = LLVMBuildXor(builder, lhs, rhs, "");
+                        set_name(r);
+                        val_map[inst] = r;
+                        break;
+                    }
+                    case IrNodeKind::Shl: {
+                        auto* s = static_cast<IrShlInst const*>(inst);
+                        auto* lhs = lookup(s->lhs);
+                        auto* rhs = lookup(s->rhs);
+                        if (!lhs || !rhs)
+                            return false;
+
+                        auto* r = LLVMBuildShl(builder, lhs, rhs, "");
+                        set_name(r);
+                        val_map[inst] = r;
+                        break;
+                    }
+                    case IrNodeKind::LShr: {
+                        auto* l = static_cast<IrLShrInst const*>(inst);
+                        auto* lhs = lookup(l->lhs);
+                        auto* rhs = lookup(l->rhs);
+                        if (!lhs || !rhs)
+                            return false;
+
+                        auto* r = LLVMBuildLShr(builder, lhs, rhs, "");
+                        set_name(r);
+                        val_map[inst] = r;
+                        break;
+                    }
+                    case IrNodeKind::AShr: {
+                        auto* a = static_cast<IrAShrInst const*>(inst);
+                        auto* lhs = lookup(a->lhs);
+                        auto* rhs = lookup(a->rhs);
+                        if (!lhs || !rhs)
+                            return false;
+
+                        auto* r = LLVMBuildAShr(builder, lhs, rhs, "");
+                        set_name(r);
+                        val_map[inst] = r;
+                        break;
+                    }
+                    case IrNodeKind::CmpEq: {
+                        auto* c = static_cast<IrCmpEqInst const*>(inst);
+                        auto* lhs = lookup(c->lhs);
+                        auto* rhs = lookup(c->rhs);
+                        if (!lhs || !rhs)
+                            return false;
+
+                        LLVMValueRef r = nullptr;
+                        if (c->lhs->type && c->lhs->type->kind == IrTypeKind::Float)
+                            r = LLVMBuildFCmp(builder, LLVMRealOEQ, lhs, rhs, "");
+                        else
+                            r = LLVMBuildICmp(builder, LLVMIntEQ, lhs, rhs, "");
+
+                        set_name(r);
+                        val_map[inst] = r;
+                        break;
+                    }
+                    case IrNodeKind::CmpNe: {
+                        auto* c = static_cast<IrCmpNeInst const*>(inst);
+                        auto* lhs = lookup(c->lhs);
+                        auto* rhs = lookup(c->rhs);
+                        if (!lhs || !rhs)
+                            return false;
+
+                        LLVMValueRef r = nullptr;
+                        if (c->lhs->type && c->lhs->type->kind == IrTypeKind::Float)
+                            r = LLVMBuildFCmp(builder, LLVMRealONE, lhs, rhs, "");
+                        else
+                            r = LLVMBuildICmp(builder, LLVMIntNE, lhs, rhs, "");
+
+                        set_name(r);
+                        val_map[inst] = r;
+                        break;
+                    }
+                    case IrNodeKind::CmpLt: {
+                        auto* c = static_cast<IrCmpLtInst const*>(inst);
+                        auto* lhs = lookup(c->lhs);
+                        auto* rhs = lookup(c->rhs);
+                        if (!lhs || !rhs)
+                            return false;
+
+                        auto* r = LLVMBuildICmp(builder, LLVMIntSLT, lhs, rhs, "");
+                        set_name(r);
+                        val_map[inst] = r;
+                        break;
+                    }
+                    case IrNodeKind::CmpLe: {
+                        auto* c = static_cast<IrCmpLeInst const*>(inst);
+                        auto* lhs = lookup(c->lhs);
+                        auto* rhs = lookup(c->rhs);
+                        if (!lhs || !rhs)
+                            return false;
+
+                        auto* r = LLVMBuildICmp(builder, LLVMIntSLE, lhs, rhs, "");
+                        set_name(r);
+                        val_map[inst] = r;
+                        break;
+                    }
+                    case IrNodeKind::CmpGt: {
+                        auto* c = static_cast<IrCmpGtInst const*>(inst);
+                        auto* lhs = lookup(c->lhs);
+                        auto* rhs = lookup(c->rhs);
+                        if (!lhs || !rhs)
+                            return false;
+
+                        auto* r = LLVMBuildICmp(builder, LLVMIntSGT, lhs, rhs, "");
+                        set_name(r);
+                        val_map[inst] = r;
+                        break;
+                    }
+                    case IrNodeKind::CmpGe: {
+                        auto* c = static_cast<IrCmpGeInst const*>(inst);
+                        auto* lhs = lookup(c->lhs);
+                        auto* rhs = lookup(c->rhs);
+                        if (!lhs || !rhs)
+                            return false;
+
+                        auto* r = LLVMBuildICmp(builder, LLVMIntSGE, lhs, rhs, "");
+                        set_name(r);
+                        val_map[inst] = r;
+                        break;
+                    }
+                    case IrNodeKind::CmpULt: {
+                        auto* c = static_cast<IrCmpULtInst const*>(inst);
+                        auto* lhs = lookup(c->lhs);
+                        auto* rhs = lookup(c->rhs);
+                        if (!lhs || !rhs)
+                            return false;
+
+                        auto* r = LLVMBuildICmp(builder, LLVMIntULT, lhs, rhs, "");
+                        set_name(r);
+                        val_map[inst] = r;
+                        break;
+                    }
+                    case IrNodeKind::CmpULe: {
+                        auto* c = static_cast<IrCmpULeInst const*>(inst);
+                        auto* lhs = lookup(c->lhs);
+                        auto* rhs = lookup(c->rhs);
+                        if (!lhs || !rhs)
+                            return false;
+
+                        auto* r = LLVMBuildICmp(builder, LLVMIntULE, lhs, rhs, "");
+                        set_name(r);
+                        val_map[inst] = r;
+                        break;
+                    }
+                    case IrNodeKind::CmpUGt: {
+                        auto* c = static_cast<IrCmpUGtInst const*>(inst);
+                        auto* lhs = lookup(c->lhs);
+                        auto* rhs = lookup(c->rhs);
+                        if (!lhs || !rhs)
+                            return false;
+
+                        auto* r = LLVMBuildICmp(builder, LLVMIntUGT, lhs, rhs, "");
+                        set_name(r);
+                        val_map[inst] = r;
+                        break;
+                    }
+                    case IrNodeKind::CmpUGe: {
+                        auto* c = static_cast<IrCmpUGeInst const*>(inst);
+                        auto* lhs = lookup(c->lhs);
+                        auto* rhs = lookup(c->rhs);
+                        if (!lhs || !rhs)
+                            return false;
+
+                        auto* r = LLVMBuildICmp(builder, LLVMIntUGE, lhs, rhs, "");
+                        set_name(r);
+                        val_map[inst] = r;
+                        break;
+                    }
+                    case IrNodeKind::CmpOLt: {
+                        auto* c = static_cast<IrCmpOLtInst const*>(inst);
+                        auto* lhs = lookup(c->lhs);
+                        auto* rhs = lookup(c->rhs);
+                        if (!lhs || !rhs)
+                            return false;
+
+                        auto* r = LLVMBuildFCmp(builder, LLVMRealOLT, lhs, rhs, "");
+                        set_name(r);
+                        val_map[inst] = r;
+                        break;
+                    }
+                    case IrNodeKind::CmpOLe: {
+                        auto* c = static_cast<IrCmpOLeInst const*>(inst);
+                        auto* lhs = lookup(c->lhs);
+                        auto* rhs = lookup(c->rhs);
+                        if (!lhs || !rhs)
+                            return false;
+
+                        auto* r = LLVMBuildFCmp(builder, LLVMRealOLE, lhs, rhs, "");
+                        set_name(r);
+                        val_map[inst] = r;
+                        break;
+                    }
+                    case IrNodeKind::CmpOGt: {
+                        auto* c = static_cast<IrCmpOGtInst const*>(inst);
+                        auto* lhs = lookup(c->lhs);
+                        auto* rhs = lookup(c->rhs);
+                        if (!lhs || !rhs)
+                            return false;
+
+                        auto* r = LLVMBuildFCmp(builder, LLVMRealOGT, lhs, rhs, "");
+                        set_name(r);
+                        val_map[inst] = r;
+                        break;
+                    }
+                    case IrNodeKind::CmpOGe: {
+                        auto* c = static_cast<IrCmpOGeInst const*>(inst);
+                        auto* lhs = lookup(c->lhs);
+                        auto* rhs = lookup(c->rhs);
+                        if (!lhs || !rhs)
+                            return false;
+
+                        auto* r = LLVMBuildFCmp(builder, LLVMRealOGE, lhs, rhs, "");
+                        set_name(r);
+                        val_map[inst] = r;
+                        break;
+                    }
+                    case IrNodeKind::Zext: {
+                        auto* z = static_cast<IrZextInst const*>(inst);
+                        auto* op = lookup(z->operand);
+                        auto* dst_ty = llvm_type_cached(tc, z->type);
+                        if (!op || !dst_ty)
+                            return false;
+
+                        auto* r = LLVMBuildZExt(builder, op, dst_ty, "");
+                        set_name(r);
+                        val_map[inst] = r;
+                        break;
+                    }
+                    case IrNodeKind::Sext: {
+                        auto* s = static_cast<IrSextInst const*>(inst);
+                        auto* op = lookup(s->operand);
+                        auto* dst_ty = llvm_type_cached(tc, s->type);
+                        if (!op || !dst_ty)
+                            return false;
+
+                        auto* r = LLVMBuildSExt(builder, op, dst_ty, "");
+                        set_name(r);
+                        val_map[inst] = r;
+                        break;
+                    }
+                    case IrNodeKind::Trunc: {
+                        auto* t = static_cast<IrTruncInst const*>(inst);
+                        auto* op = lookup(t->operand);
+                        auto* dst_ty = llvm_type_cached(tc, t->type);
+                        if (!op || !dst_ty)
+                            return false;
+
+                        auto* r = LLVMBuildTrunc(builder, op, dst_ty, "");
+                        set_name(r);
+                        val_map[inst] = r;
+                        break;
+                    }
+                    case IrNodeKind::FpExt: {
+                        auto* f = static_cast<IrFpExtInst const*>(inst);
+                        auto* op = lookup(f->operand);
+                        auto* dst_ty = llvm_type_cached(tc, f->type);
+                        if (!op || !dst_ty)
+                            return false;
+
+                        auto* r = LLVMBuildFPExt(builder, op, dst_ty, "");
+                        set_name(r);
+                        val_map[inst] = r;
+                        break;
+                    }
+                    case IrNodeKind::FpTrunc: {
+                        auto* f = static_cast<IrFpTruncInst const*>(inst);
+                        auto* op = lookup(f->operand);
+                        auto* dst_ty = llvm_type_cached(tc, f->type);
+                        if (!op || !dst_ty)
+                            return false;
+
+                        auto* r = LLVMBuildFPTrunc(builder, op, dst_ty, "");
+                        set_name(r);
+                        val_map[inst] = r;
+                        break;
+                    }
+                    case IrNodeKind::FpToI: {
+                        auto* f = static_cast<IrFpToIInst const*>(inst);
+                        auto* op = lookup(f->operand);
+                        auto* dst_ty = llvm_type_cached(tc, f->type);
+                        if (!op || !dst_ty)
+                            return false;
+
+                        auto* r = LLVMBuildFPToSI(builder, op, dst_ty, "");
+                        set_name(r);
+                        val_map[inst] = r;
+                        break;
+                    }
+                    case IrNodeKind::IToFp: {
+                        auto* it = static_cast<IrIToFpInst const*>(inst);
+                        auto* op = lookup(it->operand);
+                        auto* dst_ty = llvm_type_cached(tc, it->type);
+                        if (!op || !dst_ty)
+                            return false;
+
+                        bool is_unsigned = false;
+                        if (it->operand->type && it->operand->type->kind == IrTypeKind::Int)
+                            is_unsigned = !static_cast<IrIntType const*>(it->operand->type)->is_signed;
+
+                        LLVMValueRef r = nullptr;
+                        if (is_unsigned)
+                            r = LLVMBuildUIToFP(builder, op, dst_ty, "");
+                        else
+                            r = LLVMBuildSIToFP(builder, op, dst_ty, "");
+
+                        set_name(r);
+                        val_map[inst] = r;
+                        break;
+                    }
+                    case IrNodeKind::PtrToI: {
+                        auto* p = static_cast<IrPtrToIInst const*>(inst);
+                        auto* op = lookup(p->operand);
+                        auto* dst_ty = llvm_type_cached(tc, p->type);
+                        if (!op || !dst_ty)
+                            return false;
+
+                        auto* r = LLVMBuildPtrToInt(builder, op, dst_ty, "");
+                        set_name(r);
+                        val_map[inst] = r;
+                        break;
+                    }
+                    case IrNodeKind::IToPtr: {
+                        auto* it = static_cast<IrIToPtrInst const*>(inst);
+                        auto* op = lookup(it->operand);
+                        auto* dst_ty = llvm_type_cached(tc, it->type);
+                        if (!op || !dst_ty)
+                            return false;
+
+                        auto* r = LLVMBuildIntToPtr(builder, op, dst_ty, "");
+                        set_name(r);
+                        val_map[inst] = r;
+                        break;
+                    }
+                    case IrNodeKind::Bitcast: {
+                        auto* b = static_cast<IrBitcastInst const*>(inst);
+                        auto* op = lookup(b->operand);
+                        auto* dst_ty = llvm_type_cached(tc, b->type);
+                        if (!op || !dst_ty)
+                            return false;
+
+                        auto* r = LLVMBuildBitCast(builder, op, dst_ty, "");
+                        set_name(r);
+                        val_map[inst] = r;
+                        break;
+                    }
+                    case IrNodeKind::Segcast: {
+                        auto* s = static_cast<IrSegcastInst const*>(inst);
+                        auto* op = lookup(s->operand);
+                        auto* dst_ty = llvm_type_cached(tc, s->type);
+                        if (!op || !dst_ty)
+                            return false;
+
+                        auto* r = LLVMBuildPointerCast(builder, op, dst_ty, "");
+                        set_name(r);
+                        val_map[inst] = r;
+                        break;
+                    }
+                    case IrNodeKind::Phi: {
+                        auto* p = static_cast<IrPhiInst const*>(inst);
+                        auto* phi_ty = llvm_type_cached(tc, p->type);
+                        if (!phi_ty)
+                            return false;
+
+                        auto* phi = LLVMBuildPhi(builder, phi_ty, "");
+                        for (auto const& pred : p->incoming)
+                        {
+                            auto* val = lookup(pred.value);
+                            auto* bb = bb_map[pred.block];
+                            if (val && bb)
+                            {
+                                LLVMValueRef vals[] = {val};
+                                LLVMBasicBlockRef blocks[] = {bb};
+                                LLVMAddIncoming(phi, vals, blocks, 1);
+                            }
+                        }
+
+                        set_name(phi);
+                        val_map[inst] = phi;
+                        break;
+                    }
+                    case IrNodeKind::Neg: {
+                        auto* n = static_cast<IrNegInst const*>(inst);
+                        auto* op = lookup(n->operand);
+                        if (!op)
+                            return false;
+
+                        LLVMValueRef r = nullptr;
+                        if (n->type && n->type->kind == IrTypeKind::Float)
+                            r = LLVMBuildFNeg(builder, op, "");
+                        else
+                            r = LLVMBuildNeg(builder, op, "");
+
+                        set_name(r);
+                        val_map[inst] = r;
+                        break;
+                    }
+                    case IrNodeKind::Not: {
+                        auto* n = static_cast<IrNotInst const*>(inst);
+                        auto* op = lookup(n->operand);
+                        if (!op)
+                            return false;
+
+                        auto* r = LLVMBuildNot(builder, op, "");
+                        set_name(r);
+                        val_map[inst] = r;
+                        break;
+                    }
+                    case IrNodeKind::Call: {
+                        auto* c = static_cast<IrCallInst const*>(inst);
+                        auto* callee = lookup(c->callee);
+                        if (!callee)
+                            return false;
+
+                        std::vector<LLVMValueRef> args;
+                        for (auto* a : c->args)
+                        {
+                            auto* av = lookup(a);
+                            if (!av)
+                                return false;
+
+                            args.push_back(av);
+                        }
+
+                        std::vector<LLVMTypeRef> param_tys;
+                        for (auto* a : c->args)
+                        {
+                            auto* pt = llvm_type_cached(tc, a->type);
+                            if (!pt)
+                                pt = LLVMInt32TypeInContext(ctx);
+
+                            param_tys.push_back(pt);
+                        }
+
+                        auto* ret_ty = llvm_type_cached(tc, c->type);
+                        if (!ret_ty)
+                            ret_ty = LLVMVoidTypeInContext(ctx);
+
+                        auto* func_ty = LLVMFunctionType(ret_ty, param_tys.data(), static_cast<unsigned>(param_tys.size()), 0);
+                        auto* call_inst = LLVMBuildCall2(builder, func_ty, callee, args.data(), static_cast<unsigned>(args.size()), "");
+
+                        bool call_cc_error = false;
+                        auto cc_opt = get_calling_conv_for_call(c->callee, target, diags, call_cc_error);
+                        if (call_cc_error)
+                            return false;
+                        if (cc_opt)
+                            LLVMSetInstructionCallConv(call_inst, *cc_opt);
+
+                        set_name(call_inst);
+                        val_map[inst] = call_inst;
+                        break;
+                    }
+                    case IrNodeKind::CallTail: {
+                        auto* c = static_cast<IrCallTailInst const*>(inst);
+                        auto* callee = lookup(c->callee);
+                        if (!callee)
+                            return false;
+
+                        std::vector<LLVMValueRef> args;
+                        for (auto* a : c->args)
+                        {
+                            auto* av = lookup(a);
+                            if (!av)
+                                return false;
+
+                            args.push_back(av);
+                        }
+
+                        std::vector<LLVMTypeRef> param_tys;
+                        for (auto* a : c->args)
+                        {
+                            auto* pt = llvm_type_cached(tc, a->type);
+                            if (!pt)
+                                pt = LLVMInt32TypeInContext(ctx);
+
+                            param_tys.push_back(pt);
+                        }
+
+                        auto* ret_ty = llvm_type_cached(tc, c->type);
+                        if (!ret_ty)
+                            ret_ty = LLVMVoidTypeInContext(ctx);
+
+                        auto* func_ty = LLVMFunctionType(ret_ty, param_tys.data(), static_cast<unsigned>(param_tys.size()), 0);
+                        auto* call_inst = LLVMBuildCall2(builder, func_ty, callee, args.data(), static_cast<unsigned>(args.size()), "");
+
+                        bool call_cc_error = false;
+                        auto cc_opt = get_calling_conv_for_call(c->callee, target, diags, call_cc_error);
+                        if (call_cc_error)
+                            return false;
+                        if (cc_opt)
+                            LLVMSetInstructionCallConv(call_inst, *cc_opt);
+
+                        LLVMSetTailCallKind(call_inst, LLVMTailCallKindMustTail);
+                        set_name(call_inst);
+                        val_map[inst] = call_inst;
+                        break;
+                    }
+                    case IrNodeKind::Aggregate: {
+                        auto* agg = static_cast<IrAggregateInst const*>(inst);
+                        auto* agg_ty = llvm_type_cached(tc, agg->type);
+                        if (!agg_ty)
+                            return false;
+
+                        auto* const_val = c_api_constant(inst, ctx, tc, val_map);
+                        if (const_val)
+                        {
+                            set_name(const_val);
+                            val_map[inst] = const_val;
+                            break;
+                        }
+
+                        auto* result = LLVMGetUndef(agg_ty);
+                        if (agg->type && agg->type->kind == IrTypeKind::Aggregate)
+                        {
+                            auto* ir_agg_type = static_cast<IrAggregateType const*>(agg->type);
+                            for (std::size_t i = 0; i < agg->values.size(); ++i)
+                            {
+                                auto* mv = lookup(agg->values[i]);
+                                if (!mv)
+                                    return false;
+
+                                unsigned llvm_idx = tc.get_llvm_field_index(ir_agg_type, static_cast<unsigned>(i));
+                                result = LLVMBuildInsertValue(builder, result, mv, llvm_idx, "");
+                            }
+                        }
+                        else
+                        {
+                            for (std::size_t i = 0; i < agg->values.size(); ++i)
+                            {
+                                auto* mv = lookup(agg->values[i]);
+                                if (!mv)
+                                    return false;
+                                result = LLVMBuildInsertValue(builder, result, mv, static_cast<unsigned>(i), "");
+                            }
+                        }
+
+                        set_name(result);
+                        val_map[inst] = result;
+                        break;
+                    }
+                    case IrNodeKind::Extract: {
+                        auto* e = static_cast<IrExtractInst const*>(inst);
+                        auto* agg_val = lookup(e->aggregate);
+                        if (!agg_val)
+                            return false;
+
+                        unsigned llvm_field_idx = e->field_index;
+                        if (e->aggregate && e->aggregate->type && e->aggregate->type->kind == IrTypeKind::Aggregate)
+                            llvm_field_idx = tc.get_llvm_field_index(static_cast<IrAggregateType const*>(e->aggregate->type), e->field_index);
+
+                        auto* result = LLVMBuildExtractValue(builder, agg_val, llvm_field_idx, "");
+                        set_name(result);
+                        val_map[inst] = result;
+                        break;
+                    }
+                    case IrNodeKind::Insert: {
+                        auto* ins = static_cast<IrInsertInst const*>(inst);
+                        auto* agg_val = lookup(ins->aggregate);
+                        auto* val = lookup(ins->value);
+                        if (!agg_val || !val)
+                            return false;
+
+                        unsigned llvm_field_idx = ins->field_index;
+                        if (ins->aggregate && ins->aggregate->type && ins->aggregate->type->kind == IrTypeKind::Aggregate)
+                            llvm_field_idx = tc.get_llvm_field_index(static_cast<IrAggregateType const*>(ins->aggregate->type), ins->field_index);
+
+                        auto* result = LLVMBuildInsertValue(builder, agg_val, val, llvm_field_idx, "");
+                        set_name(result);
+                        val_map[inst] = result;
+                        break;
+                    }
+                    default:
+                        add_diag(diags, inst->range, std::format("LLVM backend: unsupported instruction kind {}", static_cast<int>(inst->kind)));
+                        return false;
+                }
+                return true;
+            }
+
+            [[nodiscard]] static bool emit_terminator(IrNode const* term, LLVMBuilderRef builder, LLVMContextRef ctx, TypeCache& tc,
+                                                      std::unordered_map<IrValue const*, LLVMValueRef>& val_map,
+                                                      std::unordered_map<IrBasicBlock const*, LLVMBasicBlockRef>& bb_map, std::vector<BackendDiagnostic>& diags,
+                                                      LLVMValueRef llvm_func)
+            {
+                if (!term)
+                {
+                    LLVMBuildUnreachable(builder);
+                    return true;
+                }
+
+                auto lookup = [&](IrValue const* v) -> LLVMValueRef {
+                    if (!v)
+                        return nullptr;
+
+                    if (auto it = val_map.find(v); it != val_map.end())
+                        return it->second;
+
+                    auto* c = c_api_constant(v, ctx, tc, val_map);
+                    if (c)
+                    {
+                        val_map[v] = c;
+                        return c;
+                    }
+
+                    return nullptr;
+                };
+
+                switch (term->kind)
+                {
+                    case IrNodeKind::Br: {
+                        auto* b = static_cast<IrBrInst const*>(term);
+                        auto* target_bb = bb_map[b->target];
+                        if (!target_bb)
+                            return false;
+
+                        LLVMBuildBr(builder, target_bb);
+                        break;
+                    }
+                    case IrNodeKind::BrCond: {
+                        auto* bc = static_cast<IrBrCondInst const*>(term);
+                        auto* cond = lookup(bc->condition);
+                        auto* true_bb = bb_map[bc->true_target];
+                        auto* false_bb = bb_map[bc->false_target];
+                        if (!cond || !true_bb || !false_bb)
+                            return false;
+
+                        if (!is_bool_type(bc->condition->type))
+                        {
+                            auto* zero = LLVMConstInt(LLVMTypeOf(cond), 0, 0);
+                            cond = LLVMBuildICmp(builder, LLVMIntNE, cond, zero, "tobool");
+                        }
+
+                        LLVMBuildCondBr(builder, cond, true_bb, false_bb);
+                        break;
+                    }
+                    case IrNodeKind::Ret: {
+                        auto* r = static_cast<IrRetInst const*>(term);
+                        if (r->value)
+                        {
+                            auto* v = lookup(r->value);
+                            if (!v)
+                                return false;
+
+                            LLVMBuildRet(builder, v);
+                        }
+                        else
+                            LLVMBuildRetVoid(builder);
+                        break;
+                    }
+                    case IrNodeKind::Unreachable:
+                        LLVMBuildUnreachable(builder);
+                        break;
+                    case IrNodeKind::Switch: {
+                        auto* sw = static_cast<IrSwitchInst const*>(term);
+                        auto* val = lookup(sw->value);
+                        if (!val)
+                            return false;
+
+                        auto* default_bb = bb_map[sw->default_target];
+                        if (!default_bb)
+                            return false;
+
+                        constexpr std::int64_t kSwitchThreshold = 64;
+                        std::int64_t total_values = 0;
+                        std::int64_t max_range_size = 0;
+                        for (auto const& c : sw->cases)
+                        {
+                            auto range_size = c.end - c.start + 1;
+                            if (range_size > max_range_size)
+                                max_range_size = range_size;
+                            total_values += range_size;
+                        }
+
+                        bool use_cascade = (max_range_size > kSwitchThreshold || total_values > kSwitchThreshold);
+
+                        if (use_cascade)
+                        {
+                            auto* llvm_val_ty = LLVMTypeOf(val);
+                            auto* parent_bb = LLVMGetInsertBlock(builder);
+                            std::string parent_name = LLVMGetBasicBlockName(parent_bb);
+
+                            for (std::size_t i = 0; i < sw->cases.size(); ++i)
+                            {
+                                auto const& c = sw->cases[i];
+                                auto* case_target = bb_map[c.target];
+                                if (!case_target)
+                                    return false;
+
+                                bool is_last = (i == sw->cases.size() - 1);
+
+                                if (c.start == c.end)
+                                {
+                                    auto* cmp = LLVMBuildICmp(builder, LLVMIntEQ, val,
+                                                              LLVMConstInt(llvm_val_ty, static_cast<unsigned long long>(c.start),
+                                                                           static_cast<IrIntType const*>(sw->value->type) &&
+                                                                               static_cast<IrIntType const*>(sw->value->type)->is_signed),
+                                                              "");
+
+                                    if (is_last)
+                                        LLVMBuildCondBr(builder, cmp, case_target, default_bb);
+                                    else
+                                    {
+                                        auto* next_bb = LLVMAppendBasicBlockInContext(ctx, llvm_func, std::format("switch.case.{}", i + 1).c_str());
+                                        LLVMBuildCondBr(builder, cmp, case_target, next_bb);
+                                        LLVMPositionBuilderAtEnd(builder, next_bb);
+                                    }
+                                }
+                                else
+                                {
+                                    auto* start_val = LLVMConstInt(llvm_val_ty, static_cast<unsigned long long>(c.start),
+                                                                   static_cast<IrIntType const*>(sw->value->type) &&
+                                                                       static_cast<IrIntType const*>(sw->value->type)->is_signed);
+
+                                    auto* end_val = LLVMConstInt(llvm_val_ty, static_cast<unsigned long long>(c.end),
+                                                                 static_cast<IrIntType const*>(sw->value->type) &&
+                                                                     static_cast<IrIntType const*>(sw->value->type)->is_signed);
+
+                                    auto* ge_cmp = LLVMBuildICmp(builder, LLVMIntSGE, val, start_val, "");
+                                    auto* le_cmp = LLVMBuildICmp(builder, LLVMIntSLE, val, end_val, "");
+                                    auto* in_range = LLVMBuildAnd(builder, ge_cmp, le_cmp, "inrange");
+
+                                    if (is_last)
+                                        LLVMBuildCondBr(builder, in_range, case_target, default_bb);
+                                    else
+                                    {
+                                        auto* next_bb = LLVMAppendBasicBlockInContext(ctx, llvm_func, std::format("switch.case.{}", i + 1).c_str());
+                                        LLVMBuildCondBr(builder, in_range, case_target, next_bb);
+                                        LLVMPositionBuilderAtEnd(builder, next_bb);
+                                    }
+                                }
+                            }
+                        }
+                        else
+                        {
+                            auto* switch_inst = LLVMBuildSwitch(builder, val, default_bb, static_cast<unsigned>(total_values));
+
+                            for (auto const& c : sw->cases)
+                            {
+                                auto* case_target = bb_map[c.target];
+                                if (!case_target)
+                                    return false;
+
+                                for (std::int64_t v = c.start; v <= c.end; ++v)
+                                {
+                                    auto* case_val = LLVMConstInt(LLVMTypeOf(val), static_cast<unsigned long long>(v),
+                                                                  static_cast<IrIntType const*>(sw->value->type) &&
+                                                                      static_cast<IrIntType const*>(sw->value->type)->is_signed);
+
+                                    LLVMAddCase(switch_inst, case_val, case_target);
+                                }
+                            }
+                        }
+                        break;
+                    }
+                    default:
+                        add_diag(diags, term->range, std::format("LLVM backend: unsupported terminator kind {}", static_cast<int>(term->kind)));
+                        return false;
+                }
+                return true;
+            }
+        };
+
+    } // anonymous namespace
+
+    auto make_llvm_backend() -> std::unique_ptr<Backend>
+    {
+        return std::make_unique<LlvmBackendImpl>();
+    }
+
+} // namespace dcc::backend

@@ -1,0 +1,22 @@
+=== FILE: main.dc ===
+module m;
+
+public enum Signed {
+    Neg = -1,
+    Zero = 0,
+    Pos = 1,
+}
+
+public Signed v1;
+public Signed v2;
+public Signed v3;
+
+=== EXPECT-TYPES FOR: m ===
+Module m
+  Enum Signed
+    Variant Neg
+    Variant Zero
+    Variant Pos
+  Var v1: enum Signed
+  Var v2: enum Signed
+  Var v3: enum Signed

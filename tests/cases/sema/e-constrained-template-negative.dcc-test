@@ -1,0 +1,18 @@
+=== FILE: main.dc ===
+module m;
+
+using Never(T) = compiles(T a) {
+    continue;
+};
+
+T sum(T)(T value) if Never(T) {
+    return value;
+}
+
+void use() {
+    i32 x = 0;
+    sum(&x);
+}
+
+=== EXPECT-ERRORS ===
+main.dc:13: template constraint not satisfied for `sum`

@@ -1,0 +1,35 @@
+=== FILE: main.dc ===
+module m;
+
+public enum Color {
+    Red,
+    Blue = 10,
+    Green,
+}
+
+public Color get_red() {
+    return Color::Red;
+}
+
+public Color get_blue() {
+    return Color::Blue;
+}
+
+public Color get_green() {
+    return Color::Green;
+}
+
+=== EXPECT-BODY ===
+Module m
+  Func get_red diverging=true
+    Body
+      Return
+        Path Color::Red [type=enum Color const=0 constant decl=Color]
+  Func get_blue diverging=true
+    Body
+      Return
+        Path Color::Blue [type=enum Color const=10 constant decl=Color]
+  Func get_green diverging=true
+    Body
+      Return
+        Path Color::Green [type=enum Color const=11 constant decl=Color]

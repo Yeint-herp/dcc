@@ -1,0 +1,104 @@
+=== FILE: main.dc ===
+module m;
+
+enum Maybe {
+    Some(i32),
+    None,
+}
+
+struct Point {
+    i32 x;
+    i32 y;
+}
+
+enum Node {
+    Leaf(i32),
+    Pair(Point, Maybe),
+    Empty,
+}
+
+void f() {
+    match node {
+        Node::Leaf(0) => 1,
+        Node::Leaf(value) => value,
+        Node::Pair(Point { x, y }, Maybe::Some(extra)) => extra,
+        Node::Pair(Point { x => left, y => right }, Maybe::None) => left,
+        Node::Pair(_, _) => 7,
+        Node::Empty => 0,
+    };
+}
+
+=== EXPECT-AST ===
+TranslationUnit
+  Module m
+  Enum name=Maybe tagged
+    Variant name=Some
+      Payload
+        Primitive i32
+    Variant name=None
+  Struct name=Point
+    Field name=x
+      Primitive i32
+    Field name=y
+      Primitive i32
+  Enum name=Node tagged
+    Variant name=Leaf
+      Payload
+        Primitive i32
+    Variant name=Pair
+      Payload
+        Named Point
+        Named Maybe
+    Variant name=Empty
+  Func name=f
+    Return
+      Primitive void
+    Body
+      ExprStmt
+        Match
+          Operand
+            Ident node
+          Arm
+            EnumDestructurePattern variant=Node::Leaf
+              LiteralPattern
+                IntLiteral 0
+            Body
+              IntLiteral 1
+          Arm
+            EnumDestructurePattern variant=Node::Leaf
+              BindingPattern name=value
+            Body
+              Ident value
+          Arm
+            EnumDestructurePattern variant=Node::Pair
+              StructDestructurePattern type=Point
+                Field name=x
+                  BindingPattern name=x
+                Field name=y
+                  BindingPattern name=y
+              EnumDestructurePattern variant=Maybe::Some
+                BindingPattern name=extra
+            Body
+              Ident extra
+          Arm
+            EnumDestructurePattern variant=Node::Pair
+              StructDestructurePattern type=Point
+                Field name=x
+                  BindingPattern name=left
+                Field name=y
+                  BindingPattern name=right
+              EnumDestructurePattern variant=Maybe::None
+            Body
+              Ident left
+          Arm
+            EnumDestructurePattern variant=Node::Pair
+              WildcardPattern
+              WildcardPattern
+            Body
+              IntLiteral 7
+          Arm
+            EnumDestructurePattern variant=Node::Empty
+            Body
+              IntLiteral 0
+
+=== EXPECT-ERRORS ===

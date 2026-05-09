@@ -1,0 +1,25 @@
+=== FILE: main.dc ===
+module m;
+
+i64 aligned(i8 a, i64 b, i16 c) {
+    i8 x = 0;
+    i64 y = 1;
+    i16 z = 2;
+    return b;
+}
+
+=== EXPECT-BODY ===
+Module m
+  Func aligned diverging=true
+    Param a type=i8 storage=param offset=0 index=0
+    Param b type=i64 storage=param offset=8 index=1
+    Param c type=i16 storage=param offset=16 index=2
+    Body
+      Var x type=i8 storage=local offset=18
+        IntLiteral 0 [type=i8 const=0 constant]
+      Var y type=i64 storage=local offset=24
+        IntLiteral 1 [type=i64 const=1 constant]
+      Var z type=i16 storage=local offset=32
+        IntLiteral 2 [type=i16 const=2 constant]
+      Return
+        Ident b [type=i64 const=<none> lvalue decl=b]

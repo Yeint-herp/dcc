@@ -1,0 +1,18 @@
+=== FILE: main.dc ===
+module m;
+
+i32 pick(bool B)(i32 x) {
+    return if B { x } else { -x };
+}
+
+void use() {
+    pick!true(1);
+    pick!true(2);
+    pick!false(3);
+}
+
+=== ENTRY: main.dc ===
+
+=== EXPECT-REGISTRY ===
+fn=pick args=[false] state=2
+fn=pick args=[true] state=2

@@ -1,0 +1,34 @@
+=== FILE: test.dc ===
+module test;
+
+public i64 f(i64 v) {
+    return match v {
+        0 => 99,
+        &x => *x + 1,
+    };
+}
+
+=== EXPECT-IR ===
+module "test"
+i64@_DC0F1.4.test1.f1i64si64s(i64) {
+%entry(i64 %v):
+  br label %match.arm0.test3
+%match.merge1:
+  %4 = phi i64 [ i64 #99, label %match.arm0.body4 ],  [ i64 %3, label %match.arm1.body6 ]
+  ret i64 %4
+%match.fail2:
+  unreachable
+%match.arm0.test3:
+  %0 = cmp.eq i64 %v, #0
+  br.cond %0, label %match.arm0.body4, label %match.arm1.test5
+%match.arm0.body4:
+  br label %match.merge1
+%match.arm1.test5:
+  %1 = alloca i64
+  store i64 %v, ptr<i64> %1
+  br label %match.arm1.body6
+%match.arm1.body6:
+  %2 = load i64, ptr<i64> %1
+  %3 = add i64 %2, i64 #1
+  br label %match.merge1
+}

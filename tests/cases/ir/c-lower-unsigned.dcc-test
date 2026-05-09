@@ -1,0 +1,68 @@
+=== FILE: test.dc ===
+module test;
+
+public u32 uadd(u32 a, u32 b) { return a + b; }
+public u32 urem(u32 a, u32 b) { return a % b; }
+public u32 ushl(u32 a, u32 b) { return a << b; }
+public u32 ushr(u32 a, u32 b) { return a >> b; }
+public bool ueq(u32 a, u32 b) { return a == b; }
+public bool ult_fn(u32 a, u32 b) { return a < b; }
+public bool ule(u32 a, u32 b) { return a <= b; }
+public bool ugt(u32 a, u32 b) { return a > b; }
+public bool uge(u32 a, u32 b) { return a >= b; }
+
+=== EXPECT-IR ===
+module "test"
+u32@_DC0F1.4.test4.uadd2i32ui32ui32u(u32, u32) {
+%entry(u32 %a, u32 %b):
+  %0 = add u32 %a, u32 %b
+  ret u32 %0
+}
+
+u32@_DC0F1.4.test4.urem2i32ui32ui32u(u32, u32) {
+%entry(u32 %a, u32 %b):
+  %0 = urem u32 %a, u32 %b
+  ret u32 %0
+}
+
+u32@_DC0F1.4.test4.ushl2i32ui32ui32u(u32, u32) {
+%entry(u32 %a, u32 %b):
+  %0 = shl u32 %a, u32 %b
+  ret u32 %0
+}
+
+u32@_DC0F1.4.test4.ushr2i32ui32ui32u(u32, u32) {
+%entry(u32 %a, u32 %b):
+  %0 = lshr u32 %a, u32 %b
+  ret u32 %0
+}
+
+bool@_DC0F1.4.test3.ueq2i32ui32ub(u32, u32) {
+%entry(u32 %a, u32 %b):
+  %0 = cmp.eq u32 %a, %b
+  ret bool %0
+}
+
+bool@_DC0F1.4.test6.ult_fn2i32ui32ub(u32, u32) {
+%entry(u32 %a, u32 %b):
+  %0 = cmp.ult u32 %a, %b
+  ret bool %0
+}
+
+bool@_DC0F1.4.test3.ule2i32ui32ub(u32, u32) {
+%entry(u32 %a, u32 %b):
+  %0 = cmp.ule u32 %a, %b
+  ret bool %0
+}
+
+bool@_DC0F1.4.test3.ugt2i32ui32ub(u32, u32) {
+%entry(u32 %a, u32 %b):
+  %0 = cmp.ugt u32 %a, %b
+  ret bool %0
+}
+
+bool@_DC0F1.4.test3.uge2i32ui32ub(u32, u32) {
+%entry(u32 %a, u32 %b):
+  %0 = cmp.uge u32 %a, %b
+  ret bool %0
+}

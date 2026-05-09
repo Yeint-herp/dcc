@@ -1,0 +1,36 @@
+=== FILE: main.dc ===
+module m;
+
+T id(T)(T x) {
+    return x;
+}
+
+i32 plain(i32 x) {
+    return x;
+}
+
+void bad_count() {
+    id!(i32, i64)(1);
+}
+
+void bad_nontemplate() {
+    plain!i32(1);
+}
+
+void bad_value() {
+    id!(1)(1);
+}
+
+T badly_bodied(T)(T x) {
+    return "hello";
+}
+
+void bad_body_instantiation() {
+    badly_bodied!i32(42);
+}
+
+=== EXPECT-ERRORS ===
+main.dc:12: template argument count mismatch for `id`
+main.dc:16: `plain` does not take template arguments
+main.dc:20: template argument count mismatch for `id`
+main.dc:24: return type mismatch

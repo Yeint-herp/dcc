@@ -1,0 +1,27 @@
+=== FILE: main.dc ===
+module m;
+struct Wrapper(T) {
+  T this;
+}
+
+void process(T)(Wrapper(T) x);
+
+=== EXPECT-AST ===
+TranslationUnit
+  Module m
+  Struct name=Wrapper
+    TemplateParams
+      Param name=T
+    Field name=this
+      Named T
+  Func name=process
+    TemplateParams
+      Param name=T
+    Return
+      Primitive void
+    Params
+      Param name=x
+        Named Wrapper
+          TemplateArgs
+            Arg
+              Named T

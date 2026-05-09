@@ -1,0 +1,26 @@
+=== FILE: test.dc ===
+module test;
+
+public i32 deref_test(i32* p) { return *p; }
+public bool null_test(i32* p) { return p == null; }
+public bool ptr_eq(i32* a, i32* b) { return a == b; }
+
+=== EXPECT-IR ===
+module "test"
+i32@_DC0F1.4.test10.deref_test1Pqi32si32s(ptr<i32>) {
+%entry(ptr<i32> %p):
+  %0 = load i32, ptr<i32> %p
+  ret i32 %0
+}
+
+bool@_DC0F1.4.test9.null_test1Pqi32sb(ptr<i32>) {
+%entry(ptr<i32> %p):
+  %0 = cmp.eq ptr<i32> %p, #null
+  ret bool %0
+}
+
+bool@_DC0F1.4.test6.ptr_eq2Pqi32sPqi32sb(ptr<i32>, ptr<i32>) {
+%entry(ptr<i32> %a, ptr<i32> %b):
+  %0 = cmp.eq ptr<i32> %a, %b
+  ret bool %0
+}

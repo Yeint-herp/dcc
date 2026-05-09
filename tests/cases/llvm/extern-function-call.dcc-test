@@ -1,0 +1,23 @@
+=== FILE: test.dc ===
+module test;
+
+@nomangle
+extern void my_extern(i32 x);
+
+@nomangle
+public void call_extern() {
+    my_extern(42);
+}
+
+=== EXPECT-LLVM FLAGS: -verify ===
+; ModuleID = 'test'
+source_filename = "test"
+target triple = "x86_64-elf"
+
+declare void @my_extern(i32)
+
+define void @call_extern() {
+entry:
+  call void @my_extern(i32 42)
+  ret void
+}

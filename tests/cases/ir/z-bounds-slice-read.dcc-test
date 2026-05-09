@@ -1,0 +1,36 @@
+=== FILE: test.dc ===
+module test;
+
+public i64 test([]i64 s, i64 idx) {
+    return s[idx];
+}
+=== EXPECT-IR FLAGS: -fbounds-check ===
+module "test"
+
+const global @.str.0 : [8 x u8] = aggregate [8 x u8], #116, #101, #115, #116, #46, #100, #99, #0
+
+const global @.str.1 : [5 x u8] = aggregate [5 x u8], #116, #101, #115, #116, #0
+
+const global @.str.2 : [26 x u8] = aggregate [26 x u8], #115, #108, #105, #99, #101, #32, #105, #110, #100, #101, #120, #32, #111, #117, #116, #32, #111, #102, #32, #98, #111, #117, #110, #100, #115, #0
+
+
+i64@_DC0F1.4.test4.test2Sqi64si64si64s([]i64, i64) {
+%entry([]i64 %s, i64 %idx):
+  %0 = alloca []i64
+  store []i64 %s, ptr<[]i64> %0
+  %1 = load []i64, ptr<[]i64> %0
+  %2 = extract []i64 %1, field #0
+  %3 = extract []i64 %1, field #1
+  %4 = cmp.ult i64 %idx, %3
+  br.cond %4, label %bounds.ok1, label %bounds.fail2
+%bounds.ok1:
+  %5 = gep ptr<i64> %2, %idx
+  %6 = load i64, ptr<i64> %5
+  ret i64 %6
+%bounds.fail2:
+  call fn(@_DC0F0.8.__assert4Pqi8ui32sPqi8uPqi8uv)(ptr<u8> @.str.0, i32 #4, ptr<u8> @.str.1, ptr<u8> @.str.2)
+  unreachable
+}
+
+import void@_DC0F0.8.__assert4Pqi8ui32sPqi8uPqi8uv(ptr<u8>, i32, ptr<u8>, ptr<u8>) {
+}

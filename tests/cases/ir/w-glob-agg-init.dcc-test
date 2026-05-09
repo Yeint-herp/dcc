@@ -1,0 +1,24 @@
+=== FILE: test.dc ===
+module test;
+
+public struct Point {
+    i64 x;
+    i64 y;
+}
+
+Point origin = {x = 0, y = 0};
+
+public i64 get_x() { return origin.x; }
+
+=== EXPECT-IR ===
+module "test"
+
+global @_DC0G1.4.test6.originD1.4.test5.Point0. : {@0 i64, @8 i64} = aggregate {@0 i64, @8 i64}, #0, #0
+
+
+i64@_DC0F1.4.test5.get_x0i64s() {
+%entry:
+  %0 = gep ptr<{@0 i64, @8 i64}> @_DC0G1.4.test6.originD1.4.test5.Point0., field #0
+  %1 = load i64, ptr<i64> %0
+  ret i64 %1
+}

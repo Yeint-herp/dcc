@@ -1,0 +1,17 @@
+=== FILE: main.dc ===
+module m;
+
+const char* get_msg() {
+    return "Hello";
+}
+
+void print(const char* fmt)(i32 out) {}
+
+void test() {
+    print(get_msg(), 1);
+}
+
+=== EXPECT-ERRORS ===
+main.dc:10: no matching call for `print`
+
+=== EXPECT-REGISTRY ===

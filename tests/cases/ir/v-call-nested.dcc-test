@@ -1,0 +1,20 @@
+=== FILE: test.dc ===
+module test;
+
+public i32 identity(i32 x) { return x; }
+
+public i32 nested(i32 x) { return identity(identity(x)); }
+
+=== EXPECT-IR ===
+module "test"
+i32@_DC0F1.4.test8.identity1i32si32s(i32) {
+%entry(i32 %x):
+  ret i32 %x
+}
+
+i32@_DC0F1.4.test6.nested1i32si32s(i32) {
+%entry(i32 %x):
+  %0 = call fn(@_DC0F1.4.test8.identity1i32si32s)(i32 %x) -> i32
+  %1 = call fn(@_DC0F1.4.test8.identity1i32si32s)(i32 %0) -> i32
+  ret i32 %1
+}

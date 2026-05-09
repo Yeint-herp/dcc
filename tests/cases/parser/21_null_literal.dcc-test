@@ -1,0 +1,13 @@
+=== FILE: main.dc ===
+module m;
+i32* p = null;
+
+=== EXPECT-AST ===
+TranslationUnit
+  Module m
+  Var name=p
+    Type
+      Pointer
+        Primitive i32
+    Init
+      NullLiteral

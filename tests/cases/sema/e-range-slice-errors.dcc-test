@@ -1,0 +1,75 @@
+=== FILE: main.dc ===
+module m;
+
+void test_pointer_range_slice(i32* p) {
+    p[0..3];
+}
+
+void test_non_indexable_range_slice(i32 x) {
+    x[0..3];
+}
+
+void test_negative_start(i32[10] arr) {
+    arr[-1..3];
+}
+
+void test_negative_end(i32[10] arr) {
+    arr[0..-3];
+}
+
+void test_start_exceeds_len(i32[10] arr) {
+    arr[15..20];
+}
+
+void test_end_exceeds_len(i32[10] arr) {
+    arr[0..15];
+}
+
+void test_start_gt_end(i32[10] arr) {
+    arr[5..3];
+}
+
+void test_inclusive_end_equals_len(i32[10] arr) {
+    arr[0..=10];
+}
+
+void test_inclusive_omitted_end(i32[10] arr) {
+    arr[1..=];
+    arr[..=];
+}
+
+void test_char_bounds(i32[10] arr, char c) {
+    arr[c..5];
+    arr[0..c];
+}
+
+void test_float_bounds(i32[10] arr, f32 f) {
+    arr[f..5];
+    arr[0..f];
+}
+
+void test_bool_bound(i32[10] arr, bool b) {
+    arr[b..5];
+}
+
+void test_normal_index_works(i32[10] arr, i32 idx) {
+    arr[idx];
+    arr[0];
+}
+
+=== EXPECT-ERRORS ===
+main.dc:4: cannot range-slice a pointer
+main.dc:8: cannot range-slice non-indexable type
+main.dc:12: range start index must be non-negative
+main.dc:16: range end index must be non-negative
+main.dc:20: range start index exceeds array length
+main.dc:20: range end index exceeds array length
+main.dc:24: range end index exceeds array length
+main.dc:28: range start index exceeds end index
+main.dc:32: inclusive range end index must be less than array length
+main.dc:36: inclusive range slice requires an end index
+main.dc:37: inclusive range slice requires an end index
+main.dc:41: range slice bounds must be integer type
+main.dc:46: range slice bounds must be integer type
+main.dc:51: range slice bounds must be integer type
+

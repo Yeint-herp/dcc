@@ -1,0 +1,10 @@
+=== FILE: main.dc ===
+module m;
+
+enum Foo {
+    A = Foo::B,
+    B = 5,
+}
+
+=== EXPECT-ERRORS ===
+main.dc:4: discriminant cannot reference later variant `B`

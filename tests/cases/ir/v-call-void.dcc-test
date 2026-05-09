@@ -1,0 +1,19 @@
+=== FILE: test.dc ===
+module test;
+
+public void do_nothing() {}
+
+public void call_void() { do_nothing(); }
+
+=== EXPECT-IR ===
+module "test"
+void@_DC0F1.4.test10.do_nothing0v() {
+%entry:
+  ret void
+}
+
+void@_DC0F1.4.test9.call_void0v() {
+%entry:
+  call fn(@_DC0F1.4.test10.do_nothing0v)()
+  ret void
+}

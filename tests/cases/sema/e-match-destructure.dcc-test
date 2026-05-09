@@ -1,0 +1,63 @@
+=== FILE: main.dc ===
+module m;
+
+enum Result {
+    Ok(i32),
+    Err(i32),
+    Cancelled,
+}
+
+struct Point {
+    i32 x;
+    i32 y;
+}
+
+i64 f(Result res) {
+    return match res {
+        Result::Ok(inner) => inner as i64,
+        Result::Err(code) => code as i64,
+        Result::Cancelled => 3,
+    };
+}
+
+i64 g(Point p) {
+    return match p {
+        Point { x, y } => (x + y) as i64,
+        Point { x, _ } => 5,
+    };
+}
+
+=== EXPECT-BODY ===
+Module m
+  Func f diverging=true
+    Param res type=enum Result storage=param offset=0 index=0
+    Body
+      Return
+        Match [type=i64 const=<none>]
+          Ident res [type=enum Result const=<none> lvalue decl=res]
+          Arm
+            EnumDestructurePattern Ok
+            Cast [type=i64 const=<none> lvalue decl=inner]
+              Ident inner [type=i32 const=<none> lvalue decl=inner]
+          Arm
+            EnumDestructurePattern Err
+            Cast [type=i64 const=<none> lvalue decl=code]
+              Ident code [type=i32 const=<none> lvalue decl=code]
+          Arm
+            EnumDestructurePattern Cancelled
+            IntLiteral 3 [type=i64 const=3 constant]
+  Func g diverging=true
+    Param p type=struct Point storage=param offset=0 index=0
+    Body
+      Return
+        Match [type=i64 const=<none>]
+          Ident p [type=struct Point const=<none> lvalue decl=p]
+          Arm
+            StructDestructurePattern Point
+            Cast [type=i64 const=<none>]
+              Binary + [type=i32 const=<none>]
+                Ident x [type=i32 const=<none> lvalue decl=x]
+                Ident y [type=i32 const=<none> lvalue decl=y]
+          Arm
+            StructDestructurePattern Point
+            IntLiteral 5 [type=i64 const=5 constant]

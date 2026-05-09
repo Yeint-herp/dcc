@@ -1,0 +1,107 @@
+=== FILE: test.dc ===
+module test;
+
+public i32 nested_loop(i32 n) {
+    i32 r = 0;
+    i32 i = 0;
+
+    while i < n {
+        i32 j = 0;
+
+        while j < i {
+            r = r + 1;
+            j = j + 1;
+        }
+
+        i = i + 1;
+    }
+
+    return r;
+}
+
+public i32 nested_loop_defer(i32 n) {
+    i32 x = 0;
+
+    while x < n {
+        defer x = x + 1;
+
+        if (x > 2) { return x; }
+        x = x + 1;
+    }
+
+    return x;
+}
+
+=== EXPECT-IR ===
+module "test"
+i32@_DC0F1.4.test11.nested_loop1i32si32s(i32) {
+%entry(i32 %n):
+  %0 = alloca i32
+  store i32 #0, ptr<i32> %0
+  %1 = alloca i32
+  store i32 #0, ptr<i32> %1
+  br label %while.cond1
+%while.cond1:
+  %2 = load i32, ptr<i32> %1
+  %3 = cmp.lt i32 %2, %n
+  br.cond %3, label %while.body2, label %while.exit3
+%while.body2:
+  %4 = alloca i32
+  store i32 #0, ptr<i32> %4
+  br label %while.cond4
+%while.exit3:
+  %14 = load i32, ptr<i32> %0
+  ret i32 %14
+%while.cond4:
+  %5 = load i32, ptr<i32> %4
+  %6 = load i32, ptr<i32> %1
+  %7 = cmp.lt i32 %5, %6
+  br.cond %7, label %while.body5, label %while.exit6
+%while.body5:
+  %8 = load i32, ptr<i32> %0
+  %9 = add i32 %8, i32 #1
+  store i32 %9, ptr<i32> %0
+  %10 = load i32, ptr<i32> %4
+  %11 = add i32 %10, i32 #1
+  store i32 %11, ptr<i32> %4
+  br label %while.cond4
+%while.exit6:
+  %12 = load i32, ptr<i32> %1
+  %13 = add i32 %12, i32 #1
+  store i32 %13, ptr<i32> %1
+  br label %while.cond1
+}
+
+i32@_DC0F1.4.test17.nested_loop_defer1i32si32s(i32) {
+%entry(i32 %n):
+  %0 = alloca i32
+  store i32 #0, ptr<i32> %0
+  br label %while.cond1
+%while.cond1:
+  %1 = load i32, ptr<i32> %0
+  %2 = cmp.lt i32 %1, %n
+  br.cond %2, label %while.body2, label %while.exit3
+%while.body2:
+  %3 = load i32, ptr<i32> %0
+  %4 = cmp.gt i32 %3, #2
+  br.cond %4, label %if.then4, label %if.else5
+%while.exit3:
+  %12 = load i32, ptr<i32> %0
+  ret i32 %12
+%if.then4:
+  %5 = load i32, ptr<i32> %0
+  %6 = load i32, ptr<i32> %0
+  %7 = add i32 %6, i32 #1
+  store i32 %7, ptr<i32> %0
+  ret i32 %5
+%if.else5:
+  br label %if.merge6
+%if.merge6:
+  %8 = load i32, ptr<i32> %0
+  %9 = add i32 %8, i32 #1
+  store i32 %9, ptr<i32> %0
+  %10 = load i32, ptr<i32> %0
+  %11 = add i32 %10, i32 #1
+  store i32 %11, ptr<i32> %0
+  br label %while.cond1
+}

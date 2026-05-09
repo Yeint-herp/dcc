@@ -1,0 +1,103 @@
+=== FILE: main.dc ===
+module m;
+
+f64 ret_f64() {
+    f64 v = 3.14;
+    return v;
+}
+
+i32 ret_i32() {
+    i32 v = 42;
+    return v;
+}
+
+f64 ret_i32_to_f64() {
+    i32 v = 10;
+    return v;
+}
+
+f32 ret_i64_to_f32() {
+    i64 v = 100;
+    return v;
+}
+
+f64 ret_f32_to_f64() {
+    f32 v = 1.0;
+    return v;
+}
+
+f32 ret_f64_to_f32() {
+    f64 v = 2.0;
+    return v;
+}
+
+i64 ret_i32_to_i64() {
+    i32 v = 3;
+    return v;
+}
+
+i32 ret_i16_to_i32() {
+    i16 v = 4;
+    return v;
+}
+
+i32* ret_null_ptr() {
+    return null;
+}
+
+=== ENTRY: main.dc ===
+
+=== EXPECT-BODY ===
+Module m
+  Func ret_f64 diverging=true
+    Body
+      Var v type=f64 storage=local offset=0
+        FloatLiteral 3.14 [type=f64 const=3.14 constant]
+      Return
+        Ident v [type=f64 const=3.14 lvalue constant decl=v]
+  Func ret_i32 diverging=true
+    Body
+      Var v type=i32 storage=local offset=0
+        IntLiteral 42 [type=i32 const=42 constant]
+      Return
+        Ident v [type=i32 const=42 lvalue constant decl=v]
+  Func ret_i32_to_f64 diverging=true
+    Body
+      Var v type=i32 storage=local offset=0
+        IntLiteral 10 [type=i32 const=10 constant]
+      Return
+        Ident v [type=i32 const=10 lvalue constant decl=v]
+  Func ret_i64_to_f32 diverging=true
+    Body
+      Var v type=i64 storage=local offset=0
+        IntLiteral 100 [type=i64 const=100 constant]
+      Return
+        Ident v [type=i64 const=100 lvalue constant decl=v]
+  Func ret_f32_to_f64 diverging=true
+    Body
+      Var v type=f32 storage=local offset=0
+        FloatLiteral 1 [type=f32 const=1 constant]
+      Return
+        Ident v [type=f32 const=1 lvalue constant decl=v]
+  Func ret_f64_to_f32 diverging=true
+    Body
+      Var v type=f64 storage=local offset=0
+        FloatLiteral 2 [type=f64 const=2 constant]
+      Return
+        Ident v [type=f64 const=2 lvalue constant decl=v]
+  Func ret_i32_to_i64 diverging=true
+    Body
+      Var v type=i32 storage=local offset=0
+        IntLiteral 3 [type=i32 const=3 constant]
+      Return
+        Ident v [type=i32 const=3 lvalue constant decl=v]
+  Func ret_i16_to_i32 diverging=true
+    Body
+      Var v type=i16 storage=local offset=0
+        IntLiteral 4 [type=i16 const=4 constant]
+      Return
+        Ident v [type=i16 const=4 lvalue constant decl=v]
+  Func ret_null_ptr diverging=true
+    Body
+      Return
+        NullLiteral [type=ptr(i32) const=null constant]

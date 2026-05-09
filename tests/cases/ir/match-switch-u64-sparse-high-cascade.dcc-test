@@ -1,0 +1,48 @@
+=== FILE: test.dc ===
+module test;
+
+public i32 sparse_high(u64 v) {
+    return match v {
+        0x8000_0000_0000_0000 => 1,
+        0x9000_0000_0000_0000 => 2,
+        0xA000_0000_0000_0000 => 3,
+        0xB000_0000_0000_0000 => 4,
+        _ => 99,
+    };
+}
+
+=== EXPECT-IR ===
+module "test"
+i32@_DC0F1.4.test11.sparse_high1i64ui32s(u64) {
+%entry(u64 %v):
+  br label %match.arm0.test3
+%match.merge1:
+  %4 = phi i32 [ i32 #1, label %match.arm0.body4 ],  [ i32 #2, label %match.arm1.body6 ],  [ i32 #3, label %match.arm2.body8 ],  [ i32 #4, label %match.arm3.body10 ],  [ i32 #99, label %match.arm4.body12 ]
+  ret i32 %4
+%match.fail2:
+  unreachable
+%match.arm0.test3:
+  %0 = cmp.eq u64 %v, #9223372036854775808
+  br.cond %0, label %match.arm0.body4, label %match.arm1.test5
+%match.arm0.body4:
+  br label %match.merge1
+%match.arm1.test5:
+  %1 = cmp.eq u64 %v, #10376293541461622784
+  br.cond %1, label %match.arm1.body6, label %match.arm2.test7
+%match.arm1.body6:
+  br label %match.merge1
+%match.arm2.test7:
+  %2 = cmp.eq u64 %v, #11529215046068469760
+  br.cond %2, label %match.arm2.body8, label %match.arm3.test9
+%match.arm2.body8:
+  br label %match.merge1
+%match.arm3.test9:
+  %3 = cmp.eq u64 %v, #12682136550675316736
+  br.cond %3, label %match.arm3.body10, label %match.arm4.test11
+%match.arm3.body10:
+  br label %match.merge1
+%match.arm4.test11:
+  br label %match.arm4.body12
+%match.arm4.body12:
+  br label %match.merge1
+}

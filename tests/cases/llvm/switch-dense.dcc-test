@@ -1,0 +1,65 @@
+=== FILE: test.dc ===
+module test;
+
+@nomangle
+public i32 switch_dense(i32 v) {
+    return match v {
+        1 => 10,
+        2 => 20,
+        3 => 30,
+        4 => 40,
+        _ => 99,
+    };
+}
+
+=== EXPECT-LLVM FLAGS: -verify ===
+; ModuleID = 'test'
+source_filename = "test"
+target triple = "x86_64-elf"
+
+define i32 @switch_dense(i32 %v) {
+entry:
+  switch i32 %v, label %match.arm4.body12 [
+    i32 1, label %match.arm0.body4
+    i32 2, label %match.arm1.body6
+    i32 3, label %match.arm2.body8
+    i32 4, label %match.arm3.body10
+  ]
+
+match.merge1:                                     ; preds = %match.arm4.body12, %match.arm3.body10, %match.arm2.body8, %match.arm1.body6, %match.arm0.body4
+  %"0" = phi i32 [ 10, %match.arm0.body4 ], [ 20, %match.arm1.body6 ], [ 30, %match.arm2.body8 ], [ 40, %match.arm3.body10 ], [ 99, %match.arm4.body12 ]
+  ret i32 %"0"
+
+match.fail2:                                      ; No predecessors!
+  unreachable
+
+match.arm0.test3:                                 ; No predecessors!
+  unreachable
+
+match.arm0.body4:                                 ; preds = %entry
+  br label %match.merge1
+
+match.arm1.test5:                                 ; No predecessors!
+  unreachable
+
+match.arm1.body6:                                 ; preds = %entry
+  br label %match.merge1
+
+match.arm2.test7:                                 ; No predecessors!
+  unreachable
+
+match.arm2.body8:                                 ; preds = %entry
+  br label %match.merge1
+
+match.arm3.test9:                                 ; No predecessors!
+  unreachable
+
+match.arm3.body10:                                ; preds = %entry
+  br label %match.merge1
+
+match.arm4.test11:                                ; No predecessors!
+  unreachable
+
+match.arm4.body12:                                ; preds = %entry
+  br label %match.merge1
+}

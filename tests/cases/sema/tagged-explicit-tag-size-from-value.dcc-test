@@ -1,0 +1,22 @@
+=== FILE: main.dc ===
+module m;
+
+public enum LargeTag {
+    A(i32) = 0,
+    B(i32) = 100,
+    C(i32) = 300,
+}
+
+public LargeTag t1;
+public LargeTag t2;
+public LargeTag t3;
+
+=== EXPECT-TYPES FOR: m ===
+Module m
+  Enum LargeTag
+    Variant A(i32)
+    Variant B(i32)
+    Variant C(i32)
+  Var t1: enum LargeTag
+  Var t2: enum LargeTag
+  Var t3: enum LargeTag

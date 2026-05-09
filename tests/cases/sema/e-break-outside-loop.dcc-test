@@ -1,0 +1,9 @@
+=== FILE: main.dc ===
+module m;
+
+void bad() {
+    break;
+}
+
+=== EXPECT-ERRORS ===
+main.dc:4: break outside loop

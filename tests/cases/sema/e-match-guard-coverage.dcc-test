@@ -1,0 +1,35 @@
+=== FILE: main.dc ===
+module m;
+
+enum Status {
+    Ok(i32),
+    Err(i32),
+    Pending,
+}
+
+i32 test_guarded_not_exhaustive(Status s) {
+    return match s {
+        Status::Ok(x) if x > 0 => x,
+        Status::Err(x) if x != 0 => 0,
+        Status::Pending => -1,
+    };
+}
+
+i32 test_guarded_with_wildcard_exhaustive(Status s) {
+    return match s {
+        Status::Ok(x) if x > 0 => x,
+        _ => -1,
+    };
+}
+
+i32 test_guarded_plus_unguarded_exhaustive(Status s) {
+    return match s {
+        Status::Ok(x) if x > 0 => x * 2,
+        Status::Ok(x) => x,
+        Status::Err(x) => 0,
+        Status::Pending => -1,
+    };
+}
+
+=== EXPECT-ERRORS ===
+main.dc:10: match expression not exhaustive

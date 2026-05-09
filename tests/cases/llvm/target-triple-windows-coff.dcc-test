@@ -1,0 +1,16 @@
+=== FILE: test.dc ===
+module test;
+
+@nomangle
+public i32 add(i32 a, i32 b) { return a + b; }
+
+=== EXPECT-LLVM FLAGS: -target x86_64-coff -verify ===
+; ModuleID = 'test'
+source_filename = "test"
+target triple = "x86_64-coff"
+
+define i32 @add(i32 %a, i32 %b) {
+entry:
+  %"0" = add i32 %a, %b
+  ret i32 %"0"
+}

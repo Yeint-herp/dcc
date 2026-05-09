@@ -1,0 +1,63 @@
+=== FILE: m.dc ===
+module m;
+
+public struct Empty {}
+
+public union Nothing {}
+
+public enum Plain {}
+
+public enum Backed : u8 {
+    A,
+    B,
+}
+
+public struct SomePayload {
+    u8 a;
+    Empty b;
+    u8[0] c;
+}
+
+public struct PairPayload {
+    Nothing* a;
+    Backed b;
+}
+
+public enum Tagged : u16 {
+    None,
+    Some(SomePayload),
+    Pair(PairPayload),
+}
+
+public Empty empty;
+public Nothing nothing;
+public Plain plain;
+public Backed backed;
+public Tagged tagged;
+
+=== EXPECT-TYPES FOR: m ===
+Module m
+  Struct Empty
+  Union Nothing
+  Enum Plain
+  Enum Backed
+    Backing: u8
+    Variant A
+    Variant B
+  Struct SomePayload
+    Field a: u8
+    Field b: struct Empty
+    Field c: [u8; 0]
+  Struct PairPayload
+    Field a: ptr(union Nothing)
+    Field b: enum Backed
+  Enum Tagged
+    Backing: u16
+    Variant None
+    Variant Some(struct SomePayload)
+    Variant Pair(struct PairPayload)
+  Var empty: struct Empty
+  Var nothing: union Nothing
+  Var plain: enum Plain
+  Var backed: enum Backed
+  Var tagged: enum Tagged

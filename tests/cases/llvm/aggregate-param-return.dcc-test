@@ -1,0 +1,26 @@
+=== FILE: test.dc ===
+module test;
+
+public struct Point {
+    i64 x;
+    i64 y;
+}
+
+@nomangle
+public Point make_point(i64 x, i64 y) {
+    return {x = x, y = y};
+}
+
+=== EXPECT-LLVM FLAGS: -verify ===
+; ModuleID = 'test'
+source_filename = "test"
+target triple = "x86_64-elf"
+
+%0 = type { i64, i64 }
+
+define %0 @make_point(i64 %x, i64 %y) {
+entry:
+  %0 = insertvalue %0 undef, i64 %x, 0
+  %"0" = insertvalue %0 %0, i64 %y, 1
+  ret %0 %"0"
+}

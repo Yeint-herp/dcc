@@ -1,0 +1,30 @@
+=== FILE: m.dc ===
+module m;
+
+public struct S {
+    i32 x;
+    u8[4] bytes;
+}
+
+u8[4] arr;
+[]u8 slice;
+extern u8[] fam;
+i32 (*)(u8) fp;
+
+void f(u8 a, u8[4] b) {
+    return;
+}
+
+=== EXPECT-TYPES FOR: m ===
+Module m
+  Struct S
+    Field x: i32
+    Field bytes: [u8; 4]
+  Var arr: [u8; 4]
+  Var slice: slice(u8)
+  Var fam: fam(u8)
+  Var fp: fn(u8) -> i32
+  Func f
+    Return: void
+    Param a: u8
+    Param b: [u8; 4]

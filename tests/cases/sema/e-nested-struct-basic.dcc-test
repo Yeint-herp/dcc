@@ -1,0 +1,32 @@
+=== FILE: main.dc ===
+module m;
+
+struct Inner {
+    f64 value;
+}
+
+struct Outer {
+    Inner inner;
+    i32 extra;
+}
+
+void f(Outer o) {
+    sizeof(Outer);
+    alignof(Outer);
+    offsetof(Outer, inner);
+    offsetof(Outer, extra);
+    o.inner.value;
+}
+
+=== EXPECT-BODY ===
+Module m
+  Func f diverging=false
+    Param o type=struct Outer storage=param offset=0 index=0
+    Body
+      Sizeof [type=u64 const=16 constant]
+      Alignof [type=u64 const=8 constant]
+      Offsetof [type=u64 const=0 constant]
+      Offsetof [type=u64 const=8 constant]
+      FieldAccess value [type=f64 const=<none> lvalue decl=Inner]
+        FieldAccess inner [type=struct Inner const=<none> lvalue decl=Outer]
+          Ident o [type=struct Outer const=<none> lvalue decl=o]

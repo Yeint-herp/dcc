@@ -1,0 +1,40 @@
+=== FILE: test.dc ===
+module test;
+
+public i32 band(i32 a, i32 b) { return a & b; }
+public i32 bor(i32 a, i32 b) { return a | b; }
+public i32 bxor(i32 a, i32 b) { return a ^ b; }
+public i32 shl(i32 a, i32 b) { return a << b; }
+public i32 ashr(i32 a, i32 b) { return a >> b; }
+
+=== EXPECT-IR ===
+module "test"
+i32@_DC0F1.4.test4.band2i32si32si32s(i32, i32) {
+%entry(i32 %a, i32 %b):
+  %0 = and i32 %a, i32 %b
+  ret i32 %0
+}
+
+i32@_DC0F1.4.test3.bor2i32si32si32s(i32, i32) {
+%entry(i32 %a, i32 %b):
+  %0 = or i32 %a, i32 %b
+  ret i32 %0
+}
+
+i32@_DC0F1.4.test4.bxor2i32si32si32s(i32, i32) {
+%entry(i32 %a, i32 %b):
+  %0 = xor i32 %a, i32 %b
+  ret i32 %0
+}
+
+i32@_DC0F1.4.test3.shl2i32si32si32s(i32, i32) {
+%entry(i32 %a, i32 %b):
+  %0 = shl i32 %a, i32 %b
+  ret i32 %0
+}
+
+i32@_DC0F1.4.test4.ashr2i32si32si32s(i32, i32) {
+%entry(i32 %a, i32 %b):
+  %0 = ashr i32 %a, i32 %b
+  ret i32 %0
+}

@@ -1,0 +1,86 @@
+=== FILE: test.dc ===
+module test;
+
+public struct Data { i32 field; }
+
+public enum Option {
+    None,
+    Some(Data),
+}
+
+public i32 f(Option o) {
+    match o {
+        Option::Some(&p) => {
+            p.field = 42;
+        },
+        Option::None => {},
+    };
+
+    return match o {
+        Option::Some(data) => data.field,
+        Option::None => 0,
+    };
+}
+
+=== EXPECT-IR ===
+module "test"
+i32@_DC0F1.4.test1.f1D1.4.test6.Option0.i32s({@0 u8, @4 [4 x u8]}) {
+%entry({@0 u8, @4 [4 x u8]} %o):
+  %0 = alloca {@0 u8, @4 [4 x u8]}
+  store {@0 u8, @4 [4 x u8]} %o, ptr<{@0 u8, @4 [4 x u8]}> %0
+  %1 = load {@0 u8, @4 [4 x u8]}, ptr<{@0 u8, @4 [4 x u8]}> %0
+  br label %match.arm0.test3
+%match.merge1:
+  %13 = load {@0 u8, @4 [4 x u8]}, ptr<{@0 u8, @4 [4 x u8]}> %0
+  br label %match.arm0.test9
+%match.fail2:
+  unreachable
+%match.arm0.test3:
+  %2 = extract {@0 u8, @4 [4 x u8]} %1, field #0
+  %3 = cmp.eq u8 %2, #1
+  br.cond %3, label %match.arm0.body4, label %match.arm1.test5
+%match.arm0.body4:
+  %4 = extract {@0 u8, @4 [4 x u8]} %1, field #1
+  %5 = alloca {@0 i32}
+  %6 = bitcast ptr<{@0 i32}> %5 to ptr<[4 x u8]>
+  store [4 x u8] %4, ptr<[4 x u8]> %6
+  %7 = load {@0 i32}, ptr<{@0 i32}> %5
+  %8 = gep ptr<{@0 u8, @4 [4 x u8]}> %0, field #1
+  %9 = bitcast ptr<[4 x u8]> %8 to ptr<{@0 i32}>
+  %10 = gep ptr<{@0 i32}> %9, field #0
+  store i32 #42, ptr<i32> %10
+  br label %match.merge1
+%match.arm1.test5:
+  %11 = extract {@0 u8, @4 [4 x u8]} %1, field #0
+  %12 = cmp.eq u8 %11, #0
+  br.cond %12, label %match.arm1.body6, label %match.fail2
+%match.arm1.body6:
+  br label %match.merge1
+%match.merge7:
+  %25 = phi i32 [ i32 %22, label %match.arm0.body10 ],  [ i32 #0, label %match.arm1.body12 ]
+  ret i32 %25
+%match.fail8:
+  unreachable
+%match.arm0.test9:
+  %14 = extract {@0 u8, @4 [4 x u8]} %13, field #0
+  %15 = cmp.eq u8 %14, #1
+  br.cond %15, label %match.arm0.body10, label %match.arm1.test11
+%match.arm0.body10:
+  %16 = extract {@0 u8, @4 [4 x u8]} %13, field #1
+  %17 = alloca {@0 i32}
+  %18 = bitcast ptr<{@0 i32}> %17 to ptr<[4 x u8]>
+  store [4 x u8] %16, ptr<[4 x u8]> %18
+  %19 = load {@0 i32}, ptr<{@0 i32}> %17
+  %20 = alloca {@0 i32}
+  store {@0 i32} %19, ptr<{@0 i32}> %20
+  %21 = load {@0 i32}, ptr<{@0 i32}> %20
+  %22 = extract {@0 i32} %21, field #0
+  br label %match.merge7
+%match.arm1.test11:
+  %23 = extract {@0 u8, @4 [4 x u8]} %13, field #0
+  %24 = cmp.eq u8 %23, #0
+  br.cond %24, label %match.arm1.body12, label %match.fail8
+%match.arm1.body12:
+  br label %match.merge7
+}
+

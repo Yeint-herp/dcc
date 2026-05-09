@@ -1,0 +1,42 @@
+=== FILE: main.dc ===
+module m;
+void f() {
+    i32 x = -5;
+    i32* p = &x;
+    i32 y = *p;
+    x++;
+    --x;
+}
+
+=== EXPECT-AST ===
+TranslationUnit
+  Module m
+  Func name=f
+    Return
+      Primitive void
+    Body
+      Var name=x
+        Type
+          Primitive i32
+        Init
+          Unary op=-
+            IntLiteral 5
+      Var name=p
+        Type
+          Pointer
+            Primitive i32
+        Init
+          Unary op=&
+            Ident x
+      Var name=y
+        Type
+          Primitive i32
+        Init
+          Unary op=*
+            Ident p
+      ExprStmt
+        Postfix op=++
+          Ident x
+      ExprStmt
+        Unary op=--
+          Ident x

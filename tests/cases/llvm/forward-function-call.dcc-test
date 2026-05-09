@@ -1,0 +1,28 @@
+=== FILE: test.dc ===
+module test;
+
+@nomangle
+public i32 main() {
+    return helper();
+}
+
+@nomangle
+i32 helper() {
+    return 42;
+}
+
+=== EXPECT-LLVM FLAGS: -verify ===
+; ModuleID = 'test'
+source_filename = "test"
+target triple = "x86_64-elf"
+
+define i32 @main() {
+entry:
+  %"0" = call i32 @helper()
+  ret i32 %"0"
+}
+
+define i32 @helper() {
+entry:
+  ret i32 42
+}

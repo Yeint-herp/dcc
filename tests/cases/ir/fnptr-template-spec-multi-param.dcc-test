@@ -1,0 +1,23 @@
+=== FILE: test.dc ===
+module test;
+
+T add(T, U)(T a, U b) { return a + b; }
+
+void use_add() {
+  i32(*)(i32, i32) p = &add!(i32, i32);
+}
+
+=== EXPECT-IR ===
+module "test"
+void@_DC0F1.4.test7.use_add0v() {
+%entry:
+  %0 = alloca ptr<fn(i32, i32) -> i32>
+  store fn(i32, i32) -> i32 @_DC0S1.4.test3.add2i32si32si32sX2ti32sti32s, ptr<ptr<fn(i32, i32) -> i32>> %0
+  ret void
+}
+
+i32@_DC0S1.4.test3.add2i32si32si32sX2ti32sti32s(i32, i32) {
+%entry(i32 %a, i32 %b):
+  %0 = add i32 %a, i32 %b
+  ret i32 %0
+}

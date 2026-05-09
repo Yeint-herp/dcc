@@ -1,0 +1,43 @@
+=== FILE: m.dc ===
+module m;
+
+public enum Color {
+    Red,
+    Green,
+    Blue,
+}
+
+enum Hidden {
+    A,
+    B,
+}
+
+=== EXPECT-SCOPE FOR: m ===
+Module m
+  OwnScope
+    Binding Color
+      Type: enum exported
+      Namespace: enum exported
+        Binding Blue
+          Value: variant exported
+        Binding Green
+          Value: variant exported
+        Binding Red
+          Value: variant exported
+    Binding Hidden
+      Type: enum
+      Namespace: enum
+        Binding A
+          Value: variant
+        Binding B
+          Value: variant
+  ExportScope
+    Binding Color
+      Type: enum exported
+      Namespace: enum exported
+        Binding Blue
+          Value: variant exported
+        Binding Green
+          Value: variant exported
+        Binding Red
+          Value: variant exported

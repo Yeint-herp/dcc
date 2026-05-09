@@ -1,0 +1,50 @@
+=== FILE: m.dc ===
+module m;
+
+public void noop() {
+    return;
+}
+
+public bool flip(bool v) {
+    return v;
+}
+
+public char pass_char(char c) {
+    return c;
+}
+
+public i8 s8;
+public i16 s16;
+public i32 s32;
+public i64 s64;
+public u8 u8v;
+public u16 u16v;
+public u32 u32v;
+public u64 u64v;
+public f32 f32v;
+public f64 f64v;
+public char ch;
+public null_t nil;
+
+=== EXPECT-TYPES FOR: m ===
+Module m
+  Func noop
+    Return: void
+  Func flip
+    Return: bool
+    Param v: bool
+  Func pass_char
+    Return: char
+    Param c: char
+  Var s8: i8
+  Var s16: i16
+  Var s32: i32
+  Var s64: i64
+  Var u8v: u8
+  Var u16v: u16
+  Var u32v: u32
+  Var u64v: u64
+  Var f32v: f32
+  Var f64v: f64
+  Var ch: char
+  Var nil: null_t

@@ -1,0 +1,82 @@
+=== FILE: main.dc ===
+module main;
+import pkg;
+
+using pkg::{println, print_u64};
+
+using pkg::{io, sys};
+
+using pkg::{sys::{linux::{stdout, write, read}}};
+
+using pkg::{io::{println,}, sys::{linux::{stdout, write,},},};
+
+using pkg::{sys::{linux::{stdout, write}, os::{open, close}}, io::{println}};
+
+using {a, b, c,};
+
+=== FILE: pkg.dc ===
+module pkg;
+public i64 println = 1;
+public i64 print_u64 = 2;
+public i64 io = 3;
+public i64 sys = 4;
+public i64 stdout = 5;
+public i64 write = 6;
+public i64 read = 7;
+public i64 open = 8;
+public i64 close = 9;
+
+=== EXPECT-AST ===
+TranslationUnit
+  Module main
+  Import pkg
+  Using kind=list
+    target_path=pkg
+    Targets
+      println
+      print_u64
+  Using kind=list
+    target_path=pkg
+    Targets
+      io
+      sys
+  Using kind=list
+    target_path=pkg
+    Targets
+      Group sys
+        Group linux
+          Item stdout
+          Item write
+          Item read
+  Using kind=list
+    target_path=pkg
+    Targets
+      Group io
+        Item println
+      Group sys
+        Group linux
+          Item stdout
+          Item write
+  Using kind=list
+    target_path=pkg
+    Targets
+      Group sys
+        Group linux
+          Item stdout
+          Item write
+        Group os
+          Item open
+          Item close
+      Group io
+        Item println
+  Using kind=list
+    Targets
+      a
+      b
+      c
+
+=== EXPECT-ERRORS ===
+main.dc:8: could not resolve all paths in using-list `pkg`
+main.dc:10: could not resolve all paths in using-list `pkg`
+main.dc:12: could not resolve all paths in using-list `pkg`
+main.dc:14: could not resolve all paths in using-list

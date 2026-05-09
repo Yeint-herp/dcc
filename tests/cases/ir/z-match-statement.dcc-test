@@ -1,0 +1,30 @@
+=== FILE: test.dc ===
+module test;
+
+public void match_statement_form(i32 v) {
+    match v {
+        1 => {},
+        _ => {},
+    };
+}
+
+=== EXPECT-IR ===
+module "test"
+void@_DC0F1.4.test20.match_statement_form1i32sv(i32) {
+%entry(i32 %v):
+  br label %match.arm0.test3
+%match.merge1:
+  ret void
+%match.fail2:
+  unreachable
+%match.arm0.test3:
+  %0 = cmp.eq i32 %v, #1
+  br.cond %0, label %match.arm0.body4, label %match.arm1.test5
+%match.arm0.body4:
+  br label %match.merge1
+%match.arm1.test5:
+  br label %match.arm1.body6
+%match.arm1.body6:
+  br label %match.merge1
+}
+

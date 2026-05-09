@@ -1,0 +1,30 @@
+=== FILE: test.dc ===
+module test;
+
+@calling_conv("fastcall")
+@nomangle
+public i32 fast_func(i32 x) {
+    return x + 1;
+}
+
+@nomangle
+public i32 call_fast_func(i32 x) {
+    return fast_func(x);
+}
+
+=== EXPECT-LLVM FLAGS: -target x86-elf -verify ===
+; ModuleID = 'test'
+source_filename = "test"
+target triple = "x86-elf"
+
+define x86_fastcallcc i32 @fast_func(i32 %x) {
+entry:
+  %"0" = add i32 %x, 1
+  ret i32 %"0"
+}
+
+define i32 @call_fast_func(i32 %x) {
+entry:
+  %"0" = call x86_fastcallcc i32 @fast_func(i32 %x)
+  ret i32 %"0"
+}

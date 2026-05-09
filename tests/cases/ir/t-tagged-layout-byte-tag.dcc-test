@@ -1,0 +1,19 @@
+=== FILE: test.dc ===
+module test;
+
+public enum Option {
+    None,
+    Some(i32),
+}
+
+public Option make_none() {
+    return Option::None;
+}
+
+=== EXPECT-IR ===
+module "test"
+{@0 u8, @4 [4 x u8]}@_DC0F1.4.test9.make_none0D1.4.test6.Option0.() {
+%entry:
+  %0 = aggregate {@0 u8, @4 [4 x u8]}, #0, aggregate [4 x u8], #0, #0, #0, #0
+  ret {@0 u8, @4 [4 x u8]} %0
+}

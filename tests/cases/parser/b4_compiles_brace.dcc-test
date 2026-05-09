@@ -1,0 +1,22 @@
+=== FILE: main.dc ===
+module m;
+void test() {
+    static if compiles { 1 + 1; } { }
+}
+
+=== EXPECT-AST ===
+TranslationUnit
+  Module m
+  Func name=test
+    Return
+      Primitive void
+    Body
+      StaticIf
+        Cond
+          Compiles
+            Body
+              ExprStmt
+                Binary op=+
+                  IntLiteral 1
+                  IntLiteral 1
+        Then

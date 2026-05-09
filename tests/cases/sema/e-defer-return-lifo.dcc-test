@@ -1,0 +1,29 @@
+=== FILE: main.dc ===
+module m;
+
+void cleanup() {}
+void cleanup2() {}
+
+void f() {
+    defer cleanup();
+    defer cleanup2();
+    return;
+}
+
+=== EXPECT-BODY ===
+Module m
+  Func cleanup diverging=false
+    Body
+  Func cleanup2 diverging=false
+    Body
+  Func f diverging=true
+    Body
+      Defer
+        Call [type=void const=<none> decl=cleanup]
+          Ident cleanup [type=<unresolved> const=<none>]
+      Defer
+        Call [type=void const=<none> decl=cleanup2]
+          Ident cleanup2 [type=<unresolved> const=<none>]
+      Return
+        RunsDefer
+        RunsDefer

@@ -1,0 +1,21 @@
+=== FILE: test.dc ===
+module test;
+
+@nomangle
+i32* null_ptr = null;
+
+@nomangle
+public i32* get_null() { return null_ptr; }
+
+=== EXPECT-LLVM FLAGS: -verify ===
+; ModuleID = 'test'
+source_filename = "test"
+target triple = "x86_64-elf"
+
+@null_ptr = internal global ptr null
+
+define ptr @get_null() {
+entry:
+  %"0" = load ptr, ptr @null_ptr, align 8
+  ret ptr %"0"
+}

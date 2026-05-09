@@ -1,0 +1,15 @@
+=== FILE: main.dc ===
+module m;
+enum Color {
+    Red,
+    Green,
+    Blue,
+}
+
+=== EXPECT-AST ===
+TranslationUnit
+  Module m
+  Enum name=Color
+    Variant name=Red
+    Variant name=Green
+    Variant name=Blue

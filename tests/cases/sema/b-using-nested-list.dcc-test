@@ -1,0 +1,39 @@
+=== FILE: lib/io.dc ===
+module lib::io;
+public i64 stdout = 1;
+public i64 stderr = 2;
+
+=== FILE: lib/sys.dc ===
+module lib::sys;
+public i64 write(i64 fd, i64 count) { return 0; }
+public i64 read(i64 fd) { return 0; }
+
+=== FILE: main.dc ===
+module main;
+import lib::io;
+import lib::sys;
+
+using lib::{io::{stdout, stderr}, sys::{write, read}};
+
+=== ENTRY: main.dc ===
+
+=== EXPECT-SCOPE FOR: main ===
+Module main
+  OwnScope
+    Binding lib
+      Namespace: group
+        Binding io
+          Namespace: module
+            (foreign-scope)
+        Binding sys
+          Namespace: module
+            (foreign-scope)
+    Binding read
+      Value: function via-using
+    Binding stderr
+      Value: variable via-using
+    Binding stdout
+      Value: variable via-using
+    Binding write
+      Value: function via-using
+  ExportScope

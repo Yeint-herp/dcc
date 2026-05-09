@@ -1,0 +1,26 @@
+=== FILE: m.dc ===
+module m;
+
+public const i32* p_const;
+public volatile u8* p_volatile;
+public restrict char* p_restrict;
+public const volatile restrict u64* p_all;
+
+public []const u8 s_const;
+public []volatile char s_volatile;
+public []const volatile restrict i32 s_all;
+
+public u8[4] a_const;
+public char[3][2] a_nested;
+
+=== EXPECT-TYPES FOR: m ===
+Module m
+  Var p_const: ptr(const i32)
+  Var p_volatile: ptr(volatile u8)
+  Var p_restrict: ptr(restrict char)
+  Var p_all: ptr(const volatile restrict u64)
+  Var s_const: slice(const u8)
+  Var s_volatile: slice(volatile char)
+  Var s_all: slice(const volatile restrict i32)
+  Var a_const: [u8; 4]
+  Var a_nested: [[char; 3]; 2]

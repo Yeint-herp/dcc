@@ -1,0 +1,24 @@
+=== FILE: main.dc ===
+module m;
+
+struct Point {
+    i32 x;
+    i32 y;
+}
+
+void test_mismatched_types() {
+    1..2.0;
+}
+
+void test_non_scalar_type(Point p, Point q) {
+    p..q;
+}
+
+void test_bool_range(bool a, bool b) {
+    a..b;
+}
+
+=== EXPECT-ERRORS ===
+main.dc:9: range bounds must have the same type
+main.dc:13: range bounds must be integer or char type
+main.dc:17: range bounds must be integer or char type

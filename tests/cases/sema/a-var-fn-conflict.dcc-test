@@ -1,0 +1,9 @@
+=== FILE: m.dc ===
+module m;
+
+i32 foo = 0;
+void foo() {}
+
+=== EXPECT-ERRORS ===
+m.dc:4: name `foo` already declared as a variable
+m.dc:3: previous definition was here

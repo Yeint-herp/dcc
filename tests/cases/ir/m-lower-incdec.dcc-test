@@ -1,0 +1,58 @@
+=== FILE: test.dc ===
+module test;
+
+public i32 pre_inc() {
+    i32 x = 0;
+    ++x;
+
+    return x;
+}
+
+public i32 post_inc() {
+    i32 x = 0;
+    x++;
+
+    return x;
+}
+
+public i32 pre_dec() {
+    i32 x = 0;
+    --x;
+
+    return x;
+}
+
+=== EXPECT-IR ===
+module "test"
+i32@_DC0F1.4.test7.pre_inc0i32s() {
+%entry:
+  %0 = alloca i32
+  store i32 #0, ptr<i32> %0
+  %1 = load i32, ptr<i32> %0
+  %2 = add i32 %1, i32 #1
+  store i32 %2, ptr<i32> %0
+  %3 = load i32, ptr<i32> %0
+  ret i32 %3
+}
+
+i32@_DC0F1.4.test8.post_inc0i32s() {
+%entry:
+  %0 = alloca i32
+  store i32 #0, ptr<i32> %0
+  %1 = load i32, ptr<i32> %0
+  %2 = add i32 %1, i32 #1
+  store i32 %2, ptr<i32> %0
+  %3 = load i32, ptr<i32> %0
+  ret i32 %3
+}
+
+i32@_DC0F1.4.test7.pre_dec0i32s() {
+%entry:
+  %0 = alloca i32
+  store i32 #0, ptr<i32> %0
+  %1 = load i32, ptr<i32> %0
+  %2 = sub i32 %1, i32 #1
+  store i32 %2, ptr<i32> %0
+  %3 = load i32, ptr<i32> %0
+  ret i32 %3
+}

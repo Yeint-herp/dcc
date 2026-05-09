@@ -1,0 +1,43 @@
+=== FILE: test.dc ===
+module test;
+
+public struct Big {
+    i64 a;
+    i64 b;
+}
+
+public enum Data {
+    Empty,
+    Value(Big),
+}
+
+public Data make_empty() {
+    return Data::Empty;
+}
+
+public Data make_value(i64 a, i64 b) {
+    Big val = {a = a, b = b};
+    return Data::Value(val);
+}
+
+=== EXPECT-IR ===
+module "test"
+{@0 u8, @8 [16 x u8]}@_DC0F1.4.test10.make_empty0D1.4.test4.Data0.() {
+%entry:
+  %0 = aggregate {@0 u8, @8 [16 x u8]}, #0, aggregate [16 x u8], #0, #0, #0, #0, #0, #0, #0, #0, #0, #0, #0, #0, #0, #0, #0, #0
+  ret {@0 u8, @8 [16 x u8]} %0
+}
+
+{@0 u8, @8 [16 x u8]}@_DC0F1.4.test10.make_value2i64si64sD1.4.test4.Data0.(i64, i64) {
+%entry(i64 %a, i64 %b):
+  %0 = alloca {@0 i64, @8 i64}
+  %1 = aggregate {@0 i64, @8 i64}, %a, %b
+  store {@0 i64, @8 i64} %1, ptr<{@0 i64, @8 i64}> %0
+  %2 = load {@0 i64, @8 i64}, ptr<{@0 i64, @8 i64}> %0
+  %3 = alloca {@0 i64, @8 i64}
+  store {@0 i64, @8 i64} %2, ptr<{@0 i64, @8 i64}> %3
+  %4 = bitcast ptr<{@0 i64, @8 i64}> %3 to ptr<[16 x u8]>
+  %5 = load [16 x u8], ptr<[16 x u8]> %4
+  %6 = aggregate {@0 u8, @8 [16 x u8]}, #1, %5
+  ret {@0 u8, @8 [16 x u8]} %6
+}

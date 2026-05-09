@@ -1,0 +1,27 @@
+=== FILE: test.dc ===
+module test;
+
+@nomangle
+public bool if_expr_bool(bool cond) {
+    return if cond { true } else { false };
+}
+
+=== EXPECT-LLVM FLAGS: -verify ===
+; ModuleID = 'test'
+source_filename = "test"
+target triple = "x86_64-elf"
+
+define i1 @if_expr_bool(i1 %cond) {
+entry:
+  br i1 %cond, label %if.then1, label %if.else2
+
+if.then1:                                         ; preds = %entry
+  br label %if.merge3
+
+if.else2:                                         ; preds = %entry
+  br label %if.merge3
+
+if.merge3:                                        ; preds = %if.else2, %if.then1
+  %"0" = phi i1 [ true, %if.then1 ], [ false, %if.else2 ]
+  ret i1 %"0"
+}

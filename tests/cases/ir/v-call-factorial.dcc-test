@@ -1,0 +1,20 @@
+=== FILE: test.dc ===
+module test;
+
+public i32 factorial(i32 n) { if (n <= 1) { return 1; } else { return n * factorial(n - 1); } }
+
+=== EXPECT-IR ===
+module "test"
+i32@_DC0F1.4.test9.factorial1i32si32s(i32) {
+%entry(i32 %n):
+  %0 = cmp.le i32 %n, #1
+  br.cond %0, label %if.then1, label %if.else2
+%if.then1:
+  ret i32 #1
+%if.else2:
+  %1 = sub i32 %n, i32 #1
+  %2 = call fn(@_DC0F1.4.test9.factorial1i32si32s)(i32 %1) -> i32
+  %3 = mul i32 %n, i32 %2
+  ret i32 %3
+%if.merge3:
+}

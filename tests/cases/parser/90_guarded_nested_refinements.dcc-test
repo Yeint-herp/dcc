@@ -1,0 +1,128 @@
+=== FILE: main.dc ===
+module m;
+
+enum Maybe {
+    Some(i32),
+    None,
+}
+
+struct Point {
+    i32 x;
+    i32 y;
+}
+
+struct Envelope {
+    Maybe maybe;
+    Point point;
+}
+
+enum Packet {
+    Pair(Point, Maybe),
+    Wrap(Envelope),
+    Empty,
+}
+
+void f() {
+    match packet {
+        Packet::Pair(Point { x, y }, Maybe::Some(extra)) if x < y && extra > 0 => use(x, y, extra),
+        Packet::Wrap(Envelope { maybe => Maybe::Some(code), point => Point { x => left, y => right } }) if code > left && right > 0 => use(code, left, right),
+        _ => done(),
+    };
+}
+
+=== EXPECT-AST ===
+TranslationUnit
+  Module m
+  Enum name=Maybe tagged
+    Variant name=Some
+      Payload
+        Primitive i32
+    Variant name=None
+  Struct name=Point
+    Field name=x
+      Primitive i32
+    Field name=y
+      Primitive i32
+  Struct name=Envelope
+    Field name=maybe
+      Named Maybe
+    Field name=point
+      Named Point
+  Enum name=Packet tagged
+    Variant name=Pair
+      Payload
+        Named Point
+        Named Maybe
+    Variant name=Wrap
+      Payload
+        Named Envelope
+    Variant name=Empty
+  Func name=f
+    Return
+      Primitive void
+    Body
+      ExprStmt
+        Match
+          Operand
+            Ident packet
+          Arm
+            EnumDestructurePattern variant=Packet::Pair
+              StructDestructurePattern type=Point
+                Field name=x
+                  BindingPattern name=x
+                Field name=y
+                  BindingPattern name=y
+              EnumDestructurePattern variant=Maybe::Some
+                BindingPattern name=extra
+            Guard
+              Binary op=&&
+                Binary op=<
+                  Ident x
+                  Ident y
+                Binary op=>
+                  Ident extra
+                  IntLiteral 0
+            Body
+              Call
+                Callee
+                  Ident use
+                Args
+                  Ident x
+                  Ident y
+                  Ident extra
+          Arm
+            EnumDestructurePattern variant=Packet::Wrap
+              StructDestructurePattern type=Envelope
+                Field name=maybe
+                  EnumDestructurePattern variant=Maybe::Some
+                    BindingPattern name=code
+                Field name=point
+                  StructDestructurePattern type=Point
+                    Field name=x
+                      BindingPattern name=left
+                    Field name=y
+                      BindingPattern name=right
+            Guard
+              Binary op=&&
+                Binary op=>
+                  Ident code
+                  Ident left
+                Binary op=>
+                  Ident right
+                  IntLiteral 0
+            Body
+              Call
+                Callee
+                  Ident use
+                Args
+                  Ident code
+                  Ident left
+                  Ident right
+          Arm
+            WildcardPattern
+            Body
+              Call
+                Callee
+                  Ident done
+
+=== EXPECT-ERRORS ===

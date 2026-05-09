@@ -1,0 +1,31 @@
+=== FILE: main.dc ===
+module m;
+void f() {
+    Color c = Color::Red;
+    Point p = Point::new(1.0, 2.0);
+}
+
+=== EXPECT-AST ===
+TranslationUnit
+  Module m
+  Func name=f
+    Return
+      Primitive void
+    Body
+      Var name=c
+        Type
+          Named Color
+        Init
+          Path Color::Red
+      Var name=p
+        Type
+          Named Point
+        Init
+          Call
+            Callee
+              Path Point::new
+            Args
+              FloatLiteral 1
+              FloatLiteral 2
+
+=== EXPECT-ERRORS ===

@@ -1,0 +1,11 @@
+=== FILE: test.dc ===
+module test;
+
+@calling_conv("win64")
+@nomangle
+public i32 bad_func(i32 x) {
+    return x + 1;
+}
+
+=== EXPECT-LLVM-ERRORS FLAGS: -target x86-elf ===
+calling convention 'win64' requires x86_64 target (current: x86-elf)

@@ -1,0 +1,74 @@
+=== FILE: test.dc ===
+module m;
+
+using BinOp = i32(*)(i32, i32);
+
+i32 add(i32 a, i32 b) { return a + b; }
+
+BinOp get_op() { return &add; }
+
+void test_assign() {
+    BinOp op;
+    op = add;
+    op = &add;
+}
+
+void test_copy() {
+    BinOp a = add;
+    BinOp b = a;
+}
+
+void test_get_op() {
+    BinOp op = get_op();
+}
+
+void test_call() {
+    BinOp op = add;
+    i32 r = op(1, 2);
+}
+
+=== EXPECT-BODY ===
+Module m
+  Func add diverging=true
+    Param a type=i32 storage=param offset=0 index=0
+    Param b type=i32 storage=param offset=4 index=1
+    Body
+      Return
+        Binary + [type=i32 const=<none>]
+          Ident a [type=i32 const=<none> lvalue decl=a]
+          Ident b [type=i32 const=<none> lvalue decl=b]
+  Func get_op diverging=true
+    Body
+      Return
+        Unary & [type=fn(i32, i32) -> i32 const=<none> decl=add]
+          Ident add [type=fn(i32, i32) -> i32 const=<none> decl=add]
+  Func test_assign diverging=false
+    Body
+      Var op type=fn(i32, i32) -> i32 storage=local offset=0
+      Binary = [type=fn(i32, i32) -> i32 const=<none>]
+        Ident op [type=fn(i32, i32) -> i32 const=<none> lvalue decl=op]
+        Ident add [type=fn(i32, i32) -> i32 const=<none> decl=add]
+      Binary = [type=fn(i32, i32) -> i32 const=<none>]
+        Ident op [type=fn(i32, i32) -> i32 const=<none> lvalue decl=op]
+        Unary & [type=fn(i32, i32) -> i32 const=<none> decl=add]
+          Ident add [type=fn(i32, i32) -> i32 const=<none> decl=add]
+  Func test_copy diverging=false
+    Body
+      Var a type=fn(i32, i32) -> i32 storage=local offset=0
+        Ident add [type=fn(i32, i32) -> i32 const=<none> decl=add]
+      Var b type=fn(i32, i32) -> i32 storage=local offset=8
+        Ident a [type=fn(i32, i32) -> i32 const=<none> lvalue decl=a]
+  Func test_get_op diverging=false
+    Body
+      Var op type=fn(i32, i32) -> i32 storage=local offset=0
+        Call [type=fn(i32, i32) -> i32 const=<none> decl=get_op]
+          Ident get_op [type=<unresolved> const=<none>]
+  Func test_call diverging=false
+    Body
+      Var op type=fn(i32, i32) -> i32 storage=local offset=0
+        Ident add [type=fn(i32, i32) -> i32 const=<none> decl=add]
+      Var r type=i32 storage=local offset=8
+        Call [type=i32 const=<none>]
+          Ident op [type=fn(i32, i32) -> i32 const=<none> lvalue decl=op]
+          IntLiteral 1 [type=i32 const=1 constant]
+          IntLiteral 2 [type=i32 const=2 constant]

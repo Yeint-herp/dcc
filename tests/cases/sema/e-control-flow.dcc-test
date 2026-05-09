@@ -1,0 +1,36 @@
+=== FILE: main.dc ===
+module m;
+
+void flow() {
+    while true {
+        break;
+    }
+    while true {
+        continue;
+    }
+}
+
+void diverges() {
+    while true {
+        return;
+    }
+}
+
+=== EXPECT-BODY ===
+Module m
+  Func flow diverging=false
+    Body
+      While
+        BoolLiteral true [type=bool const=true constant]
+        Body
+          Break
+      While
+        BoolLiteral true [type=bool const=true constant]
+        Body
+          Continue
+  Func diverges diverging=true
+    Body
+      While
+        BoolLiteral true [type=bool const=true constant]
+        Body
+          Return

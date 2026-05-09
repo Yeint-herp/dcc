@@ -1,0 +1,61 @@
+=== FILE: main.dc ===
+module m;
+
+void test_postfix_int(i32 x) {
+    x++;
+}
+
+void test_postfix_float(f64 y) {
+    y--;
+}
+
+void test_prefix_int(i32 z) {
+    ++z;
+}
+
+void test_prefix_float(f64 w) {
+    --w;
+}
+
+void test_postfix_ptr(i32* p) {
+    p++;
+}
+
+void test_prefix_ptr(i32* q) {
+    ++q;
+}
+
+=== ENTRY: main.dc ===
+
+=== EXPECT-BODY ===
+Module m
+  Func test_postfix_int diverging=false
+    Param x type=i32 storage=param offset=0 index=0
+    Body
+      Postfix ++ [type=i32 const=<none> decl=x]
+        Ident x [type=i32 const=<none> lvalue decl=x]
+  Func test_postfix_float diverging=false
+    Param y type=f64 storage=param offset=0 index=0
+    Body
+      Postfix -- [type=f64 const=<none> decl=y]
+        Ident y [type=f64 const=<none> lvalue decl=y]
+  Func test_prefix_int diverging=false
+    Param z type=i32 storage=param offset=0 index=0
+    Body
+      Unary ++ [type=i32 const=<none> lvalue decl=z]
+        Ident z [type=i32 const=<none> lvalue decl=z]
+  Func test_prefix_float diverging=false
+    Param w type=f64 storage=param offset=0 index=0
+    Body
+      Unary -- [type=f64 const=<none> lvalue decl=w]
+        Ident w [type=f64 const=<none> lvalue decl=w]
+  Func test_postfix_ptr diverging=false
+    Param p type=ptr(i32) storage=param offset=0 index=0
+    Body
+      Postfix ++ [type=ptr(i32) const=<none> decl=p]
+        Ident p [type=ptr(i32) const=<none> lvalue decl=p]
+  Func test_prefix_ptr diverging=false
+    Param q type=ptr(i32) storage=param offset=0 index=0
+    Body
+      Unary ++ [type=ptr(i32) const=<none> lvalue decl=q]
+        Ident q [type=ptr(i32) const=<none> lvalue decl=q]

@@ -1,0 +1,13 @@
+=== FILE: test.dc ===
+module test;
+
+@nomangle
+i32 counter = 0;
+
+@nomangle
+public void _start() {
+    counter = 42;
+    while (true) { }
+}
+
+=== EXPECT-EXECUTABLE-VALID ===

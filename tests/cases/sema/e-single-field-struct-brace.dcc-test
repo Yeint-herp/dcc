@@ -1,0 +1,24 @@
+=== FILE: main.dc ===
+module m;
+
+struct Singleton {
+    i32 value;
+}
+
+i32 test_single_field_struct() {
+    Singleton s = { 42 };
+    return s.value;
+}
+
+=== ENTRY: main.dc ===
+
+=== EXPECT-BODY ===
+Module m
+  Func test_single_field_struct diverging=true
+    Body
+      Var s type=struct Singleton storage=local offset=0
+        StructLiteral [type=struct Singleton const=agg(42) constant]
+          IntLiteral 42 [type=i32 const=42 constant]
+      Return
+        FieldAccess value [type=i32 const=42 constant decl=Singleton]
+          Ident s [type=struct Singleton const=agg(42) lvalue constant decl=s]

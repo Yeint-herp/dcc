@@ -1,0 +1,29 @@
+=== FILE: test.dc ===
+module test;
+
+public u32 uadd(u32 a, u32 b) { return a + b; }
+public bool ult_fn(u32 a, u32 b) { return a < b; }
+public bool ugt_fn(u32 a, u32 b) { return a > b; }
+
+=== EXPECT-LLVM ===
+; ModuleID = 'test'
+source_filename = "test"
+target triple = "x86_64-elf"
+
+define i32 @_DC0F1.4.test4.uadd2i32ui32ui32u(i32 %a, i32 %b) {
+entry:
+  %"0" = add i32 %a, %b
+  ret i32 %"0"
+}
+
+define i1 @_DC0F1.4.test6.ult_fn2i32ui32ub(i32 %a, i32 %b) {
+entry:
+  %"0" = icmp ult i32 %a, %b
+  ret i1 %"0"
+}
+
+define i1 @_DC0F1.4.test6.ugt_fn2i32ui32ub(i32 %a, i32 %b) {
+entry:
+  %"0" = icmp ugt i32 %a, %b
+  ret i1 %"0"
+}

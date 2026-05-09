@@ -1,0 +1,22 @@
+=== FILE: main.dc ===
+module m;
+
+i32 show(i32 x) {
+    return x;
+}
+
+i64 show(i64 x) {
+    return x;
+}
+
+void bad_ambiguous() {
+    1.show();
+}
+
+void bad_nomatch() {
+    true.show();
+}
+
+=== EXPECT-ERRORS ===
+main.dc:12: ambiguous UFCS call for `show`
+main.dc:16: no matching UFCS function for `show`

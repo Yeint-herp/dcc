@@ -1,0 +1,14 @@
+=== FILE: main.dc ===
+module m;
+@inline
+void hot_path() {
+}
+
+=== EXPECT-AST ===
+TranslationUnit
+  Module m
+  Func name=hot_path
+    @inline
+    Return
+      Primitive void
+    Body

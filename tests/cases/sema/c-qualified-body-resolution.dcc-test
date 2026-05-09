@@ -1,0 +1,14 @@
+=== FILE: main.dc ===
+module m;
+
+const u8* f() {
+    return null as const u8*;
+}
+
+=== EXPECT-BODY ===
+Module m
+  Func f diverging=true
+    Body
+      Return
+        Cast [type=ptr(const u8) const=null constant]
+          NullLiteral [type=ptr(const u8) const=null constant]

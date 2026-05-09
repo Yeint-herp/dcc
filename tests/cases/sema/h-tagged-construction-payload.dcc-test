@@ -1,0 +1,25 @@
+=== FILE: main.dc ===
+module m;
+
+enum Simple {
+    A(i32),
+    B,
+}
+
+public i32 test_construct() {
+    Simple s = Simple::A(42);
+    return 0;
+}
+
+=== ENTRY: main.dc ===
+
+=== EXPECT-BODY ===
+Module m
+  Func test_construct diverging=true
+    Body
+      Var s type=enum Simple storage=local offset=0
+        Call [type=enum Simple const=agg(0, 42) constant decl=Simple]
+          Path Simple::A [type=enum Simple const=<none> decl=Simple]
+          IntLiteral 42 [type=i32 const=42 constant]
+      Return
+        IntLiteral 0 [type=i32 const=0 constant]

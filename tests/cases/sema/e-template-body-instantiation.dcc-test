@@ -1,0 +1,19 @@
+=== FILE: main.dc ===
+module main;
+
+T id(T)(T x) {
+    return x;
+}
+
+i32 test() {
+    return id!i32(42);
+}
+
+=== ENTRY: main.dc ===
+
+=== EXPECT-INSTANTIATED-BODY FOR: main ===
+Func id diverging=true
+  Param x type=i32 storage=param offset=0 index=0
+  Body
+    Return
+      Ident x [type=i32 const=<none> lvalue decl=x]

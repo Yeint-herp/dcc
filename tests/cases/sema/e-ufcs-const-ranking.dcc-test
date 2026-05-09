@@ -1,0 +1,82 @@
+=== FILE: main.dc ===
+module m;
+
+public struct S {
+    i32 value;
+}
+
+i64 inspect(const S* s) {
+    return 2;
+}
+
+i32 both_const(const S* s) {
+    return 3;
+}
+
+i64 both_mut(S* s) {
+    return 4;
+}
+
+public i64 mutable_prefers_mutable(S s) {
+    return s.both_mut();
+}
+
+public i32 const_prefers_const(const S* s) {
+    return s.both_const();
+}
+
+public i64 mutable_can_call_const(S s) {
+    return s.inspect();
+}
+
+public i64 const_can_call_const(const S* s) {
+    return s.inspect();
+}
+
+=== ENTRY: main.dc ===
+
+=== EXPECT-BODY ===
+Module m
+  Func inspect diverging=true
+    Param s type=ptr(const struct S) storage=param offset=0 index=0
+    Body
+      Return
+        IntLiteral 2 [type=i64 const=2 constant]
+  Func both_const diverging=true
+    Param s type=ptr(const struct S) storage=param offset=0 index=0
+    Body
+      Return
+        IntLiteral 3 [type=i32 const=3 constant]
+  Func both_mut diverging=true
+    Param s type=ptr(struct S) storage=param offset=0 index=0
+    Body
+      Return
+        IntLiteral 4 [type=i64 const=4 constant]
+  Func mutable_prefers_mutable diverging=true
+    Param s type=struct S storage=param offset=0 index=0
+    Body
+      Return
+        Call [type=i64 const=<none> decl=both_mut ufcs=both_mut]
+          FieldAccess both_mut [type=<unresolved> const=<none> decl=both_mut ufcs=both_mut]
+            Ident s [type=struct S const=<none> lvalue addr_of decl=s]
+  Func const_prefers_const diverging=true
+    Param s type=ptr(const struct S) storage=param offset=0 index=0
+    Body
+      Return
+        Call [type=i32 const=<none> decl=both_const ufcs=both_const]
+          FieldAccess both_const [type=<unresolved> const=<none> decl=both_const ufcs=both_const]
+            Ident s [type=ptr(const struct S) const=<none> lvalue decl=s]
+  Func mutable_can_call_const diverging=true
+    Param s type=struct S storage=param offset=0 index=0
+    Body
+      Return
+        Call [type=i64 const=<none> decl=inspect ufcs=inspect]
+          FieldAccess inspect [type=<unresolved> const=<none> decl=inspect ufcs=inspect]
+            Ident s [type=struct S const=<none> lvalue addr_of decl=s]
+  Func const_can_call_const diverging=true
+    Param s type=ptr(const struct S) storage=param offset=0 index=0
+    Body
+      Return
+        Call [type=i64 const=<none> decl=inspect ufcs=inspect]
+          FieldAccess inspect [type=<unresolved> const=<none> decl=inspect ufcs=inspect]
+            Ident s [type=ptr(const struct S) const=<none> lvalue decl=s]

@@ -1,0 +1,79 @@
+=== FILE: main.dc ===
+module m;
+void f(i32 n) {
+    for (;;) {
+        break;
+    }
+    for ;; {
+        break;
+    }
+    for (; n > 0;) {
+        break;
+    }
+    for (; n > 0; n = n - 1) {
+        break;
+    }
+    for (;; n = n - 1) {
+        break;
+    }
+    for (i32 i = 0;;) {
+        break;
+    }
+}
+
+=== EXPECT-AST ===
+TranslationUnit
+  Module m
+  Func name=f
+    Return
+      Primitive void
+    Params
+      Param name=n
+        Primitive i32
+    Body
+      For
+        Body
+          Break
+      For
+        Body
+          Break
+      For
+        Cond
+          Binary op=>
+            Ident n
+            IntLiteral 0
+        Body
+          Break
+      For
+        Cond
+          Binary op=>
+            Ident n
+            IntLiteral 0
+        Update
+          Binary op==
+            Ident n
+            Binary op=-
+              Ident n
+              IntLiteral 1
+        Body
+          Break
+      For
+        Update
+          Binary op==
+            Ident n
+            Binary op=-
+              Ident n
+              IntLiteral 1
+        Body
+          Break
+      For
+        Init
+          Var name=i
+            Type
+              Primitive i32
+            Init
+              IntLiteral 0
+        Body
+          Break
+
+=== EXPECT-ERRORS ===

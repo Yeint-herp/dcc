@@ -1,0 +1,19 @@
+=== FILE: test.dc ===
+module test;
+
+@section(".data.custom")
+i32 in_custom_section = 42;
+
+public i32 get_val() { return in_custom_section; }
+
+=== EXPECT-IR ===
+module "test"
+
+global @_DC0G1.4.test17.in_custom_sectioni32s : i32 section=".data.custom" = #42
+
+
+i32@_DC0F1.4.test7.get_val0i32s() {
+%entry:
+  %0 = load i32, ptr<i32> @_DC0G1.4.test17.in_custom_sectioni32s
+  ret i32 %0
+}

@@ -1,0 +1,150 @@
+=== FILE: main.dc ===
+module m;
+
+i64 taken_if() {
+    return if true { 1 } else { 2 };
+}
+
+i64 equal_if(bool cond) {
+    return if cond { 3 } else { 3 };
+}
+
+i64 literal_match() {
+    return match 2 {
+        1 => 10,
+        2 => 20,
+        _ => 30,
+    };
+}
+
+i64 range_match() {
+    return match 5 {
+        1..=3 => 10,
+        4..=6 => 20,
+        _ => 30,
+    };
+}
+
+i64 wildcard_match() {
+    return match 9 {
+        1 => 10,
+        _ => 30,
+    };
+}
+
+i64 binding_match() {
+    return match 7 {
+        x => 40,
+        _ => 50,
+    };
+}
+
+i64 complex() {
+    return if true && !false {
+        match 2 {
+            1 => 10,
+            2 => 20,
+            _ => 30,
+        } as i64
+    } else {
+        0
+    };
+}
+
+=== EXPECT-BODY ===
+Module m
+  Func taken_if diverging=true
+    Body
+      Return
+        If [type=i64 const=1 constant]
+          BoolLiteral true [type=bool const=true constant]
+          Body
+            IntLiteral 1 [type=i64 const=1 constant]
+          Block [type=i64 const=2 constant]
+            Body
+              IntLiteral 2 [type=i64 const=2 constant]
+  Func equal_if diverging=true
+    Param cond type=bool storage=param offset=0 index=0
+    Body
+      Return
+        If [type=i64 const=3 constant]
+          Ident cond [type=bool const=<none> lvalue decl=cond]
+          Body
+            IntLiteral 3 [type=i64 const=3 constant]
+          Block [type=i64 const=3 constant]
+            Body
+              IntLiteral 3 [type=i64 const=3 constant]
+  Func literal_match diverging=true
+    Body
+      Return
+        Match [type=i64 const=20 constant]
+          IntLiteral 2 [type=i32 const=2 constant]
+          Arm
+            LiteralPattern
+            IntLiteral 10 [type=i64 const=10 constant]
+          Arm
+            LiteralPattern
+            IntLiteral 20 [type=i64 const=20 constant]
+          Arm
+            WildcardPattern
+            IntLiteral 30 [type=i64 const=30 constant]
+  Func range_match diverging=true
+    Body
+      Return
+        Match [type=i64 const=20 constant]
+          IntLiteral 5 [type=i32 const=5 constant]
+          Arm
+            RangePattern
+            IntLiteral 10 [type=i64 const=10 constant]
+          Arm
+            RangePattern
+            IntLiteral 20 [type=i64 const=20 constant]
+          Arm
+            WildcardPattern
+            IntLiteral 30 [type=i64 const=30 constant]
+  Func wildcard_match diverging=true
+    Body
+      Return
+        Match [type=i64 const=30 constant]
+          IntLiteral 9 [type=i32 const=9 constant]
+          Arm
+            LiteralPattern
+            IntLiteral 10 [type=i64 const=10 constant]
+          Arm
+            WildcardPattern
+            IntLiteral 30 [type=i64 const=30 constant]
+  Func binding_match diverging=true
+    Body
+      Return
+        Match [type=i64 const=40 constant]
+          IntLiteral 7 [type=i32 const=7 constant]
+          Arm
+            BindingPattern x
+            IntLiteral 40 [type=i64 const=40 constant]
+          Arm
+            WildcardPattern
+            IntLiteral 50 [type=i64 const=50 constant]
+  Func complex diverging=true
+    Body
+      Return
+        If [type=i64 const=20 constant]
+          Binary && [type=bool const=true constant]
+            BoolLiteral true [type=bool const=true constant]
+            Unary ! [type=bool const=true constant]
+              BoolLiteral false [type=bool const=false constant]
+          Body
+            Cast [type=i64 const=20 constant]
+              Match [type=i64 const=20 constant]
+                IntLiteral 2 [type=i32 const=2 constant]
+                Arm
+                  LiteralPattern
+                  IntLiteral 10 [type=i64 const=10 constant]
+                Arm
+                  LiteralPattern
+                  IntLiteral 20 [type=i64 const=20 constant]
+                Arm
+                  WildcardPattern
+                  IntLiteral 30 [type=i64 const=30 constant]
+          Block [type=i64 const=0 constant]
+            Body
+              IntLiteral 0 [type=i64 const=0 constant]

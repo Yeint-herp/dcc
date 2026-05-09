@@ -1,0 +1,27 @@
+=== FILE: main.dc ===
+module m;
+
+enum Color {
+    Red(i32),
+    Green(i32),
+    Blue(i32),
+    White,
+}
+
+i32 test_or_pattern_exhaustive(Color c) {
+    return match c {
+        Color::Red(_) | Color::Green(_) => 0,
+        Color::Blue(_) => 0,
+        Color::White => 0,
+    };
+}
+
+i32 test_or_pattern_not_exhaustive(Color c) {
+    return match c {
+        Color::Red(_) | Color::Green(_) => 0,
+        Color::White => 0,
+    };
+}
+
+=== EXPECT-ERRORS ===
+main.dc:19: match expression not exhaustive

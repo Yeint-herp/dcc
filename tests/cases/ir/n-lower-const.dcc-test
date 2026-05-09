@@ -1,0 +1,19 @@
+=== FILE: test.dc ===
+module test;
+
+public i32 const_fold() {
+    i32 x = 2 + 3;
+
+    return x;
+}
+
+=== EXPECT-IR ===
+module "test"
+i32@_DC0F1.4.test10.const_fold0i32s() {
+%entry:
+  %0 = alloca i32
+  %1 = add i32 #2, i32 #3
+  store i32 %1, ptr<i32> %0
+  %2 = load i32, ptr<i32> %0
+  ret i32 %2
+}

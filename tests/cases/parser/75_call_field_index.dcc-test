@@ -1,0 +1,31 @@
+=== FILE: main.dc ===
+module m;
+void f() {
+    i32 v = obj.field.method(1, 2)[3];
+}
+
+=== EXPECT-AST ===
+TranslationUnit
+  Module m
+  Func name=f
+    Return
+      Primitive void
+    Body
+      Var name=v
+        Type
+          Primitive i32
+        Init
+          Index
+            Object
+              Call
+                Callee
+                  FieldAccess field=method
+                    FieldAccess field=field
+                      Ident obj
+                Args
+                  IntLiteral 1
+                  IntLiteral 2
+            Subscript
+              IntLiteral 3
+
+=== EXPECT-ERRORS ===

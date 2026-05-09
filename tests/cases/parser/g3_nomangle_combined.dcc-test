@@ -1,0 +1,31 @@
+=== FILE: main.dc ===
+module m;
+
+@nomangle
+void nomangled_fn() {}
+
+@[nomangle, export]
+void combined_fn() {}
+
+@nomangle
+extern i32 nomangled_global;
+
+=== EXPECT-AST ===
+TranslationUnit
+  Module m
+  Func name=nomangled_fn
+    @nomangle
+    Return
+      Primitive void
+    Body
+  Func name=combined_fn
+    @nomangle
+    @export
+    Return
+      Primitive void
+    Body
+  Var name=nomangled_global
+    @nomangle
+    extern
+    Type
+      Primitive i32

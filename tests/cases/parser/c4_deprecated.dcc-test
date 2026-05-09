@@ -1,0 +1,15 @@
+=== FILE: main.dc ===
+module m;
+@[deprecated("use new_api instead")]
+void old_api() {
+}
+
+=== EXPECT-AST ===
+TranslationUnit
+  Module m
+  Func name=old_api
+    @deprecated
+      StringLiteral "use new_api instead"
+    Return
+      Primitive void
+    Body

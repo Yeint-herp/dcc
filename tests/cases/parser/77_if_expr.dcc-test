@@ -1,0 +1,29 @@
+=== FILE: main.dc ===
+module m;
+void f() {
+    i32 y = if cond { 1 } else { 2 };
+}
+
+=== EXPECT-AST ===
+TranslationUnit
+  Module m
+  Func name=f
+    Return
+      Primitive void
+    Body
+      Var name=y
+        Type
+          Primitive i32
+        Init
+          If
+            Cond
+              Ident cond
+            Then
+              Tail
+                IntLiteral 1
+            Else
+              Block
+                Tail
+                  IntLiteral 2
+
+=== EXPECT-ERRORS ===

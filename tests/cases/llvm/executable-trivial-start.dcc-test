@@ -1,0 +1,9 @@
+=== FILE: test.dc ===
+module test;
+
+@nomangle
+public void _start() {
+    while (true) { }
+}
+
+=== EXPECT-EXECUTABLE-VALID ===

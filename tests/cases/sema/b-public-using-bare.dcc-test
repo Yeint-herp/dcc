@@ -1,0 +1,35 @@
+=== FILE: math.dc ===
+module math;
+public f32 sin(f32 x) { return 0.0; }
+public f32 cos(f32 x) { return 0.0; }
+
+=== FILE: graphics.dc ===
+module graphics;
+import math;
+public using math::sin;
+
+=== FILE: main.dc ===
+module main;
+import graphics;
+
+=== ENTRY: main.dc ===
+
+=== EXPECT-SCOPE FOR: graphics ===
+Module graphics
+  OwnScope
+    Binding math
+      Namespace: module
+        (foreign-scope)
+    Binding sin
+      Value: function exported via-using
+  ExportScope
+    Binding sin
+      Value: function exported via-using
+
+=== EXPECT-SCOPE FOR: main ===
+Module main
+  OwnScope
+    Binding graphics
+      Namespace: module
+        (foreign-scope)
+  ExportScope

@@ -1,0 +1,151 @@
+=== FILE: test.dc ===
+module test;
+
+public i32 defer_simple() {
+    i32 x = 0;
+    defer x = 1;
+
+    return x;
+}
+
+public i32 defer_multi() {
+    i32 x = 0;
+    defer x = 1;
+    defer x = 2;
+
+    return x;
+}
+
+public i32 defer_early_return(i32 n) {
+    i32 x = 0;
+    defer x = x + 1;
+
+    if (n > 0) { return x; }
+    x = 100;
+
+    return x;
+}
+
+public i32 defer_break(i32 n) {
+    i32 x = 0;
+
+    while (x < n) {
+        defer x = 1;
+
+        if (x > 5) { break; }
+        x = x + 1;
+    }
+
+    return x;
+}
+
+public i32 defer_nested_scopes(i32 n) {
+    i32 x = 0;
+
+    if (n > 0) {
+        defer x = 10;
+
+        if (n > 1) {
+            defer x = 100;
+        }
+    }
+
+    return x;
+}
+
+=== EXPECT-IR ===
+module "test"
+i32@_DC0F1.4.test12.defer_simple0i32s() {
+%entry:
+  %0 = alloca i32
+  store i32 #0, ptr<i32> %0
+  %1 = load i32, ptr<i32> %0
+  store i32 #1, ptr<i32> %0
+  ret i32 %1
+}
+
+i32@_DC0F1.4.test11.defer_multi0i32s() {
+%entry:
+  %0 = alloca i32
+  store i32 #0, ptr<i32> %0
+  %1 = load i32, ptr<i32> %0
+  store i32 #2, ptr<i32> %0
+  store i32 #1, ptr<i32> %0
+  ret i32 %1
+}
+
+i32@_DC0F1.4.test18.defer_early_return1i32si32s(i32) {
+%entry(i32 %n):
+  %0 = alloca i32
+  store i32 #0, ptr<i32> %0
+  %1 = cmp.gt i32 %n, #0
+  br.cond %1, label %if.then1, label %if.else2
+%if.then1:
+  %2 = load i32, ptr<i32> %0
+  %3 = load i32, ptr<i32> %0
+  %4 = add i32 %3, i32 #1
+  store i32 %4, ptr<i32> %0
+  ret i32 %2
+%if.else2:
+  br label %if.merge3
+%if.merge3:
+  store i32 #100, ptr<i32> %0
+  %5 = load i32, ptr<i32> %0
+  %6 = load i32, ptr<i32> %0
+  %7 = add i32 %6, i32 #1
+  store i32 %7, ptr<i32> %0
+  ret i32 %5
+}
+
+i32@_DC0F1.4.test11.defer_break1i32si32s(i32) {
+%entry(i32 %n):
+  %0 = alloca i32
+  store i32 #0, ptr<i32> %0
+  br label %while.cond1
+%while.cond1:
+  %1 = load i32, ptr<i32> %0
+  %2 = cmp.lt i32 %1, %n
+  br.cond %2, label %while.body2, label %while.exit3
+%while.body2:
+  %3 = load i32, ptr<i32> %0
+  %4 = cmp.gt i32 %3, #5
+  br.cond %4, label %if.then4, label %if.else5
+%while.exit3:
+  %7 = load i32, ptr<i32> %0
+  ret i32 %7
+%if.then4:
+  store i32 #1, ptr<i32> %0
+  br label %while.exit3
+%if.else5:
+  br label %if.merge6
+%if.merge6:
+  %5 = load i32, ptr<i32> %0
+  %6 = add i32 %5, i32 #1
+  store i32 %6, ptr<i32> %0
+  store i32 #1, ptr<i32> %0
+  br label %while.cond1
+}
+
+i32@_DC0F1.4.test19.defer_nested_scopes1i32si32s(i32) {
+%entry(i32 %n):
+  %0 = alloca i32
+  store i32 #0, ptr<i32> %0
+  %1 = cmp.gt i32 %n, #0
+  br.cond %1, label %if.then1, label %if.else2
+%if.then1:
+  %2 = cmp.gt i32 %n, #1
+  br.cond %2, label %if.then4, label %if.else5
+%if.else2:
+  br label %if.merge3
+%if.merge3:
+  %3 = load i32, ptr<i32> %0
+  ret i32 %3
+%if.then4:
+  store i32 #100, ptr<i32> %0
+  br label %if.merge6
+%if.else5:
+  br label %if.merge6
+%if.merge6:
+  store i32 #10, ptr<i32> %0
+  br label %if.merge3
+}

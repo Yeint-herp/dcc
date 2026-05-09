@@ -1,0 +1,58 @@
+=== FILE: test.dc ===
+module m;
+
+using BinOp = i32(*)(i32, i32);
+
+i32 add(i32 a, i32 b) { return a + b; }
+
+i32 apply(BinOp f, i32 a, i32 b) { return f(a, b); }
+
+BinOp make_add() { return &add; }
+
+void test_pass() {
+    i32 r = apply(&add, 1, 2);
+}
+
+void test_return() {
+    BinOp f = make_add();
+}
+
+=== EXPECT-BODY ===
+Module m
+  Func add diverging=true
+    Param a type=i32 storage=param offset=0 index=0
+    Param b type=i32 storage=param offset=4 index=1
+    Body
+      Return
+        Binary + [type=i32 const=<none>]
+          Ident a [type=i32 const=<none> lvalue decl=a]
+          Ident b [type=i32 const=<none> lvalue decl=b]
+  Func apply diverging=true
+    Param f type=fn(i32, i32) -> i32 storage=param offset=0 index=0
+    Param a type=i32 storage=param offset=8 index=1
+    Param b type=i32 storage=param offset=12 index=2
+    Body
+      Return
+        Call [type=i32 const=<none>]
+          Ident f [type=fn(i32, i32) -> i32 const=<none> lvalue decl=f]
+          Ident a [type=i32 const=<none> lvalue decl=a]
+          Ident b [type=i32 const=<none> lvalue decl=b]
+  Func make_add diverging=true
+    Body
+      Return
+        Unary & [type=fn(i32, i32) -> i32 const=<none> decl=add]
+          Ident add [type=fn(i32, i32) -> i32 const=<none> decl=add]
+  Func test_pass diverging=false
+    Body
+      Var r type=i32 storage=local offset=0
+        Call [type=i32 const=<none> decl=apply]
+          Ident apply [type=<unresolved> const=<none>]
+          Unary & [type=fn(i32, i32) -> i32 const=<none> decl=add]
+            Ident add [type=fn(i32, i32) -> i32 const=<none> decl=add]
+          IntLiteral 1 [type=i32 const=1 constant]
+          IntLiteral 2 [type=i32 const=2 constant]
+  Func test_return diverging=false
+    Body
+      Var f type=fn(i32, i32) -> i32 storage=local offset=0
+        Call [type=fn(i32, i32) -> i32 const=<none> decl=make_add]
+          Ident make_add [type=<unresolved> const=<none>]

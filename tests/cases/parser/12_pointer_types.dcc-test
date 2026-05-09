@@ -1,0 +1,43 @@
+=== FILE: main.dc ===
+module m;
+i32* a;
+const i32* b;
+i32* const c;
+volatile u8* d;
+i32** e;
+const i32* volatile* f;
+
+=== EXPECT-AST ===
+TranslationUnit
+  Module m
+  Var name=a
+    Type
+      Pointer
+        Primitive i32
+  Var name=b
+    Type
+      Pointer
+        Qualified const
+          Primitive i32
+  Var name=c
+    Type
+      Qualified const
+        Pointer
+          Primitive i32
+  Var name=d
+    Type
+      Pointer
+        Qualified volatile
+          Primitive u8
+  Var name=e
+    Type
+      Pointer
+        Pointer
+          Primitive i32
+  Var name=f
+    Type
+      Pointer
+        Qualified volatile
+          Pointer
+            Qualified const
+              Primitive i32

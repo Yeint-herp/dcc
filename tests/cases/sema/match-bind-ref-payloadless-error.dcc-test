@@ -1,0 +1,11 @@
+=== FILE: main.dc ===
+module m;
+
+i64 f(i64 v) {
+    return match v {
+        &_ => 10,
+        x => x,
+    };
+}
+=== EXPECT-ERRORS ===
+main.dc:5: `&` is only meaningful on binding names within patterns

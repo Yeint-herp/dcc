@@ -1,0 +1,32 @@
+=== FILE: main.dc ===
+module m;
+
+struct Point {
+    i32 x;
+    i32 y;
+}
+
+enum Shape {
+    Circle(Point),
+    Square(i32),
+    Empty,
+}
+
+i32 area(Shape s) {
+    return match s {
+        Shape::Circle(Point { x, y }) => x + y,
+        Shape::Square(side) => side,
+        Shape::Empty => 0,
+    };
+}
+
+i32 area_wildcard(Shape s) {
+    return match s {
+        Shape::Circle(_) => 42,
+        Shape::Square(_) => 43,
+        _ => 44,
+    };
+}
+
+=== EXPECT-ERRORS ===
+

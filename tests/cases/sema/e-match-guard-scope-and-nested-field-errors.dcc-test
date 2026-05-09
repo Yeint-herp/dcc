@@ -1,0 +1,44 @@
+=== FILE: main.dc ===
+module m;
+
+enum Result {
+    Ok(i32),
+    Err(i32),
+}
+
+struct Point {
+    i32 x;
+    i32 y;
+}
+
+enum Wrapper {
+    Wrap(Point),
+    Empty,
+}
+
+i64 bad_guard_scope(Result r) {
+    return match r {
+        Result::Ok(v) => 0,
+        _ if v > 0 => 1,
+        _ => 2,
+    };
+}
+
+i64 bad_duplicate(Wrapper w) {
+    return match w {
+        Wrapper::Wrap(Point { x, x => other }) => 0,
+        _ => 1,
+    };
+}
+
+i64 bad_unknown(Wrapper w) {
+    return match w {
+        Wrapper::Wrap(Point { z }) => 0,
+        _ => 1,
+    };
+}
+
+=== EXPECT-ERRORS ===
+main.dc:21: unknown name `v`
+main.dc:28: duplicate field `x` in struct pattern
+main.dc:35: unknown field `z` in struct pattern

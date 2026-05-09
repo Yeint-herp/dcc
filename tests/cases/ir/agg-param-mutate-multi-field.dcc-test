@@ -1,0 +1,22 @@
+=== FILE: test.dc ===
+module test;
+
+public struct Point { i64 x; i64 y; }
+
+public void mutate_multi(Point p) {
+    p.x = 10;
+    p.y = 20;
+}
+
+=== EXPECT-IR ===
+module "test"
+void@_DC0F1.4.test12.mutate_multi1D1.4.test5.Point0.v({@0 i64, @8 i64}) {
+%entry({@0 i64, @8 i64} %p):
+  %0 = alloca {@0 i64, @8 i64}
+  store {@0 i64, @8 i64} %p, ptr<{@0 i64, @8 i64}> %0
+  %1 = gep ptr<{@0 i64, @8 i64}> %0, field #0
+  store i64 #10, ptr<i64> %1
+  %2 = gep ptr<{@0 i64, @8 i64}> %0, field #1
+  store i64 #20, ptr<i64> %2
+  ret void
+}

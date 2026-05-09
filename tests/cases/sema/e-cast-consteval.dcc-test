@@ -1,0 +1,28 @@
+=== FILE: main.dc ===
+module m;
+
+void f() {
+    1 as bool;
+    true as i64;
+    false as f32;
+    1 as f64;
+    3.5 as i64;
+    null as const u8*;
+}
+
+=== EXPECT-BODY ===
+Module m
+  Func f diverging=false
+    Body
+      Cast [type=bool const=true constant]
+        IntLiteral 1 [type=i32 const=1 constant]
+      Cast [type=i64 const=1 constant]
+        BoolLiteral true [type=bool const=true constant]
+      Cast [type=f32 const=0 constant]
+        BoolLiteral false [type=bool const=false constant]
+      Cast [type=f64 const=1 constant]
+        IntLiteral 1 [type=i32 const=1 constant]
+      Cast [type=i64 const=3 constant]
+        FloatLiteral 3.5 [type=f64 const=3.5 constant]
+      Cast [type=ptr(const u8) const=null constant]
+        NullLiteral [type=null_t const=null constant]

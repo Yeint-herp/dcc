@@ -1,0 +1,28 @@
+=== FILE: main.dc ===
+module m;
+
+using Addable(T) = compiles(T a, T b) {
+    a + b;
+};
+
+using Divisible(T) = compiles(T a, T b) {
+    a / b;
+};
+
+using PointerLike(T) = compiles(T* p) {
+    p[0];
+};
+
+using Arithmetic(T) = Addable(T) & (Divisible(T) | !PointerLike(T));
+
+T sum(T)(T value) if Arithmetic(T) {
+    return value;
+}
+
+void bad() {
+    i32 x = 0;
+    sum(&x);
+}
+
+=== EXPECT-ERRORS ===
+main.dc:23: template constraint not satisfied for `sum`

@@ -1,0 +1,42 @@
+=== FILE: main.dc ===
+module m;
+void f() {
+    match opt {
+        Optional::Some(Point { x, y }) => plot(x, y),
+        Optional::None => default(),
+    };
+}
+
+=== EXPECT-AST ===
+TranslationUnit
+  Module m
+  Func name=f
+    Return
+      Primitive void
+    Body
+      ExprStmt
+        Match
+          Operand
+            Ident opt
+          Arm
+            EnumDestructurePattern variant=Optional::Some
+              StructDestructurePattern type=Point
+                Field name=x
+                  BindingPattern name=x
+                Field name=y
+                  BindingPattern name=y
+            Body
+              Call
+                Callee
+                  Ident plot
+                Args
+                  Ident x
+                  Ident y
+          Arm
+            EnumDestructurePattern variant=Optional::None
+            Body
+              Call
+                Callee
+                  Ident default
+
+=== EXPECT-ERRORS ===

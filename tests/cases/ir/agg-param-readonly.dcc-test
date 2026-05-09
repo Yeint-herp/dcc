@@ -1,0 +1,22 @@
+=== FILE: test.dc ===
+module test;
+
+public struct Point { i64 x; i64 y; }
+
+public i64 param_readonly(Point p) {
+    return p.x + p.y;
+}
+
+=== EXPECT-IR ===
+module "test"
+i64@_DC0F1.4.test14.param_readonly1D1.4.test5.Point0.i64s({@0 i64, @8 i64}) {
+%entry({@0 i64, @8 i64} %p):
+  %0 = alloca {@0 i64, @8 i64}
+  store {@0 i64, @8 i64} %p, ptr<{@0 i64, @8 i64}> %0
+  %1 = gep ptr<{@0 i64, @8 i64}> %0, field #0
+  %2 = load i64, ptr<i64> %1
+  %3 = gep ptr<{@0 i64, @8 i64}> %0, field #1
+  %4 = load i64, ptr<i64> %3
+  %5 = add i64 %2, i64 %4
+  ret i64 %5
+}

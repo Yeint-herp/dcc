@@ -1,0 +1,66 @@
+=== FILE: main.dc ===
+module m;
+
+enum Status {
+    @implicit_construction Ok(i32),
+    @implicit_construction Err(bool),
+    @implicit_construction Msg([]i32),
+}
+
+i32 handle(Status s) {
+    return 1;
+}
+
+i32 handle(Status s, i32 extra) {
+    return 2;
+}
+
+i32 test_ok_dispatch() {
+    return handle({ 42 });
+}
+
+i32 test_err_dispatch() {
+    return handle({ false });
+}
+
+i32 test_union() {
+    Status s = { 99 };
+    return 1;
+}
+
+=== ENTRY: main.dc ===
+
+=== EXPECT-BODY ===
+Module m
+  Func handle diverging=true
+    Param s type=enum Status storage=param offset=0 index=0
+    Body
+      Return
+        IntLiteral 1 [type=i32 const=1 constant]
+  Func handle diverging=true
+    Param s type=enum Status storage=param offset=0 index=0
+    Param extra type=i32 storage=param offset=24 index=1
+    Body
+      Return
+        IntLiteral 2 [type=i32 const=2 constant]
+  Func test_ok_dispatch diverging=true
+    Body
+      Return
+        Call [type=i32 const=<none> decl=handle]
+          Ident handle [type=<unresolved> const=<none>]
+          StructLiteral [type=enum Status const=agg(0, 42) constant]
+            IntLiteral 42 [type=i32 const=42 constant]
+  Func test_err_dispatch diverging=true
+    Body
+      Return
+        Call [type=i32 const=<none> decl=handle]
+          Ident handle [type=<unresolved> const=<none>]
+          StructLiteral [type=enum Status const=agg(1, false) constant]
+            BoolLiteral false [type=bool const=false constant]
+  Func test_union diverging=true
+    Body
+      Var s type=enum Status storage=local offset=0
+        StructLiteral [type=enum Status const=agg(0, 99) constant]
+          IntLiteral 99 [type=i32 const=99 constant]
+      Return
+        IntLiteral 1 [type=i32 const=1 constant]

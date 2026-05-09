@@ -1,0 +1,29 @@
+=== FILE: a.dc ===
+module a;
+import b;
+public i32 foo() {
+    return 1;
+}
+public i32 test_shadow() {
+    return foo();
+}
+
+=== FILE: b.dc ===
+module b;
+public i32 foo() {
+    return 2;
+}
+
+=== ENTRY: a.dc ===
+
+=== EXPECT-BODY FOR: a ===
+Module a
+  Func foo diverging=true
+    Body
+      Return
+        IntLiteral 1 [type=i32 const=1 constant]
+  Func test_shadow diverging=true
+    Body
+      Return
+        Call [type=i32 const=<none> decl=foo]
+          Ident foo [type=<unresolved> const=<none>]

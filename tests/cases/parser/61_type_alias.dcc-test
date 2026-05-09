@@ -1,0 +1,15 @@
+=== FILE: main.dc ===
+module m;
+using Vec3 = f32[3];
+
+=== EXPECT-AST ===
+TranslationUnit
+  Module m
+  Using kind=alias
+    alias=Vec3
+    TargetType
+      Array
+        Element
+          Primitive f32
+        Size
+          IntLiteral 3

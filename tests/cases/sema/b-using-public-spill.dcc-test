@@ -1,0 +1,27 @@
+=== FILE: c.dc ===
+module c;
+
+public struct Signed { i32 v; }
+using public from_signed;
+public Signed from_signed_impl(i32 x) { return Signed { v = x }; }
+public using from_signed = from_signed_impl;
+
+=== FILE: a.dc ===
+module a;
+public import c;
+
+=== FILE: main.dc ===
+module main;
+import a;
+
+=== ENTRY: main.dc ===
+
+=== EXPECT-SCOPE FOR: main ===
+Module main
+  OwnScope
+    Binding a
+      Namespace: module
+        (foreign-scope)
+    Binding from_signed
+      Value: function exported spilled via-using
+  ExportScope

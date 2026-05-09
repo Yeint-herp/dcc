@@ -1,0 +1,23 @@
+=== FILE: math.dc ===
+module math;
+public f32 sin(f32 x) { return 0.0; }
+public f32 cos(f32 x) { return 0.0; }
+public struct Vec3 { f32 x; f32 y; f32 z; }
+
+=== FILE: main.dc ===
+module main;
+import math;
+using math_group = math::*;
+
+=== ENTRY: main.dc ===
+
+=== EXPECT-SCOPE FOR: main ===
+Module main
+  OwnScope
+    Binding math
+      Namespace: module
+        (foreign-scope)
+    Binding math_group
+      Namespace: group via-using
+        (foreign-scope)
+  ExportScope

@@ -1,0 +1,39 @@
+=== FILE: a.dc ===
+module a;
+
+public import b;
+
+public struct A {
+    b::B* next;
+    b::B** chain;
+}
+
+public using BPtr = b::B*;
+public BPtr head;
+public using Link = b::B* (*)(BPtr, b::B**);
+
+=== FILE: b.dc ===
+module b;
+
+public import a;
+
+public struct B {
+    a::A* prev;
+    a::A** chain;
+}
+
+public using APtr = a::A*;
+public APtr tail;
+
+=== ENTRY: a.dc ===
+
+=== EXPECT-TYPES FOR: a ===
+Module a
+  Struct A
+    Field next: ptr(struct B)
+    Field chain: ptr(ptr(struct B))
+  Using BPtr
+    Alias: ptr(struct B)
+  Var head: ptr(struct B)
+  Using Link
+    Alias: fn(ptr(struct B), ptr(ptr(struct B))) -> ptr(struct B)

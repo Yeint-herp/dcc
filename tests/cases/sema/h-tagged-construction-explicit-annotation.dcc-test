@@ -1,0 +1,42 @@
+=== FILE: main.dc ===
+module m;
+
+public enum Optional(T) {
+    Some(T),
+    None,
+}
+
+public i32 test_explicit_annotation() {
+    Optional(i32) x = Optional(i32)::Some(42);
+    return 0;
+}
+
+public i32 test_explicit_annotation_payloadless() {
+    Optional(bool) x = Optional(bool)::None;
+    return 0;
+}
+
+=== ENTRY: main.dc ===
+
+=== EXPECT-BODY ===
+Module m
+  Func test_explicit_annotation diverging=true
+    Body
+      Var x type=enum Optional storage=local offset=0
+        Call [type=enum Optional const=agg(0, 42) constant decl=Optional]
+          Path Optional::Some [type=enum Optional const=<none> decl=Optional]
+            TemplateArgs
+              Arg
+                Primitive i32
+          IntLiteral 42 [type=i32 const=42 constant]
+      Return
+        IntLiteral 0 [type=i32 const=0 constant]
+  Func test_explicit_annotation_payloadless diverging=true
+    Body
+      Var x type=enum Optional storage=local offset=0
+        Path Optional::None [type=enum Optional const=agg(1) constant decl=Optional]
+          TemplateArgs
+            Arg
+              Primitive bool
+      Return
+        IntLiteral 0 [type=i32 const=0 constant]

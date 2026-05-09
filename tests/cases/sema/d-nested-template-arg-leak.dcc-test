@@ -1,0 +1,26 @@
+=== FILE: hidden.dc ===
+module hidden;
+
+public struct Secret {
+    i32 v;
+}
+
+=== FILE: lib.dc ===
+module lib;
+
+public struct Box(T) {
+    T value;
+}
+
+=== FILE: main.dc ===
+module main;
+
+public import lib;
+import hidden;
+
+public using Leak = lib::Box(hidden::Secret);
+
+=== ENTRY: main.dc ===
+
+=== EXPECT-ERRORS ===
+main.dc:6: public declaration exposes private type

@@ -1,0 +1,19 @@
+=== FILE: main.dc ===
+module m;
+
+public enum Result(T) {
+    Ok(T),
+    Err(i32),
+}
+
+public Result(i32) ri32;
+public Result(bool) rbool;
+
+=== EXPECT-TYPES FOR: m ===
+Module m
+  Enum Result
+    TemplateParams T
+    Variant Ok(T#0)
+    Variant Err(i32)
+  Var ri32: enum Result<i32>
+  Var rbool: enum Result<bool>

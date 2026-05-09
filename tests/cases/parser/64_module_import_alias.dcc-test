@@ -1,0 +1,17 @@
+=== FILE: main.dc ===
+module m;
+import math;
+using Vec3 = math::Vec3;
+
+=== FILE: math.dc ===
+module math;
+public struct Vec3 { f32 x; f32 y; f32 z; }
+
+=== EXPECT-AST ===
+TranslationUnit
+  Module m
+  Import math
+  Using kind=alias
+    alias=Vec3
+    TargetType
+      Named math::Vec3

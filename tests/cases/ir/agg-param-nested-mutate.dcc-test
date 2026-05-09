@@ -1,0 +1,23 @@
+=== FILE: test.dc ===
+module test;
+
+public struct Inner { i64 a; }
+public struct Outer { Inner inner; i64 b; }
+
+public void nested_mutate(Outer o) {
+    o.b = o.inner.a;
+}
+
+=== EXPECT-IR ===
+module "test"
+void@_DC0F1.4.test13.nested_mutate1D1.4.test5.Outer0.v({@0 {@0 i64}, @8 i64}) {
+%entry({@0 {@0 i64}, @8 i64} %o):
+  %0 = alloca {@0 {@0 i64}, @8 i64}
+  store {@0 {@0 i64}, @8 i64} %o, ptr<{@0 {@0 i64}, @8 i64}> %0
+  %1 = gep ptr<{@0 {@0 i64}, @8 i64}> %0, field #0
+  %2 = load {@0 i64}, ptr<{@0 i64}> %1
+  %3 = extract {@0 i64} %2, field #0
+  %4 = gep ptr<{@0 {@0 i64}, @8 i64}> %0, field #1
+  store i64 %3, ptr<i64> %4
+  ret void
+}

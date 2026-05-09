@@ -1,0 +1,20 @@
+=== FILE: lib.dc ===
+module lib;
+
+public struct Vec3 {
+    i32 x;
+    i32 y;
+    i32 z;
+}
+
+=== FILE: main.dc ===
+module main;
+
+import lib;
+
+public lib::Vec3 value;
+
+=== ENTRY: main.dc ===
+
+=== EXPECT-ERRORS ===
+main.dc:5: public declaration exposes private type

@@ -1,0 +1,19 @@
+=== FILE: test.dc ===
+module test;
+
+@nomangle
+public i32 load_const(i32* p) {
+    return p[3];
+}
+
+=== EXPECT-LLVM FLAGS: -verify ===
+; ModuleID = 'test'
+source_filename = "test"
+target triple = "x86_64-elf"
+
+define i32 @load_const(ptr %p) {
+entry:
+  %"0" = getelementptr i32, ptr %p, i32 3
+  %"1" = load i32, ptr %"0", align 4
+  ret i32 %"1"
+}

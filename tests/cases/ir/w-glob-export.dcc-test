@@ -1,0 +1,19 @@
+=== FILE: test.dc ===
+module test;
+
+@export
+i32 exported_val = 42;
+
+public i32 get_val() { return exported_val; }
+
+=== EXPECT-IR ===
+module "test"
+
+export global @_DC0G1.4.test12.exported_vali32s : i32 = #42
+
+
+i32@_DC0F1.4.test7.get_val0i32s() {
+%entry:
+  %0 = load i32, ptr<i32> @_DC0G1.4.test12.exported_vali32s
+  ret i32 %0
+}

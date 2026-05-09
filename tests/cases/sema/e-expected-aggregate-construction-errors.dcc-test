@@ -1,0 +1,23 @@
+=== FILE: main.dc ===
+module m;
+
+enum Choice {
+    @implicit_construction Some(i32),
+    @implicit_construction Also(i32),
+}
+
+i32 bad_enum() {
+    Choice c = { 1 };
+    return 0;
+}
+
+i32 bad_brace() {
+    match { 1, 2 } {
+        _ => 0,
+    };
+    return 0;
+}
+
+=== EXPECT-ERRORS ===
+main.dc:9: ambiguous enum construction
+main.dc:14: brace literal requires an expected type

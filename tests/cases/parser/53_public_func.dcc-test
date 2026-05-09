@@ -1,0 +1,21 @@
+=== FILE: main.dc ===
+module m;
+public i32 square(i32 x) {
+    return x * x;
+}
+
+=== EXPECT-AST ===
+TranslationUnit
+  Module m
+  Func name=square
+    public
+    Return
+      Primitive i32
+    Params
+      Param name=x
+        Primitive i32
+    Body
+      Return
+        Binary op=*
+          Ident x
+          Ident x

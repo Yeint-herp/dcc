@@ -1,0 +1,25 @@
+=== FILE: main.dc ===
+module m;
+
+enum Option {
+    Some(i32),
+    None,
+}
+
+i32 missing_variant(Option opt) {
+    return match opt {
+        Option::Some(x) => x,
+    };
+}
+
+i32 literal_not_cover(Option opt) {
+    return match opt {
+        Option::Some(0) => 0,
+        Option::None => 1,
+    };
+}
+
+=== EXPECT-ERRORS ===
+main.dc:9: match expression not exhaustive: missing case `Option::None`
+main.dc:15: match expression not exhaustive: missing case `Option::Some`
+

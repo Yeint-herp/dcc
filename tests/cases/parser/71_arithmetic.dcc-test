@@ -1,0 +1,20 @@
+=== FILE: main.dc ===
+module m;
+i32 x = 1 + 2 * 3 - 4 / 2;
+
+=== EXPECT-AST ===
+TranslationUnit
+  Module m
+  Var name=x
+    Type
+      Primitive i32
+    Init
+      Binary op=-
+        Binary op=+
+          IntLiteral 1
+          Binary op=*
+            IntLiteral 2
+            IntLiteral 3
+        Binary op=/
+          IntLiteral 4
+          IntLiteral 2

@@ -1,0 +1,32 @@
+=== FILE: math.dc ===
+module math;
+public struct Vec3 { f32 x; f32 y; f32 z; }
+
+=== FILE: graphics.dc ===
+module graphics;
+public import math;
+
+public struct Mesh {
+    i32 id;
+}
+
+=== FILE: main.dc ===
+module main;
+import graphics;
+
+=== ENTRY: main.dc ===
+
+=== EXPECT-SCOPE FOR: graphics ===
+Module graphics
+  OwnScope
+    Binding Mesh
+      Type: struct exported
+    Binding math
+      Namespace: module exported
+        (foreign-scope)
+  ExportScope
+    Binding Mesh
+      Type: struct exported
+    Binding math
+      Namespace: module exported
+        (foreign-scope)

@@ -1,0 +1,24 @@
+=== FILE: test.dc ===
+module test;
+
+public i32 f(i32 v) {
+    return match v {
+        _ => 42,
+    };
+}
+
+=== EXPECT-IR ===
+module "test"
+i32@_DC0F1.4.test1.f1i32si32s(i32) {
+%entry(i32 %v):
+  br label %match.arm0.test3
+%match.merge1:
+  ret i32 #42
+%match.fail2:
+  unreachable
+%match.arm0.test3:
+  br label %match.arm0.body4
+%match.arm0.body4:
+  br label %match.merge1
+}
+

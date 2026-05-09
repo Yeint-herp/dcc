@@ -1,0 +1,7 @@
+=== FILE: m.dc ===
+module m;
+
+using A = A;
+
+=== EXPECT-ERRORS ===
+m.dc:3: cyclic type alias

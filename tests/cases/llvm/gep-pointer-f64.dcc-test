@@ -1,0 +1,19 @@
+=== FILE: test.dc ===
+module test;
+
+@nomangle
+public f64 load_f64(f64* p, i64 idx) {
+    return p[idx];
+}
+
+=== EXPECT-LLVM FLAGS: -verify ===
+; ModuleID = 'test'
+source_filename = "test"
+target triple = "x86_64-elf"
+
+define double @load_f64(ptr %p, i64 %idx) {
+entry:
+  %"0" = getelementptr double, ptr %p, i64 %idx
+  %"1" = load double, ptr %"0", align 8
+  ret double %"1"
+}

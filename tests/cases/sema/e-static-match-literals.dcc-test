@@ -1,0 +1,47 @@
+=== FILE: main.dc ===
+module m;
+
+void f() {
+    static match 2 {
+        1 => 10,
+        2 | 3 => 20,
+        _ => 30,
+    }
+}
+
+void g() {
+    static match 4 {
+        1 => 10,
+        3..=5 => 20,
+        _ => 30,
+    }
+}
+
+=== EXPECT-BODY ===
+Module m
+  Func f diverging=false
+    Body
+      StaticMatch taken=1
+        IntLiteral 2 [type=i32 const=2 constant]
+        Arm
+          LiteralPattern
+          IntLiteral 10 [type=<unresolved> const=<none>]
+        Arm
+          OrPattern
+          IntLiteral 20 [type=i32 const=20 constant]
+        Arm
+          WildcardPattern
+          IntLiteral 30 [type=<unresolved> const=<none>]
+  Func g diverging=false
+    Body
+      StaticMatch taken=1
+        IntLiteral 4 [type=i32 const=4 constant]
+        Arm
+          LiteralPattern
+          IntLiteral 10 [type=<unresolved> const=<none>]
+        Arm
+          RangePattern
+          IntLiteral 20 [type=i32 const=20 constant]
+        Arm
+          WildcardPattern
+          IntLiteral 30 [type=<unresolved> const=<none>]

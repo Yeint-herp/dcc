@@ -1,0 +1,40 @@
+=== FILE: main.dc ===
+module main;
+
+struct Point { i32 x; i32 y; }
+
+i32 add(Point P)(i32 v) {
+    return v;
+}
+
+void a() {
+    add!(Point{1, 2});
+}
+
+void b() {
+    add!(Point{3, 4})(30);
+}
+
+=== ENTRY: main.dc ===
+
+=== EXPECT-REGISTRY ===
+fn=add args=[<value>] state=2
+fn=add args=[<value>] state=2
+
+=== EXPECT-BODY ===
+Module main
+  Func add diverging=false
+    Param v type=i32 storage=param offset=0 index=0
+    Body
+      Return
+        Ident v [type=<unresolved> const=<none>]
+  Func a diverging=false
+    Body
+      TemplateInst [type=fn(i32) -> i32 const=<none> decl=add spec=add]
+        Ident add [type=fn(i32) -> i32 const=<none> decl=add]
+  Func b diverging=false
+    Body
+      Call [type=i32 const=<none> decl=add spec=add]
+        TemplateInst [type=fn(i32) -> i32 const=<none> decl=add spec=add]
+          Ident add [type=fn(i32) -> i32 const=<none> decl=add]
+        IntLiteral 30 [type=i32 const=30 constant]

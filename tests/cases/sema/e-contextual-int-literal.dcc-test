@@ -1,0 +1,27 @@
+=== FILE: main.dc ===
+module m;
+
+i64 id(i64 x) {
+    return x;
+}
+
+i64 f() {
+    i64 a = 1;
+    return id(2);
+}
+
+=== EXPECT-BODY ===
+Module m
+  Func id diverging=true
+    Param x type=i64 storage=param offset=0 index=0
+    Body
+      Return
+        Ident x [type=i64 const=<none> lvalue decl=x]
+  Func f diverging=true
+    Body
+      Var a type=i64 storage=local offset=0
+        IntLiteral 1 [type=i64 const=1 constant]
+      Return
+        Call [type=i64 const=<none> decl=id]
+          Ident id [type=<unresolved> const=<none>]
+          IntLiteral 2 [type=i64 const=2 constant]

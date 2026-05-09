@@ -1,0 +1,30 @@
+=== FILE: main.dc ===
+module m;
+
+enum Ambiguous {
+    @implicit_construction A(i32),
+    @implicit_construction B(i32),
+}
+
+enum NoMatchingVariant {
+    @implicit_construction TakesBool(bool),
+    @implicit_construction TakesTwo(i32, i32),
+}
+
+enum WrongFieldCount {
+    @implicit_construction NeedsTwo(i32, i32),
+}
+
+i32 test_wrong_field_count() {
+    WrongFieldCount w = { 1 };
+    return 0;
+}
+
+i32 test_no_matching_variant() {
+    NoMatchingVariant n = { 1 };
+    return 0;
+}
+
+=== EXPECT-ERRORS ===
+main.dc:18: no matching enum construction
+main.dc:23: no matching enum construction

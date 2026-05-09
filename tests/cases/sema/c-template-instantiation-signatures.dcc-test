@@ -1,0 +1,44 @@
+=== FILE: lib.dc ===
+module lib;
+
+public struct Box(T) {
+    T value;
+}
+
+public enum Wrap(T) : u8 {
+    None,
+    Some(T),
+}
+
+=== FILE: main.dc ===
+module main;
+
+public import lib;
+
+public using MainBox = lib::Box(i32);
+public using MainWrap = lib::Wrap(i32);
+
+public using BoxAlias = MainBox;
+public using WrapAlias = MainWrap;
+
+public lib::Box(i32) direct;
+public MainBox alias_box;
+public MainBox via_alias;
+public MainWrap wrap;
+
+=== ENTRY: main.dc ===
+
+=== EXPECT-TYPES FOR: main ===
+Module main
+  Using MainBox
+    Alias: struct Box<i32>
+  Using MainWrap
+    Alias: enum Wrap<i32>
+  Using BoxAlias
+    Alias: struct Box<i32>
+  Using WrapAlias
+    Alias: enum Wrap<i32>
+  Var direct: struct Box<i32>
+  Var alias_box: struct Box<i32>
+  Var via_alias: struct Box<i32>
+  Var wrap: enum Wrap<i32>

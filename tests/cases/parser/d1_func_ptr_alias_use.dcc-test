@@ -1,0 +1,38 @@
+=== FILE: main.dc ===
+module m;
+using BinOp = i32(*)(i32, i32);
+
+i32 apply(BinOp op, i32 a, i32 b) {
+    return op(a, b);
+}
+
+=== EXPECT-AST ===
+TranslationUnit
+  Module m
+  Using kind=alias
+    alias=BinOp
+    TargetType
+      FuncPtr
+        Return
+          Primitive i32
+        Params
+          Primitive i32
+          Primitive i32
+  Func name=apply
+    Return
+      Primitive i32
+    Params
+      Param name=op
+        Named BinOp
+      Param name=a
+        Primitive i32
+      Param name=b
+        Primitive i32
+    Body
+      Return
+        Call
+          Callee
+            Ident op
+          Args
+            Ident a
+            Ident b

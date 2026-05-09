@@ -1,0 +1,59 @@
+=== FILE: test.dc ===
+module test;
+
+public bool short_and(bool a, bool b) {
+    return a && b;
+}
+
+public bool short_or(bool a, bool b) {
+    return a || b;
+}
+
+public bool short_and_in_if(bool a, bool b) {
+    bool r = false;
+    if (a && b) { r = true; }
+
+    return r;
+}
+
+=== EXPECT-IR ===
+module "test"
+bool@_DC0F1.4.test9.short_and2bbb(bool, bool) {
+%entry(bool %a, bool %b):
+  br.cond %a, label %sc.rhs1, label %sc.merge2
+%sc.rhs1:
+  br label %sc.merge2
+%sc.merge2:
+  %0 = phi bool [ bool #false, label %entry ],  [ bool %b, label %sc.rhs1 ]
+  ret bool %0
+}
+
+bool@_DC0F1.4.test8.short_or2bbb(bool, bool) {
+%entry(bool %a, bool %b):
+  br.cond %a, label %sc.merge2, label %sc.rhs1
+%sc.rhs1:
+  br label %sc.merge2
+%sc.merge2:
+  %0 = phi bool [ bool #true, label %entry ],  [ bool %b, label %sc.rhs1 ]
+  ret bool %0
+}
+
+bool@_DC0F1.4.test15.short_and_in_if2bbb(bool, bool) {
+%entry(bool %a, bool %b):
+  %0 = alloca bool
+  store bool #false, ptr<bool> %0
+  br.cond %a, label %sc.rhs4, label %sc.merge5
+%if.then1:
+  store bool #true, ptr<bool> %0
+  br label %if.merge3
+%if.else2:
+  br label %if.merge3
+%if.merge3:
+  %2 = load bool, ptr<bool> %0
+  ret bool %2
+%sc.rhs4:
+  br label %sc.merge5
+%sc.merge5:
+  %1 = phi bool [ bool #false, label %entry ],  [ bool %b, label %sc.rhs4 ]
+  br.cond %1, label %if.then1, label %if.else2
+}

@@ -1,0 +1,21 @@
+=== FILE: main.dc ===
+module m;
+
+void f() {
+    @align(16)
+    i32 x = 0;
+    @align(8)
+    i64 y;
+    sizeof(i32);
+    alignof(i64);
+}
+
+=== EXPECT-BODY ===
+Module m
+  Func f diverging=false
+    Body
+      Var x type=i32 storage=local offset=0
+        IntLiteral 0 [type=i32 const=0 constant]
+      Var y type=i64 storage=local offset=8
+      Sizeof [type=u64 const=4 constant]
+      Alignof [type=u64 const=8 constant]

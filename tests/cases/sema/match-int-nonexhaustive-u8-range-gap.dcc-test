@@ -1,0 +1,12 @@
+=== FILE: main.dc ===
+module m;
+
+i32 f(u8 x) {
+    return match x {
+        0..=10 => 1,
+        20..=255 => 2,
+    };
+}
+
+=== EXPECT-ERRORS ===
+main.dc:4: match expression not exhaustive: missing range 11..19

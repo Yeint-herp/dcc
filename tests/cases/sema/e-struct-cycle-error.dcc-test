@@ -1,0 +1,15 @@
+=== FILE: main.dc ===
+module m;
+
+struct A {
+    B b;
+}
+
+struct B {
+    A a;
+}
+
+void f() {}
+
+=== EXPECT-ERRORS ===
+main.dc:7: cyclic struct layout

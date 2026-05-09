@@ -1,0 +1,24 @@
+=== FILE: a.dc ===
+module a;
+
+public import b;
+
+public struct A {
+    b::B* next;
+}
+
+=== FILE: b.dc ===
+module b;
+
+public import a;
+
+public struct B {
+    a::A* prev;
+}
+
+=== ENTRY: a.dc ===
+
+=== EXPECT-TYPES FOR: a ===
+Module a
+  Struct A
+    Field next: ptr(struct B)

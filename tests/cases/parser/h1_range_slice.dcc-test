@@ -1,0 +1,110 @@
+=== FILE: main.dc ===
+module m;
+
+void test_slices(i32[10] arr, i32 start, i32 end) {
+    arr[1..3];
+    arr[start..end];
+    arr[..3];
+    arr[1..];
+    arr[..];
+    arr[1..=3];
+    arr[..=3];
+    arr[1..=];
+    arr[3];
+}
+
+=== EXPECT-AST ===
+TranslationUnit
+  Module m
+  Func name=test_slices
+    Return
+      Primitive void
+    Params
+      Param name=arr
+        Array
+          Element
+            Primitive i32
+          Size
+            IntLiteral 10
+      Param name=start
+        Primitive i32
+      Param name=end
+        Primitive i32
+    Body
+      ExprStmt
+        Index
+          Object
+            Ident arr
+          Subscript
+            Range inclusive=false
+              Start
+                IntLiteral 1
+              End
+                IntLiteral 3
+      ExprStmt
+        Index
+          Object
+            Ident arr
+          Subscript
+            Range inclusive=false
+              Start
+                Ident start
+              End
+                Ident end
+      ExprStmt
+        Index
+          Object
+            Ident arr
+          Subscript
+            Range inclusive=false
+              End
+                IntLiteral 3
+      ExprStmt
+        Index
+          Object
+            Ident arr
+          Subscript
+            Range inclusive=false
+              Start
+                IntLiteral 1
+      ExprStmt
+        Index
+          Object
+            Ident arr
+          Subscript
+            Range inclusive=false
+      ExprStmt
+        Index
+          Object
+            Ident arr
+          Subscript
+            Range inclusive=true
+              Start
+                IntLiteral 1
+              End
+                IntLiteral 3
+      ExprStmt
+        Index
+          Object
+            Ident arr
+          Subscript
+            Range inclusive=true
+              End
+                IntLiteral 3
+      ExprStmt
+        Index
+          Object
+            Ident arr
+          Subscript
+            Range inclusive=true
+              Start
+                IntLiteral 1
+      ExprStmt
+        Index
+          Object
+            Ident arr
+          Subscript
+            IntLiteral 3
+
+=== EXPECT-ERRORS ===
+

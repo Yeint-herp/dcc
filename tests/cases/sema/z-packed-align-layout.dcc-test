@@ -1,0 +1,27 @@
+=== FILE: main.dc ===
+module m;
+
+@[packed, align(8)]
+struct PackedAlignS {
+    u64 a;
+    u8 b;
+    u32 c;
+}
+
+void f() {
+    sizeof(PackedAlignS);
+    alignof(PackedAlignS);
+    offsetof(PackedAlignS, a);
+    offsetof(PackedAlignS, b);
+    offsetof(PackedAlignS, c);
+}
+
+=== EXPECT-BODY ===
+Module m
+  Func f diverging=false
+    Body
+      Sizeof [type=u64 const=16 constant]
+      Alignof [type=u64 const=8 constant]
+      Offsetof [type=u64 const=0 constant]
+      Offsetof [type=u64 const=8 constant]
+      Offsetof [type=u64 const=9 constant]

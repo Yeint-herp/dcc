@@ -1,0 +1,52 @@
+=== FILE: main.dc ===
+module m;
+
+struct Level1 {
+    i32 v;
+}
+
+struct Level2 {
+    Level1 l1;
+    i32 v;
+}
+
+struct Level3 {
+    Level2 l2;
+    i32 v;
+}
+
+void f(Level3 d) {
+    sizeof(Level1);
+    sizeof(Level2);
+    sizeof(Level3);
+    alignof(Level1);
+    alignof(Level2);
+    alignof(Level3);
+    offsetof(Level1, v);
+    offsetof(Level2, l1);
+    offsetof(Level2, v);
+    offsetof(Level3, l2);
+    offsetof(Level3, v);
+    d.l2.l1.v;
+}
+
+=== EXPECT-BODY ===
+Module m
+  Func f diverging=false
+    Param d type=struct Level3 storage=param offset=0 index=0
+    Body
+      Sizeof [type=u64 const=4 constant]
+      Sizeof [type=u64 const=8 constant]
+      Sizeof [type=u64 const=12 constant]
+      Alignof [type=u64 const=4 constant]
+      Alignof [type=u64 const=4 constant]
+      Alignof [type=u64 const=4 constant]
+      Offsetof [type=u64 const=0 constant]
+      Offsetof [type=u64 const=0 constant]
+      Offsetof [type=u64 const=4 constant]
+      Offsetof [type=u64 const=0 constant]
+      Offsetof [type=u64 const=8 constant]
+      FieldAccess v [type=i32 const=<none> lvalue decl=Level1]
+        FieldAccess l1 [type=struct Level1 const=<none> lvalue decl=Level2]
+          FieldAccess l2 [type=struct Level2 const=<none> lvalue decl=Level3]
+            Ident d [type=struct Level3 const=<none> lvalue decl=d]

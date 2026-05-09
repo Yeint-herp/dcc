@@ -1,0 +1,27 @@
+=== FILE: test.dc ===
+module test;
+
+@nomangle
+i32 counter = 0;
+
+@nomangle
+public i32 inc() {
+    counter = counter + 1;
+    return counter;
+}
+
+=== EXPECT-LLVM FLAGS: -verify ===
+; ModuleID = 'test'
+source_filename = "test"
+target triple = "x86_64-elf"
+
+@counter = internal global i32 0
+
+define i32 @inc() {
+entry:
+  %"0" = load i32, ptr @counter, align 4
+  %"1" = add i32 %"0", 1
+  store i32 %"1", ptr @counter, align 4
+  %"2" = load i32, ptr @counter, align 4
+  ret i32 %"2"
+}

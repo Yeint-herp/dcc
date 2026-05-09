@@ -1,0 +1,18 @@
+=== FILE: main.dc ===
+module m;
+
+struct HasFoo {
+    i32 foo;
+}
+
+void test() {
+    HasFoo h;
+    i32 result = 0;
+    static if compiles {
+        h.foo;
+    } {
+        result = 1;
+    }
+}
+
+=== EXPECT-ERRORS ===

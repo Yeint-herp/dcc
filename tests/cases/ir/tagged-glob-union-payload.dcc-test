@@ -1,0 +1,28 @@
+=== FILE: test.dc ===
+module test;
+
+public union MyUnion {
+    i32 as_int;
+    f64 as_float;
+}
+
+public enum UnionOption {
+    None,
+    Some(MyUnion),
+}
+
+UnionOption g_some = UnionOption::Some(MyUnion{as_int = 42, as_float = 0.0});
+
+public UnionOption get_some() { return g_some; }
+
+=== EXPECT-IR ===
+module "test"
+
+global @_DC0G1.4.test6.g_someD1.4.test11.UnionOption0. : {@0 u8, @8 [8 x u8]} = aggregate {@0 u8, @8 [8 x u8]}, #1, aggregate {@0 i32, @0 f64}, #42, #0
+
+
+{@0 u8, @8 [8 x u8]}@_DC0F1.4.test8.get_some0D1.4.test11.UnionOption0.() {
+%entry:
+  %0 = load {@0 u8, @8 [8 x u8]}, ptr<{@0 u8, @8 [8 x u8]}> @_DC0G1.4.test6.g_someD1.4.test11.UnionOption0.
+  ret {@0 u8, @8 [8 x u8]} %0
+}

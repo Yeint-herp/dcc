@@ -1,0 +1,19 @@
+=== FILE: test.dc ===
+module test;
+
+@nomangle
+public void store_idx(i32* p, i64 idx, i32 val) {
+    p[idx] = val;
+}
+
+=== EXPECT-LLVM FLAGS: -verify ===
+; ModuleID = 'test'
+source_filename = "test"
+target triple = "x86_64-elf"
+
+define void @store_idx(ptr %p, i64 %idx, i32 %val) {
+entry:
+  %"0" = getelementptr i32, ptr %p, i64 %idx
+  store i32 %val, ptr %"0", align 4
+  ret void
+}

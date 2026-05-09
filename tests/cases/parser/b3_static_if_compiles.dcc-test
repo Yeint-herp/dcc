@@ -1,0 +1,49 @@
+=== FILE: main.dc ===
+module m;
+void serialize(T)(T v) {
+    static if compiles(T t) { t.serialize(); } {
+        v.serialize();
+    } else {
+        raw_write(v);
+    }
+}
+
+=== EXPECT-AST ===
+TranslationUnit
+  Module m
+  Func name=serialize
+    TemplateParams
+      Param name=T
+    Return
+      Primitive void
+    Params
+      Param name=v
+        Named T
+    Body
+      StaticIf
+        Cond
+          Compiles
+            Params
+              Param name=t
+                Named T
+            Body
+              ExprStmt
+                Call
+                  Callee
+                    FieldAccess field=serialize
+                      Ident t
+        Then
+          ExprStmt
+            Call
+              Callee
+                FieldAccess field=serialize
+                  Ident v
+        Else
+          ExprStmt
+            Block
+              ExprStmt
+                Call
+                  Callee
+                    Ident raw_write
+                  Args
+                    Ident v

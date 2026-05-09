@@ -1,0 +1,21 @@
+=== FILE: test.dc ===
+module test;
+
+@nomangle
+const i64 MY_CONST = 100;
+
+@nomangle
+public i64 get_const() { return MY_CONST; }
+
+=== EXPECT-LLVM FLAGS: -verify ===
+; ModuleID = 'test'
+source_filename = "test"
+target triple = "x86_64-elf"
+
+@MY_CONST = internal constant i64 100
+
+define i64 @get_const() {
+entry:
+  %"0" = load i64, ptr @MY_CONST, align 4
+  ret i64 %"0"
+}

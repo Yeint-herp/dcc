@@ -1,0 +1,20 @@
+=== FILE: main.dc ===
+module m;
+
+struct Point {
+    f32 x;
+    f64 y;
+}
+
+void f() {
+    Point p = Point { x = 3.5, y = 4.25 };
+}
+
+=== EXPECT-BODY ===
+Module m
+  Func f diverging=false
+    Body
+      Var p type=struct Point storage=local offset=0
+        StructLiteral [type=struct Point const=agg(3.5, 4.25) constant]
+          FloatLiteral 3.5 [type=f32 const=3.5 constant]
+          FloatLiteral 4.25 [type=f64 const=4.25 constant]

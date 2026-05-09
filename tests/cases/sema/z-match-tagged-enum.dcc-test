@@ -1,0 +1,14 @@
+=== FILE: main.dc ===
+module m;
+
+public enum Result { Ok(i32), Err(i32) }
+
+i32 f(Result r) {
+    return match r {
+        Result::Ok(x) => x,
+        _ => 0,
+    };
+}
+
+=== EXPECT-ERRORS ===
+

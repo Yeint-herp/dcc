@@ -1,0 +1,46 @@
+=== FILE: main.dc ===
+module m;
+
+void f() {
+    1 + 2 * 3 - 4 / 2;
+    1 + 1 == 2;
+    3 >= 2 && 1 != 0;
+    1.5 + 2.5;
+    3.5 == 3.5;
+    false || true;
+}
+
+=== EXPECT-BODY ===
+Module m
+  Func f diverging=false
+    Body
+      Binary - [type=i32 const=5 constant]
+        Binary + [type=i32 const=7 constant]
+          IntLiteral 1 [type=i32 const=1 constant]
+          Binary * [type=i32 const=6 constant]
+            IntLiteral 2 [type=i32 const=2 constant]
+            IntLiteral 3 [type=i32 const=3 constant]
+        Binary / [type=i32 const=2 constant]
+          IntLiteral 4 [type=i32 const=4 constant]
+          IntLiteral 2 [type=i32 const=2 constant]
+      Binary == [type=bool const=true constant]
+        Binary + [type=i32 const=2 constant]
+          IntLiteral 1 [type=i32 const=1 constant]
+          IntLiteral 1 [type=i32 const=1 constant]
+        IntLiteral 2 [type=i32 const=2 constant]
+      Binary && [type=bool const=true constant]
+        Binary >= [type=bool const=true constant]
+          IntLiteral 3 [type=i32 const=3 constant]
+          IntLiteral 2 [type=i32 const=2 constant]
+        Binary != [type=bool const=true constant]
+          IntLiteral 1 [type=i32 const=1 constant]
+          IntLiteral 0 [type=i32 const=0 constant]
+      Binary + [type=f64 const=4 constant]
+        FloatLiteral 1.5 [type=f64 const=1.5 constant]
+        FloatLiteral 2.5 [type=f64 const=2.5 constant]
+      Binary == [type=bool const=true constant]
+        FloatLiteral 3.5 [type=f64 const=3.5 constant]
+        FloatLiteral 3.5 [type=f64 const=3.5 constant]
+      Binary || [type=bool const=true constant]
+        BoolLiteral false [type=bool const=false constant]
+        BoolLiteral true [type=bool const=true constant]

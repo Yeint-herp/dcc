@@ -1,0 +1,32 @@
+=== FILE: main.dc ===
+module m;
+
+void write(const char* str, []const char* args);
+
+void test_forward() {
+    write("hello", {"world"});
+}
+
+void test_forward_ufcs() {
+    "hello".write({"world"});
+}
+
+=== EXPECT-BODY ===
+Module m
+  Func write diverging=false
+    Param str type=ptr(const char) storage=param offset=0 index=0
+    Param args type=slice(ptr(const char)) storage=param offset=8 index=1
+  Func test_forward diverging=false
+    Body
+      Call [type=void const=<none> decl=write]
+        Ident write [type=<unresolved> const=<none>]
+        StringLiteral hello [type=ptr(const char) const="hello" constant]
+        StructLiteral [type=slice(ptr(const char)) const=slice("world") constant]
+          StringLiteral world [type=ptr(const char) const="world" constant]
+  Func test_forward_ufcs diverging=false
+    Body
+      Call [type=void const=<none> decl=write ufcs=write]
+        FieldAccess write [type=<unresolved> const=<none> decl=write ufcs=write]
+          StringLiteral hello [type=ptr(const char) const="hello" constant]
+        StructLiteral [type=slice(ptr(const char)) const=slice("world") constant]
+          StringLiteral world [type=ptr(const char) const="world" constant]

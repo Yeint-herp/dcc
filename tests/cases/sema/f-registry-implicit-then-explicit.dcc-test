@@ -1,0 +1,36 @@
+=== FILE: main.dc ===
+module main;
+
+T id(T)(T x) {
+    return x;
+}
+
+void a() {
+    id(1);
+}
+
+void b() {
+    id!i32;
+}
+
+=== ENTRY: main.dc ===
+
+=== EXPECT-BODY ===
+Module main
+  Func id diverging=false
+    Param x type=T#0 storage=param offset=0 index=0
+    Body
+      Return
+        Ident x [type=<unresolved> const=<none>]
+  Func a diverging=false
+    Body
+      Call [type=i32 const=<none> decl=id spec=id]
+        Ident id [type=<unresolved> const=<none>]
+        IntLiteral 1 [type=i32 const=1 constant]
+  Func b diverging=false
+    Body
+      TemplateInst [type=fn(i32) -> i32 const=<none> decl=id spec=id]
+        Ident id [type=fn(T#0) -> T#0 const=<none> decl=id]
+
+=== EXPECT-REGISTRY ===
+fn=id args=[i32] state=2

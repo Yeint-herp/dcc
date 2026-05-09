@@ -1,0 +1,27 @@
+=== FILE: main.dc ===
+module m;
+
+public enum Bits {
+    A = 1,
+    B = A + 1,
+    C = A << 2,
+}
+
+public Bits get_a() { return Bits::A; }
+public Bits get_b() { return Bits::B; }
+public Bits get_c() { return Bits::C; }
+
+=== EXPECT-BODY ===
+Module m
+  Func get_a diverging=true
+    Body
+      Return
+        Path Bits::A [type=enum Bits const=1 constant decl=Bits]
+  Func get_b diverging=true
+    Body
+      Return
+        Path Bits::B [type=enum Bits const=2 constant decl=Bits]
+  Func get_c diverging=true
+    Body
+      Return
+        Path Bits::C [type=enum Bits const=4 constant decl=Bits]

@@ -1,0 +1,20 @@
+=== FILE: main.dc ===
+module m;
+
+T bad(T)(T x) {
+    return "hello";
+}
+
+void call1() {
+    bad!i32(42);
+}
+
+void call2() {
+    bad!i32(10);
+}
+
+=== EXPECT-ERRORS ===
+main.dc:4: return type mismatch
+
+=== EXPECT-REGISTRY ===
+fn=bad args=[i32] state=3

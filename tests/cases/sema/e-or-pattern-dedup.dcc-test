@@ -1,0 +1,20 @@
+=== FILE: main.dc ===
+module m;
+
+void test_or_pattern(i32 v) {
+    match v {
+        1 | 2 | 3 => { i32 x = v; },
+        _ => {},
+    }
+}
+
+struct Point { i32 x; i32 y; }
+
+void test_or_destructure(Point p) {
+    match p {
+        Point { x } | Point { x } => { i32 a = x; },
+        _ => {},
+    }
+}
+
+=== ENTRY: main.dc ===

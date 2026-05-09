@@ -1,0 +1,23 @@
+=== FILE: main.dc ===
+module main;
+
+i32 add_n(u64 N)(i32 x) {
+    return x + N as i32;
+}
+
+void a() {
+    i32 r = add_n!4(10);
+}
+
+void b() {
+    i32 r = add_n!4(10);
+}
+
+void c() {
+    i32 r = add_n!(2 + 2)(10);
+}
+
+=== ENTRY: main.dc ===
+
+=== EXPECT-REGISTRY ===
+fn=add_n args=[4] state=2

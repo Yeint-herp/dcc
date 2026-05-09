@@ -1,0 +1,20 @@
+=== FILE: main.dc ===
+module m;
+
+void bad() {
+    break;
+    continue;
+}
+
+void bad2() {
+    while true {
+        return;
+    }
+    1;
+}
+
+=== EXPECT-ERRORS ===
+main.dc:4: break outside loop
+main.dc:5: unreachable statement
+main.dc:5: continue outside loop
+main.dc:12: unreachable statement

@@ -1,0 +1,14 @@
+=== FILE: test.dc ===
+module test;
+
+public void test() {
+    []i64 s;
+}
+
+=== EXPECT-IR ===
+module "test"
+void@_DC0F1.4.test4.test0v() {
+%entry:
+  %0 = alloca []i64
+  ret void
+}

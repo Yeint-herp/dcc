@@ -1,0 +1,15 @@
+=== FILE: main.dc ===
+module m;
+
+enum Color { Red, Green, Blue }
+
+i32 f(Color c) {
+    return match c {
+        Color::Red => 1,
+        Color::Green => 2,
+    };
+}
+
+=== EXPECT-ERRORS ===
+main.dc:6: match expression not exhaustive: missing case `Color::Blue`
+

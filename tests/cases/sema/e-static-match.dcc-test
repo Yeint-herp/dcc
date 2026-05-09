@@ -1,0 +1,23 @@
+=== FILE: main.dc ===
+module m;
+
+void pick() {
+    i32 x = match 1 {
+        1 => 0,
+        _ => 1,
+    };
+}
+
+=== EXPECT-BODY ===
+Module m
+  Func pick diverging=false
+    Body
+      Var x type=i32 storage=local offset=0
+        Match [type=i32 const=0 constant]
+          IntLiteral 1 [type=i32 const=1 constant]
+          Arm
+            LiteralPattern
+            IntLiteral 0 [type=i32 const=0 constant]
+          Arm
+            WildcardPattern
+            IntLiteral 1 [type=i32 const=1 constant]

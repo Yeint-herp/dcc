@@ -1,0 +1,14 @@
+=== FILE: test.dc ===
+module test;
+
+public i32 ret_i32() { return 42; }
+
+=== EXPECT-LLVM ===
+; ModuleID = 'test'
+source_filename = "test"
+target triple = "x86_64-elf"
+
+define i32 @_DC0F1.4.test7.ret_i320i32s() {
+entry:
+  ret i32 42
+}

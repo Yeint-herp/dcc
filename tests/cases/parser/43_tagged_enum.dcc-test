@@ -1,0 +1,15 @@
+=== FILE: main.dc ===
+module m;
+enum MaybeInt {
+    Int(i32),
+    NoInt,
+}
+
+=== EXPECT-AST ===
+TranslationUnit
+  Module m
+  Enum name=MaybeInt tagged
+    Variant name=Int
+      Payload
+        Primitive i32
+    Variant name=NoInt

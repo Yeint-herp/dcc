@@ -1,0 +1,22 @@
+=== FILE: main.dc ===
+module m;
+
+i32 pick(i32 x) {
+    return x;
+}
+
+i64 pick(i64 x) {
+    return x;
+}
+
+void bad_ambiguous() {
+    pick(1);
+}
+
+void bad_nomatch() {
+    pick(true);
+}
+
+=== EXPECT-ERRORS ===
+main.dc:12: ambiguous call to `pick`
+main.dc:16: no matching call for `pick`

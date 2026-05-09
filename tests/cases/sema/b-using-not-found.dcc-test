@@ -1,0 +1,13 @@
+=== FILE: math.dc ===
+module math;
+public f32 sin(f32 x) { return 0.0; }
+
+=== FILE: main.dc ===
+module main;
+import math;
+using math::nonexistent;
+
+=== ENTRY: main.dc ===
+
+=== EXPECT-ERRORS ===
+main.dc:3: could not resolve

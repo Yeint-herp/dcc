@@ -1,0 +1,9 @@
+=== FILE: main.dc ===
+module m;
+
+i32 f(char c) {
+    return match c {
+        'x' => 1,
+        _ => 2,
+    };
+}

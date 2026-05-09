@@ -1,0 +1,20 @@
+=== FILE: test.dc ===
+module test;
+
+@nomangle
+public f64 float_ops(f64 a, f64 b) {
+    return a / b + -a;
+}
+
+=== EXPECT-LLVM FLAGS: -verify ===
+; ModuleID = 'test'
+source_filename = "test"
+target triple = "x86_64-elf"
+
+define double @float_ops(double %a, double %b) {
+entry:
+  %"0" = fdiv double %a, %b
+  %"1" = fneg double %a
+  %"2" = fadd double %"0", %"1"
+  ret double %"2"
+}

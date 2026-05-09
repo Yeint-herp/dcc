@@ -1,0 +1,9 @@
+=== FILE: m.dc ===
+module m;
+using Alias = i32;
+struct Alias { i32 x; }
+union Alias { u32 v; }
+
+=== EXPECT-ERRORS ===
+m.dc:4: redefinition of type
+m.dc:3: previous definition was here

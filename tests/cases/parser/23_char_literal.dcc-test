@@ -1,0 +1,13 @@
+=== FILE: main.dc ===
+module m;
+const char ch = 'H';
+
+=== EXPECT-AST ===
+TranslationUnit
+  Module m
+  Var name=ch
+    Type
+      Qualified const
+        Primitive char
+    Init
+      CharLiteral 72

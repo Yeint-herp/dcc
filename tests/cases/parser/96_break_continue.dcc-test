@@ -1,0 +1,34 @@
+=== FILE: main.dc ===
+module m;
+void f() {
+    while true {
+        if a { break; }
+        if b { continue; }
+    }
+}
+
+=== EXPECT-AST ===
+TranslationUnit
+  Module m
+  Func name=f
+    Return
+      Primitive void
+    Body
+      While
+        Cond
+          BoolLiteral true
+        Body
+          ExprStmt
+            If
+              Cond
+                Ident a
+              Then
+                Break
+          Tail
+            If
+              Cond
+                Ident b
+              Then
+                Continue
+
+=== EXPECT-ERRORS ===

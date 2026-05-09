@@ -1,0 +1,85 @@
+=== FILE: test.dc ===
+module test;
+
+public i32 few_arms(i32 v) {
+    return match v {
+        1 | 2 => 10,
+        3 => 20,
+        _ => 99,
+    };
+}
+
+public i32 sparse_wide(i32 v) {
+    return match v {
+        1 => 10,
+        50 => 20,
+        100 => 30,
+        200 => 40,
+        _ => 99,
+    };
+}
+
+=== EXPECT-IR ===
+module "test"
+i32@_DC0F1.4.test8.few_arms1i32si32s(i32) {
+%entry(i32 %v):
+  br label %match.arm0.test3
+%match.merge1:
+  %3 = phi i32 [ i32 #10, label %match.arm0.body4 ],  [ i32 #20, label %match.arm1.body6 ],  [ i32 #99, label %match.arm2.body8 ]
+  ret i32 %3
+%match.fail2:
+  unreachable
+%match.arm0.test3:
+  %0 = cmp.eq i32 %v, #1
+  br.cond %0, label %match.arm0.body4, label %match.or.next10
+%match.arm0.body4:
+  br label %match.merge1
+%match.arm1.test5:
+  %2 = cmp.eq i32 %v, #3
+  br.cond %2, label %match.arm1.body6, label %match.arm2.test7
+%match.arm1.body6:
+  br label %match.merge1
+%match.arm2.test7:
+  br label %match.arm2.body8
+%match.arm2.body8:
+  br label %match.merge1
+%match.or.fail9:
+  br label %match.arm1.test5
+%match.or.next10:
+  %1 = cmp.eq i32 %v, #2
+  br.cond %1, label %match.arm0.body4, label %match.or.fail9
+}
+
+i32@_DC0F1.4.test11.sparse_wide1i32si32s(i32) {
+%entry(i32 %v):
+  br label %match.arm0.test3
+%match.merge1:
+  %4 = phi i32 [ i32 #10, label %match.arm0.body4 ],  [ i32 #20, label %match.arm1.body6 ],  [ i32 #30, label %match.arm2.body8 ],  [ i32 #40, label %match.arm3.body10 ],  [ i32 #99, label %match.arm4.body12 ]
+  ret i32 %4
+%match.fail2:
+  unreachable
+%match.arm0.test3:
+  %0 = cmp.eq i32 %v, #1
+  br.cond %0, label %match.arm0.body4, label %match.arm1.test5
+%match.arm0.body4:
+  br label %match.merge1
+%match.arm1.test5:
+  %1 = cmp.eq i32 %v, #50
+  br.cond %1, label %match.arm1.body6, label %match.arm2.test7
+%match.arm1.body6:
+  br label %match.merge1
+%match.arm2.test7:
+  %2 = cmp.eq i32 %v, #100
+  br.cond %2, label %match.arm2.body8, label %match.arm3.test9
+%match.arm2.body8:
+  br label %match.merge1
+%match.arm3.test9:
+  %3 = cmp.eq i32 %v, #200
+  br.cond %3, label %match.arm3.body10, label %match.arm4.test11
+%match.arm3.body10:
+  br label %match.merge1
+%match.arm4.test11:
+  br label %match.arm4.body12
+%match.arm4.body12:
+  br label %match.merge1
+}

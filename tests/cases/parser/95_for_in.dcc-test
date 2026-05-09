@@ -1,0 +1,27 @@
+=== FILE: main.dc ===
+module m;
+void f() {
+    for item in items {
+        process(item);
+    }
+}
+
+=== EXPECT-AST ===
+TranslationUnit
+  Module m
+  Func name=f
+    Return
+      Primitive void
+    Body
+      ForIn name=item
+        Iterable
+          Ident items
+        Body
+          ExprStmt
+            Call
+              Callee
+                Ident process
+              Args
+                Ident item
+
+=== EXPECT-ERRORS ===

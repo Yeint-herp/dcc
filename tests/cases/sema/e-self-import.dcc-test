@@ -1,0 +1,8 @@
+=== FILE: m.dc ===
+module m;
+import m;
+
+=== ENTRY: m.dc ===
+
+=== EXPECT-ERRORS ===
+m.dc:2: module cannot import itself

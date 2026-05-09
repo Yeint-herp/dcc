@@ -1,0 +1,23 @@
+=== FILE: test.dc ===
+module test;
+
+@nomangle
+public i32 volatile_test() {
+    volatile i32 x = 10;
+    x = 42;
+    return x;
+}
+
+=== EXPECT-LLVM FLAGS: -verify ===
+; ModuleID = 'test'
+source_filename = "test"
+target triple = "x86_64-elf"
+
+define i32 @volatile_test() {
+entry:
+  %"0" = alloca i32, align 4
+  store volatile i32 10, ptr %"0", align 4
+  store volatile i32 42, ptr %"0", align 4
+  %"1" = load volatile i32, ptr %"0", align 4
+  ret i32 %"1"
+}

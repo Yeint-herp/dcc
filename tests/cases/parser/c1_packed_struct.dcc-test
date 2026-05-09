@@ -1,0 +1,17 @@
+=== FILE: main.dc ===
+module m;
+@[packed]
+struct Header {
+    u32 magic;
+    u16 version;
+}
+
+=== EXPECT-AST ===
+TranslationUnit
+  Module m
+  Struct name=Header
+    @packed
+    Field name=magic
+      Primitive u32
+    Field name=version
+      Primitive u16

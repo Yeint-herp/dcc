@@ -1,0 +1,28 @@
+=== FILE: main.dc ===
+module m;
+
+void f() {
+    @nomangle
+    i32 x = 0;
+}
+
+void g() {
+    @import
+    i32 y = 0;
+}
+
+void h() {
+    @export
+    i32 z = 0;
+}
+
+void k() {
+    @section(".text")
+    i32 w = 0;
+}
+
+=== EXPECT-ERRORS ===
+main.dc:4: attribute `@nomangle` is not valid on this declaration
+main.dc:9: attribute `@import` is not valid on this declaration
+main.dc:14: attribute `@export` is not valid on this declaration
+main.dc:19: attribute `@section` is not valid on this declaration

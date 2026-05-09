@@ -1,0 +1,22 @@
+=== FILE: main.dc ===
+module m;
+i32 add(i32 a, i32 b) {
+    return a + b;
+}
+
+=== EXPECT-AST ===
+TranslationUnit
+  Module m
+  Func name=add
+    Return
+      Primitive i32
+    Params
+      Param name=a
+        Primitive i32
+      Param name=b
+        Primitive i32
+    Body
+      Return
+        Binary op=+
+          Ident a
+          Ident b
