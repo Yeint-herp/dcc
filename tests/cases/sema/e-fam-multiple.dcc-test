@@ -1,0 +1,13 @@
+=== FILE: main.dc ===
+module m;
+
+struct Bad {
+    u16 len;
+    u8[] data1;
+    u8[] data2;
+}
+
+=== ENTRY: main.dc ===
+
+=== EXPECT-ERRORS ===
+main.dc:5: flexible array member must be the last field of a struct

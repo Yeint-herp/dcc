@@ -1,0 +1,16 @@
+=== FILE: main.dc ===
+module m;
+
+struct Packet {
+    u16 len;
+    u8[] data;
+}
+
+Packet f() {
+    return Packet{len = 42};
+}
+
+=== ENTRY: main.dc ===
+
+=== EXPECT-ERRORS ===
+main.dc:8: struct with flexible array member is not allowed in return type

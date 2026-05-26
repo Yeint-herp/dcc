@@ -1,0 +1,16 @@
+=== FILE: main.dc ===
+module m;
+
+struct Packet {
+    u16 len;
+    u8[] data;
+}
+
+void f() {
+    Packet p;
+}
+
+=== ENTRY: main.dc ===
+
+=== EXPECT-ERRORS ===
+main.dc:9: struct with flexible array member is not allowed in variable type

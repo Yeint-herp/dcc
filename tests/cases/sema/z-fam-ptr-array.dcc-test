@@ -1,0 +1,28 @@
+=== FILE: main.dc ===
+module m;
+
+struct Packet {
+    u16 len;
+    u8[] data;
+}
+
+Packet*[4] ptr_array;
+Packet**[2] ptrptr_array;
+[]Packet* ptr_slice;
+
+void f() {
+    Packet*[2] local_ptr_array;
+}
+
+=== ENTRY: main.dc ===
+
+=== EXPECT-TYPES FOR: m ===
+Module m
+  Struct Packet
+    Field len: u16
+    Field data: fam(u8)
+  Var ptr_array: [ptr(struct Packet); 4]
+  Var ptrptr_array: [ptr(ptr(struct Packet)); 2]
+  Var ptr_slice: slice(ptr(struct Packet))
+  Func f
+    Return: void

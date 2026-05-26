@@ -1,0 +1,28 @@
+=== FILE: test.dc ===
+module test;
+
+public struct Packet {
+    u16 len;
+    u8[] data;
+}
+
+@nomangle
+public void set_first(Packet* p) {
+    p.data[0] = 42;
+}
+
+=== EXPECT-LLVM FLAGS: -verify ===
+; ModuleID = 'test'
+source_filename = "test"
+target triple = "x86_64-elf"
+
+%0 = type { i16, [0 x i8] }
+
+define void @set_first(ptr %p) {
+entry:
+  %"0" = getelementptr %0, ptr %p, i32 0, i32 1
+  %"1" = getelementptr [0 x i8], ptr %"0", i32 0, i64 0
+  %"2" = getelementptr i8, ptr %"1", i32 0
+  store i8 42, ptr %"2", align 1
+  ret void
+}

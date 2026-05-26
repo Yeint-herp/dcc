@@ -1,0 +1,17 @@
+=== FILE: main.dc ===
+module m;
+
+struct Packet {
+    u16 len;
+    u8[] data;
+}
+
+struct Outer {
+    Packet inner;
+    u32 extra;
+}
+
+=== ENTRY: main.dc ===
+
+=== EXPECT-ERRORS ===
+main.dc:9: struct field `inner` has a flexible array member and cannot be embedded by value

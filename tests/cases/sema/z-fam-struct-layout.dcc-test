@@ -1,0 +1,31 @@
+=== FILE: main.dc ===
+module m;
+
+struct Packet {
+    u16 len;
+    u8[] data;
+}
+
+void f() {
+    sizeof(Packet);
+    alignof(Packet);
+    offsetof(Packet, data);
+}
+
+=== ENTRY: main.dc ===
+
+=== EXPECT-TYPES FOR: m ===
+Module m
+  Struct Packet
+    Field len: u16
+    Field data: fam(u8)
+  Func f
+    Return: void
+
+=== EXPECT-BODY ===
+Module m
+  Func f diverging=false
+    Body
+      Sizeof [type=u64 const=2 constant]
+      Alignof [type=u64 const=2 constant]
+      Offsetof [type=u64 const=2 constant]

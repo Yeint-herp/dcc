@@ -873,6 +873,12 @@ export namespace dcc::ir::lower
                 return m_ctx.array_t(ir_el, at->count);
             }
 
+            if (auto* ft = dcc::types::type_cast<dcc::types::FamType>(type))
+            {
+                auto* ir_el = lower_type(ft->element);
+                return m_ctx.array_t(ir_el, 0);
+            }
+
             std::string reason = std::format("unsupported type kind: {}", static_cast<int>(type->kind));
             lower_panic(reason);
         }
@@ -4535,6 +4541,12 @@ export namespace dcc::ir::lower
                     auto* ir_ft = lower_type(ft);
                     members.push_back(ir_ft);
                     offsets.push_back(f.byte_offset);
+
+                    if (types::is_fam_type(ft))
+                    {
+                        placeholder->has_trailing_fam = true;
+                        placeholder->fam_member_index = static_cast<std::uint32_t>(members.size() - 1);
+                    }
                 }
 
                 placeholder->members.assign(members.begin(), members.end());
@@ -4908,19 +4920,15 @@ export namespace dcc::ir::lower
                         lower_panic(fa, "cannot find field decl");
 
                     std::uint32_t field_idx = field_decl->index;
+                    auto* field_sema_ty = get_canonical_type(field_decl->type);
 
-                    auto* elem_ptr_type = m_ctx.pointer_to(ir_resolved_type);
-                    auto* gep = m_ctx.gep(elem_ptr_type, it->second.value);
+                    auto* gep = m_ctx.gep(m_ctx.pointer_to(lower_type(field_sema_ty)), it->second.value);
                     gep->indices.push_back({IrGepInst::IndexKind::Field, nullptr, field_idx});
                     auto gep_name = ident_name();
                     gep->name = m_name_pool.back();
                     append_inst(gep);
 
-                    auto* loaded = m_ctx.load(ir_resolved_type, gep);
-                    auto load_name = ident_name();
-                    loaded->name = m_name_pool.back();
-                    append_inst(loaded);
-                    return loaded;
+                    return lower_field_result(fa, gep, field_sema_ty);
                 }
 
                 if (auto* vd = ast::node_cast<ast::VarDecl>(resolved_obj))
@@ -4935,19 +4943,15 @@ export namespace dcc::ir::lower
                             lower_panic(fa, "cannot find field decl");
 
                         std::uint32_t field_idx = field_decl->index;
+                        auto* field_sema_ty = get_canonical_type(field_decl->type);
 
-                        auto* elem_ptr_type = m_ctx.pointer_to(ir_resolved_type);
-                        auto* gep = m_ctx.gep(elem_ptr_type, global_ptr);
+                        auto* gep = m_ctx.gep(m_ctx.pointer_to(lower_type(field_sema_ty)), global_ptr);
                         gep->indices.push_back({IrGepInst::IndexKind::Field, nullptr, field_idx});
                         auto gep_name = ident_name();
                         gep->name = m_name_pool.back();
                         append_inst(gep);
 
-                        auto* loaded = m_ctx.load(ir_resolved_type, gep);
-                        auto load_name = ident_name();
-                        loaded->name = m_name_pool.back();
-                        append_inst(loaded);
-                        return loaded;
+                        return lower_field_result(fa, gep, field_sema_ty);
                     }
                 }
             }
@@ -4979,16 +4983,13 @@ export namespace dcc::ir::lower
 
             if (obj_sema_type && obj_sema_type->kind == types::TypeKind::Pointer)
             {
-                auto* gep = m_ctx.gep(m_ctx.pointer_to(ir_resolved_type), obj_val);
+                auto* field_sema_ty = get_canonical_type(field_decl->type);
+                auto* gep = m_ctx.gep(m_ctx.pointer_to(lower_type(field_sema_ty)), obj_val);
                 gep->indices.push_back({IrGepInst::IndexKind::Field, nullptr, field_idx});
                 auto gep_name = ident_name();
                 gep->name = m_name_pool.back();
                 append_inst(gep);
-                auto* loaded = m_ctx.load(ir_resolved_type, gep);
-                auto load_name = ident_name();
-                loaded->name = m_name_pool.back();
-                append_inst(loaded);
-                return loaded;
+                return lower_field_result(fa, gep, field_sema_ty);
             }
 
             if (obj_val->kind == IrNodeKind::Load)
@@ -5043,6 +5044,46 @@ export namespace dcc::ir::lower
                         return &f;
             }
             return nullptr;
+        }
+
+        [[nodiscard]] bool is_fam_field(ast::FieldAccessExpr const* fa)
+        {
+            auto* field_decl = find_decl_field(fa);
+            if (!field_decl || !field_decl->type)
+                return false;
+
+            auto* ft = get_canonical_type(field_decl->type);
+            return types::is_fam_type(ft);
+        }
+
+        IrValue* lower_field_result(ast::FieldAccessExpr const* fa, IrValue* field_gep, dcc::types::TypePtr field_sema_type)
+        {
+            if (!types::is_fam_type(field_sema_type))
+            {
+                auto* ir_resolved_type = lower_type(get_sema_resolved_type(fa));
+                auto* loaded = m_ctx.load(ir_resolved_type, field_gep);
+                auto load_name = ident_name();
+                loaded->name = m_name_pool.back();
+                append_inst(loaded);
+                return loaded;
+            }
+
+            return lower_fam_field_lvalue(fa, field_gep, field_sema_type);
+        }
+
+        IrValue* lower_fam_field_lvalue(ast::FieldAccessExpr const* fa, IrValue* field_gep, dcc::types::TypePtr field_sema_type)
+        {
+            auto* elem_type = types::fam_element(field_sema_type);
+            if (!elem_type)
+                lower_panic(fa, "FAM without element type");
+            auto* ir_elem_type = lower_type(elem_type);
+            auto* zero_idx = m_ctx.int_const(m_ctx.int_t(64, false), 0);
+            auto* fam_gep = m_ctx.gep(m_ctx.pointer_to(ir_elem_type), field_gep);
+            fam_gep->indices.push_back({IrGepInst::IndexKind::Array, zero_idx, 0});
+            auto fam_gep_name = ident_name();
+            fam_gep->name = m_name_pool.back();
+            append_inst(fam_gep);
+            return fam_gep;
         }
 
         IrValue* lower_index_expr(ast::IndexExpr const* idx_expr)
@@ -5523,6 +5564,14 @@ export namespace dcc::ir::lower
                 lower_panic(fa, "cannot find field decl for lvalue");
 
             std::uint32_t field_idx = field_decl->index;
+            auto* field_sema_ty = get_canonical_type(field_decl->type);
+            bool is_fam_lv = types::is_fam_type(field_sema_ty);
+
+            auto wrap_lvalue = [&](IrValue* gep) -> IrValue* {
+                if (is_fam_lv)
+                    return lower_fam_field_lvalue(fa, gep, field_sema_ty);
+                return gep;
+            };
 
             auto* resolved = (fa->object->kind == ast::ExprKind::Ident) ? static_cast<ast::IdentExpr const*>(fa->object)->sema.resolved_decl : nullptr;
 
@@ -5531,13 +5580,13 @@ export namespace dcc::ir::lower
                 auto it = m_value_map.find(resolved);
                 if (it != m_value_map.end() && it->second.is_storage)
                 {
-                    auto* elem_ptr_type = m_ctx.pointer_to(ir_resolved_type);
+                    auto* elem_ptr_type = m_ctx.pointer_to(lower_type(field_sema_ty));
                     auto* gep = m_ctx.gep(elem_ptr_type, it->second.value);
                     gep->indices.push_back({IrGepInst::IndexKind::Field, nullptr, field_idx});
                     auto gep_name = ident_name();
                     gep->name = m_name_pool.back();
                     append_inst(gep);
-                    return gep;
+                    return wrap_lvalue(gep);
                 }
 
                 if (auto* vd = ast::node_cast<ast::VarDecl>(resolved))
@@ -5548,13 +5597,13 @@ export namespace dcc::ir::lower
                         auto* global = g_it->second;
                         auto* ptr_type = m_ctx.pointer_to(global->type);
                         auto* global_ref = m_ctx.global_ref(global, ptr_type);
-                        auto* elem_ptr_type = m_ctx.pointer_to(ir_resolved_type);
+                        auto* elem_ptr_type = m_ctx.pointer_to(lower_type(field_sema_ty));
                         auto* gep = m_ctx.gep(elem_ptr_type, global_ref);
                         gep->indices.push_back({IrGepInst::IndexKind::Field, nullptr, field_idx});
                         auto gep_name = ident_name();
                         gep->name = m_name_pool.back();
                         append_inst(gep);
-                        return gep;
+                        return wrap_lvalue(gep);
                     }
                 }
             }
@@ -5562,39 +5611,39 @@ export namespace dcc::ir::lower
             if (fa->object->kind == ast::ExprKind::Index)
             {
                 auto* base_ptr = lower_index_lvalue(static_cast<ast::IndexExpr const*>(fa->object));
-                auto* elem_ptr_type = m_ctx.pointer_to(ir_resolved_type);
+                auto* elem_ptr_type = m_ctx.pointer_to(lower_type(field_sema_ty));
                 auto* gep = m_ctx.gep(elem_ptr_type, base_ptr);
                 gep->indices.push_back({IrGepInst::IndexKind::Field, nullptr, field_idx});
                 auto gep_name = ident_name();
                 gep->name = m_name_pool.back();
                 append_inst(gep);
-                return gep;
+                return wrap_lvalue(gep);
             }
 
             auto* obj_val = lower_expr(fa->object);
 
             if (obj_sema_type && obj_sema_type->kind == types::TypeKind::Pointer)
             {
-                auto* elem_ptr_type = m_ctx.pointer_to(ir_resolved_type);
+                auto* elem_ptr_type = m_ctx.pointer_to(lower_type(field_sema_ty));
                 auto* gep = m_ctx.gep(elem_ptr_type, obj_val);
                 gep->indices.push_back({IrGepInst::IndexKind::Field, nullptr, field_idx});
                 auto gep_name = ident_name();
                 gep->name = m_name_pool.back();
                 append_inst(gep);
-                return gep;
+                return wrap_lvalue(gep);
             }
 
             if (auto* gr = ir_cast<IrGlobalRef>(obj_val))
             {
                 if (gr->global)
                 {
-                    auto* elem_ptr_type = m_ctx.pointer_to(ir_resolved_type);
+                    auto* elem_ptr_type = m_ctx.pointer_to(lower_type(field_sema_ty));
                     auto* gep = m_ctx.gep(elem_ptr_type, const_cast<IrGlobalRef*>(gr));
                     gep->indices.push_back({IrGepInst::IndexKind::Field, nullptr, field_idx});
                     auto gep_name = ident_name();
                     gep->name = m_name_pool.back();
                     append_inst(gep);
-                    return gep;
+                    return wrap_lvalue(gep);
                 }
             }
 

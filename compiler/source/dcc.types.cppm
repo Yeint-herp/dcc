@@ -233,6 +233,8 @@ export namespace dcc::types
         static constexpr auto Kind = TypeKind::Struct;
 
         StructType(void const* d, std::pmr::polymorphic_allocator<> a) : UserType(Kind, d, a) { is_complete = false; }
+
+        bool has_fam : 1 {};
     };
 
     struct UnionType : UserType
@@ -294,6 +296,33 @@ export namespace dcc::types
     template <typename To, typename From> [[nodiscard]] To const* type_cast(From const* t) noexcept
     {
         return (t && t->kind == To::Kind) ? static_cast<To const*>(t) : nullptr;
+    }
+
+    [[nodiscard]] inline bool is_fam_type(TypePtr t) noexcept
+    {
+        return t && t->kind == TypeKind::Fam;
+    }
+
+    [[nodiscard]] inline TypePtr fam_element(TypePtr t) noexcept
+    {
+        if (auto const* ft = type_cast<FamType>(t))
+            return ft->element;
+
+        return nullptr;
+    }
+
+    [[nodiscard]] inline bool type_has_fam_struct(TypePtr t) noexcept
+    {
+        if (!t)
+            return false;
+
+        if (auto const* st = type_cast<StructType>(t))
+            return st->has_fam;
+
+        if (auto const* at = type_cast<ArrayType>(t))
+            return type_has_fam_struct(at->element);
+
+        return false;
     }
 
     class TypeContext

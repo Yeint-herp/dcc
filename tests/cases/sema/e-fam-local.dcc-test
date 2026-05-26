@@ -1,0 +1,11 @@
+=== FILE: main.dc ===
+module m;
+
+void f() {
+    u8[] x;
+}
+
+=== ENTRY: main.dc ===
+
+=== EXPECT-ERRORS ===
+main.dc:4: flexible array member type `fam(u8)` is not allowed in variable type

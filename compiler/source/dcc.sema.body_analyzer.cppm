@@ -1,3 +1,7 @@
+module;
+
+#include <algorithm>
+
 export module dcc.sema.body_analyzer;
 
 import std;
@@ -972,8 +976,7 @@ export namespace dcc::sema
                     continue;
 
                 analyze_module(*m);
-                if (m->state < ModuleState::BodiesAnalyzed)
-                    m->state = ModuleState::BodiesAnalyzed;
+                m->state = std::max(m->state, ModuleState::BodiesAnalyzed);
             }
         }
 
@@ -1074,6 +1077,30 @@ export namespace dcc::sema
         }
 
         [[nodiscard]] static bool has_error(types::TypePtr ty) noexcept { return !ty || ty->kind == types::TypeKind::Error; }
+
+        void check_type_valid_for_value(sm::SourceRange range, types::TypePtr ty, std::string_view context)
+        {
+            if (!ty || has_error(ty))
+                return;
+
+            if (types::is_fam_type(ty))
+            {
+                error(range, "flexible array member type `{}` is not allowed in {}", format_type_str(ty), context);
+                return;
+            }
+
+            if (auto const* st = types::type_cast<types::StructType>(ty))
+            {
+                if (st->has_fam)
+                    error(range, "struct with flexible array member is not allowed in {}", context);
+            }
+
+            if (auto const* at = types::type_cast<types::ArrayType>(ty))
+            {
+                if (types::is_fam_type(at->element) || types::type_has_fam_struct(at->element))
+                    error(range, "array of flexible-array-member type is not allowed");
+            }
+        }
 
         void track_decl_read(ast::Decl const* decl)
         {
@@ -3500,8 +3527,20 @@ export namespace dcc::sema
 
             std::uint64_t size{};
             std::uint32_t align{1};
+            bool has_fam = false;
             for (auto const& field : fields)
             {
+                if (types::is_fam_type(field.type))
+                {
+                    has_fam = true;
+                    auto* elem = types::fam_element(field.type);
+                    if (elem)
+                        align = std::max(align, elem->byte_align);
+
+                    size = align_up(size, align);
+                    continue;
+                }
+
                 auto l = layout_of_impl(field.type, seen);
                 if (!l)
                     return std::nullopt;
@@ -3509,6 +3548,9 @@ export namespace dcc::sema
                 size = align_up(size, l->align);
                 size += l->size;
             }
+
+            if (has_fam)
+                return Layout{size, align};
 
             return Layout{align_up(size, align), align};
         }
@@ -3708,6 +3750,7 @@ export namespace dcc::sema
                 }
 
                 auto type = p.type && p.type->sema.canonical ? get_canonical(p.type->sema) : nullptr;
+                check_type_valid_for_value(p.range, type, "parameter type");
                 p.sema.frame_offset = allocate_frame_slot(frame_off, type);
                 auto* synthetic = make_param_decl(p);
                 define_local(*root, synthetic);
@@ -3717,6 +3760,11 @@ export namespace dcc::sema
             {
                 fn.sema.storage = ast::StorageClass::ModuleGlobal;
                 return;
+            }
+
+            {
+                auto ret_ty = fn.return_type ? get_canonical(fn.return_type->sema) : nullptr;
+                check_type_valid_for_value(fn.range, ret_ty, "return type");
             }
 
             if (fn.body)
@@ -3746,9 +3794,12 @@ export namespace dcc::sema
                 }
             }
 
+            auto* var_type = var.type && var.type->sema.canonical ? get_canonical(var.type->sema) : nullptr;
+            if (!var.is_extern)
+                check_type_valid_for_value(var.range, var_type, "variable type");
+
             if (var.init && mod.own_scope)
-                std::ignore = analyze_expr(mod, nullptr, *mod.own_scope, *var.init, 0, dummy_offset(),
-                                           var.type && var.type->sema.canonical ? get_canonical(var.type->sema) : nullptr, nullptr);
+                std::ignore = analyze_expr(mod, nullptr, *mod.own_scope, *var.init, 0, dummy_offset(), var_type, nullptr);
         }
 
         static std::uint32_t& dummy_offset()
@@ -6005,6 +6056,8 @@ export namespace dcc::sema
                 out.type = s->element;
             else if (auto const* p = types::type_cast<types::PointerType>(obj.type))
                 out.type = p->pointee;
+            else if (types::is_fam_type(obj.type))
+                out.type = types::fam_element(obj.type);
             else
             {
                 out.type = m_types.m_errort();
@@ -6299,6 +6352,13 @@ export namespace dcc::sema
                     used[field_index] = true;
                     f.resolved_field_index = static_cast<std::uint32_t>(field_index);
                     auto expected_field = fields[field_index].type;
+
+                    if (types::is_fam_type(expected_field))
+                    {
+                        error(f.range, "cannot initialize flexible array member `{}`", fields[field_index].name);
+                        return std::nullopt;
+                    }
+
                     if (f.value)
                     {
                         auto val = analyze_expr(mod, fn, scope, *f.value, loop_depth, next_off, expected_field, const_env);
@@ -6313,7 +6373,7 @@ export namespace dcc::sema
                 if (s.fields.size() != fields.size())
                 {
                     for (std::size_t i = 0; i < used.size(); ++i)
-                        if (!used[i])
+                        if (!used[i] && !types::is_fam_type(fields[i].type))
                             error(s.range, "missing initializer for field `{}` in struct literal", fields[i].name);
                 }
 
@@ -8071,7 +8131,12 @@ export namespace dcc::sema
                     set_canonical(v->type->sema, resolved);
                 }
                 if (v->type && v->type->sema.canonical)
-                    v->sema.frame_offset = allocate_frame_slot(next_off, get_canonical(v->type->sema));
+                {
+                    auto* canon = get_canonical(v->type->sema);
+                    v->sema.frame_offset = allocate_frame_slot(next_off, canon);
+                    if (!v->is_extern)
+                        check_type_valid_for_value(v->range, canon, "variable type");
+                }
 
                 if (v->type && v->type->kind == ast::TypeKind::Qualified)
                 {

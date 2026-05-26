@@ -108,6 +108,8 @@ export namespace dcc::ir
 
         std::pmr::vector<IrType const*> members;
         std::pmr::vector<std::uint64_t> member_offsets;
+        bool has_trailing_fam : 1 {};
+        std::uint32_t fam_member_index{};
 
         IrAggregateType(std::pmr::polymorphic_allocator<> a) : IrType(Kind), members(a), member_offsets(a) {}
     };

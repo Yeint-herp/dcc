@@ -1,3 +1,7 @@
+module;
+
+#include <algorithm>
+
 export module dcc.sema.type_resolver;
 
 import std;
@@ -117,8 +121,7 @@ export namespace dcc::sema
 
         [[nodiscard]] bool is_finalizing(ast::Decl const* decl) const noexcept
         {
-            return std::ranges::find_if(m_finalizing_stack,
-                                        [decl](FinalizeFrame const& fr) { return fr.decl == decl; }) != m_finalizing_stack.end();
+            return std::ranges::find_if(m_finalizing_stack, [decl](FinalizeFrame const& fr) { return fr.decl == decl; }) != m_finalizing_stack.end();
         }
 
         void prepare_placeholders()
@@ -1001,6 +1004,7 @@ export namespace dcc::sema
             bool complete = true;
             std::uint64_t size = 0;
             std::uint32_t natural_align = 1;
+            bool has_fam = false;
 
             for (std::size_t i = 0; i < d.fields.size(); ++i)
             {
@@ -1018,15 +1022,61 @@ export namespace dcc::sema
                 m_finalizing_stack.back().field_name = {};
 
                 auto const& ts = f.type->sema;
+                auto* can = ts.canonical ? get_canonical(ts) : nullptr;
+                bool is_fam = can && types::is_fam_type(can);
+
+                if (is_fam)
+                {
+                    if (has_fam)
+                    {
+                        m_diag.error(f.type->range, "struct can have at most one flexible array member");
+                        m_diag.error(f.type->range, "flexible array member must be the last field of a struct");
+                        complete = false;
+                        break;
+                    }
+
+                    if (i != d.fields.size() - 1)
+                    {
+                        m_diag.error(f.type->range, "flexible array member must be the last field of a struct");
+                        complete = false;
+                        break;
+                    }
+
+                    has_fam = true;
+
+                    auto* elem_type = types::fam_element(can);
+                    if (!elem_type)
+                    {
+                        complete = false;
+                        break;
+                    }
+
+                    std::uint32_t elem_align = is_packed ? 1 : elem_type->byte_align;
+                    if (elem_align > natural_align)
+                        natural_align = elem_align;
+
+                    if (!is_packed)
+                        size = align_up(size, elem_align);
+
+                    f.byte_offset = static_cast<std::uint32_t>(size);
+                    continue;
+                }
+
                 if (!ts.canonical || !ts.is_complete)
                 {
                     complete = false;
                     break;
                 }
 
+                if (can && types::type_has_fam_struct(can))
+                {
+                    m_diag.error(f.type->range, "struct field `{}` has a flexible array member and cannot be embedded by value", f.name);
+                    complete = false;
+                    break;
+                }
+
                 std::uint32_t field_align = is_packed ? 1 : ts.byte_align;
-                if (field_align > natural_align)
-                    natural_align = field_align;
+                natural_align = std::max(field_align, natural_align);
 
                 if (!is_packed)
                     size = align_up(size, field_align);
@@ -1042,12 +1092,13 @@ export namespace dcc::sema
                 if (forced_align && forced_align < natural_align)
                     m_diag.error(d.range, "alignment {} is less than the natural alignment {} of struct `{}`", forced_align, natural_align, d.name);
 
-                st->byte_size = align_up(size, agg_align);
+                st->byte_size = has_fam ? size : align_up(size, agg_align);
                 st->byte_align = agg_align;
-                st->is_zero_sized = (st->byte_size == 0);
+                st->is_zero_sized = (st->byte_size == 0 && !has_fam);
                 st->is_complete = true;
+                st->has_fam = has_fam;
 
-                if (is_packed || forced_align)
+                if (is_packed || forced_align || has_fam)
                     st->layout_is_default = false;
             }
             else
@@ -1155,7 +1206,7 @@ export namespace dcc::sema
         }
 
         [[nodiscard]] std::optional<std::int64_t> evaluate_enum_discriminant(ast::Expr* expr, ModuleInfo const& mod,
-                                                                              si::InternedHashMap<std::int64_t>& prior_variants,
+                                                                             si::InternedHashMap<std::int64_t>& prior_variants,
                                                                              std::unordered_set<ast::VarDecl const*>& evaluating_consts,
                                                                              ast::EnumDecl const* current_enum = nullptr)
         {
