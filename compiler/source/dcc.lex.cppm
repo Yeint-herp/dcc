@@ -25,7 +25,9 @@ export namespace dcc::lex
             auto const start = m_pos;
             char c = peek();
 
-            if (is_ident_start(c))
+            if (c == 'u' && peek_at(1) == '"')
+                return lex_u16_string(start);
+            else if (is_ident_start(c))
                 return lex_identifier(start);
             else if (is_digit(c))
                 return lex_number(start);
@@ -358,6 +360,58 @@ export namespace dcc::lex
             return tok;
         }
 
+        static void encode_utf16(char32_t cp, std::u16string& out)
+        {
+            if (cp < 0x10000)
+                out.push_back(static_cast<char16_t>(cp));
+            else
+            {
+                cp -= 0x10000;
+                out.push_back(static_cast<char16_t>(0xD800 | (cp >> 10)));
+                out.push_back(static_cast<char16_t>(0xDC00 | (cp & 0x3FF)));
+            }
+        }
+
+        Token lex_u16_string(std::uint32_t start)
+        {
+            advance();
+            advance();
+
+            std::u16string val;
+
+            while (!at_end() && peek() != '"')
+            {
+                if (peek() == '\n')
+                    return make_error(start, "unterminated utf-16 string literal");
+
+                if (peek() == '\\')
+                {
+                    advance();
+                    if (auto err = lex_u16_escape(val); !err.empty())
+                        return make_error(start, std::string{err});
+
+                    continue;
+                }
+
+                auto res = utf8::decode_one(m_src.substr(m_pos));
+                if (!res)
+                    return make_error(start, "invalid UTF-8 in utf-16 string literal");
+
+                encode_utf16(res->codepoint, val);
+                m_pos += static_cast<std::uint32_t>(res->bytes_consumed);
+            }
+
+            if (at_end())
+                return make_error(start, "unterminated utf-16 string literal");
+
+            advance();
+
+            auto tok = make_token(TokenKind::U16StringLiteral, start);
+            tok.interned = m_interner.intern(m_src.substr(start, m_pos - start));
+            tok.value = std::move(val);
+            return tok;
+        }
+
         Token lex_char(std::uint32_t start)
         {
             advance();
@@ -468,6 +522,115 @@ export namespace dcc::lex
                         return "invalid unicode codepoint";
 
                     encode_utf8(static_cast<char32_t>(codepoint), out);
+                    return {};
+                }
+
+                default:
+                    return "unknown escape sequence";
+            }
+        }
+
+        std::string_view lex_u16_escape(std::u16string& out)
+        {
+            if (at_end())
+                return "unexpected end of file in escape sequence";
+
+            char c = advance();
+
+            switch (c)
+            {
+                case 'n':
+                    out.push_back(u'\n');
+                    return {};
+                case 't':
+                    out.push_back(u'\t');
+                    return {};
+                case 'r':
+                    out.push_back(u'\r');
+                    return {};
+                case '0':
+                    out.push_back(u'\0');
+                    return {};
+                case '\\':
+                    out.push_back(u'\\');
+                    return {};
+                case '\'':
+                    out.push_back(u'\'');
+                    return {};
+                case '"':
+                    out.push_back(u'"');
+                    return {};
+
+                case 'x': {
+                    if (!is_hex_digit(peek()) || !is_hex_digit(peek_at(1)))
+                        return "expected two hex digits after '\\x'";
+
+                    auto hi = hex_val(advance());
+                    auto lo = hex_val(advance());
+                    out.push_back(static_cast<char16_t>((hi << 4) | lo));
+                    return {};
+                }
+
+                case 'u': {
+                    if (match('{'))
+                    {
+                        std::uint32_t codepoint = 0;
+                        int digits = 0;
+
+                        while (!at_end() && peek() != '}')
+                        {
+                            if (!is_hex_digit(peek()))
+                                return "invalid hex digit in unicode escape";
+
+                            codepoint = (codepoint << 4) | static_cast<std::uint32_t>(hex_val(advance()));
+
+                            if (++digits > 6)
+                                return "unicode escape exceeds 6 digits";
+                        }
+
+                        if (!match('}'))
+                            return "expected '}' in unicode escape";
+                        if (digits == 0)
+                            return "empty unicode escape";
+                        if (codepoint > 0x10FFFF || (codepoint >= 0xD800 && codepoint <= 0xDFFF))
+                            return "invalid unicode codepoint";
+
+                        encode_utf16(static_cast<char32_t>(codepoint), out);
+                        return {};
+                    }
+                    else
+                    {
+                        std::uint32_t codepoint = 0;
+                        for (int i = 0; i < 4; ++i)
+                        {
+                            if (at_end() || !is_hex_digit(peek()))
+                                return "expected exactly 4 hex digits after '\\u'";
+
+                            codepoint = (codepoint << 4) | static_cast<std::uint32_t>(hex_val(advance()));
+                        }
+                        if (codepoint >= 0xD800 && codepoint <= 0xDFFF)
+                            return "invalid unicode codepoint (surrogate) in \\u escape";
+
+                        encode_utf16(static_cast<char32_t>(codepoint), out);
+                        return {};
+                    }
+                }
+
+                case 'U': {
+                    std::uint32_t codepoint = 0;
+                    for (int i = 0; i < 8; ++i)
+                    {
+                        if (at_end() || !is_hex_digit(peek()))
+                            return "expected exactly 8 hex digits after '\\U'";
+
+                        codepoint = (codepoint << 4) | static_cast<std::uint32_t>(hex_val(advance()));
+                    }
+                    if (codepoint > 0x10FFFF)
+                        return "invalid unicode codepoint in \\U escape";
+                    if (codepoint >= 0xD800 && codepoint <= 0xDFFF)
+                        return "invalid unicode codepoint (surrogate) in \\U escape";
+
+                    encode_utf16(static_cast<char32_t>(codepoint), out);
                     return {};
                 }
 

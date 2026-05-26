@@ -15,6 +15,7 @@ export namespace dcc::lex
         IntLiteral,
         FloatLiteral,
         StringLiteral,
+        U16StringLiteral,
         CharLiteral,
 
         Kwu8,
@@ -151,6 +152,8 @@ export namespace dcc::lex
                 return "float literal";
             case TokenKind::StringLiteral:
                 return "string literal";
+            case TokenKind::U16StringLiteral:
+                return "utf-16 string literal";
             case TokenKind::CharLiteral:
                 return "char literal";
 
@@ -384,7 +387,7 @@ export namespace dcc::lex
         return k >= TokenKind::IntLiteral && k <= TokenKind::CharLiteral;
     }
 
-    using TokenValue = std::variant<std::monostate, std::intmax_t, double, std::string, std::uint32_t>;
+    using TokenValue = std::variant<std::monostate, std::intmax_t, double, std::string, std::uint32_t, std::u16string>;
 
     struct Token
     {

@@ -586,6 +586,9 @@ export namespace dcc::sema
                 case ast::ExprKind::StringLiteral:
                     line_fmt("StringLiteral {} {}", static_cast<ast::StringLiteralExpr const&>(e).value, expr_suffix(e));
                     break;
+                case ast::ExprKind::U16StringLiteral:
+                    line_fmt("U16StringLiteral [{}cu] {}", static_cast<ast::U16StringLiteralExpr const&>(e).value.size(), expr_suffix(e));
+                    break;
                 case ast::ExprKind::CharLiteral:
                     line_fmt("CharLiteral {} {}", static_cast<ast::CharLiteralExpr const&>(e).codepoint, expr_suffix(e));
                     break;
@@ -4778,6 +4781,16 @@ export namespace dcc::sema
 
         comptime::Value const* make_str_const(std::string_view v, types::TypePtr ty) { return make_value(comptime::Value::make_string(std::string{v}, ty)); }
 
+        comptime::Value const* make_u16_str_const(std::u16string_view v, types::TypePtr ty)
+        {
+            std::string raw;
+            raw.resize(v.size() * sizeof(char16_t));
+            if (!v.empty())
+                std::memcpy(raw.data(), v.data(), v.size() * sizeof(char16_t));
+
+            return make_value(comptime::Value::make_string(std::move(raw), ty));
+        }
+
         comptime::Value const* fold_tagged_enum_construction(ast::EnumVariant const* variant, types::TypePtr enum_type,
                                                              std::span<comptime::Value const* const> arg_consts)
         {
@@ -5077,6 +5090,27 @@ export namespace dcc::sema
 
                     out.type = m_types.pointer_to(m_types.m_chart(), types::Qual::Const);
                     out.constant = make_str_const(std::string_view{e.value}, out.type);
+                    out.is_constant = true;
+                    break;
+                }
+                case ast::ExprKind::U16StringLiteral: {
+                    auto& e = static_cast<ast::U16StringLiteralExpr&>(expr);
+                    auto* u16_type = m_types.int_t(16, false);
+                    if (auto const* st = types::type_cast<types::SliceType>(expected_type))
+                    {
+                        auto const* el = st->element;
+                        if (el && types::type_cast<types::IntType>(el) && static_cast<types::IntType const*>(el)->bits == 16 &&
+                            !static_cast<types::IntType const*>(el)->is_signed)
+                        {
+                            out.type = m_types.slice_t(el, st->element_quals);
+                            out.constant = make_u16_str_const(e.value, out.type);
+                            out.is_constant = true;
+                            break;
+                        }
+                    }
+
+                    out.type = m_types.pointer_to(u16_type, types::Qual::Const);
+                    out.constant = make_u16_str_const(e.value, out.type);
                     out.is_constant = true;
                     break;
                 }

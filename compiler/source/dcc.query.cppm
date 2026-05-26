@@ -364,6 +364,7 @@ namespace dcc::query
                 case ast::ExprKind::IntLiteral:
                 case ast::ExprKind::FloatLiteral:
                 case ast::ExprKind::StringLiteral:
+                case ast::ExprKind::U16StringLiteral:
                 case ast::ExprKind::CharLiteral:
                 case ast::ExprKind::BoolLiteral:
                 case ast::ExprKind::NullLiteral:

@@ -1,0 +1,20 @@
+=== FILE: test.dc ===
+module test;
+
+public void test() {
+    []const u16 s = u"hi";
+}
+
+=== EXPECT-LLVM FLAGS: -verify ===
+; ModuleID = 'test'
+source_filename = "test"
+target triple = "x86_64-elf"
+
+@.u16str.0 = internal constant [2 x i16] [i16 104, i16 105]
+
+define void @_DC0F1.4.test4.test0v() {
+entry:
+  %"0" = alloca { ptr, i64 }, align 8
+  store { ptr, i64 } { ptr @.u16str.0, i64 2 }, ptr %"0", align 8
+  ret void
+}

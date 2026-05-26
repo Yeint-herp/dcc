@@ -134,6 +134,12 @@ namespace dcc::sema
                     n->sema = ex->sema;
                     return n;
                 }
+                case ast::ExprKind::U16StringLiteral: {
+                    auto* ex = static_cast<ast::U16StringLiteralExpr const*>(e);
+                    auto* n = m_ctx.make<ast::U16StringLiteralExpr>(ex->range, std::u16string_view{ex->value}, ex->spelling);
+                    n->sema = ex->sema;
+                    return n;
+                }
                 case ast::ExprKind::CharLiteral: {
                     auto* ex = static_cast<ast::CharLiteralExpr const*>(e);
                     auto* n = m_ctx.make<ast::CharLiteralExpr>(ex->range, ex->codepoint);
@@ -783,6 +789,7 @@ namespace dcc::sema
                 case ast::ExprKind::IntLiteral:
                 case ast::ExprKind::FloatLiteral:
                 case ast::ExprKind::StringLiteral:
+                case ast::ExprKind::U16StringLiteral:
                 case ast::ExprKind::CharLiteral:
                 case ast::ExprKind::BoolLiteral:
                 case ast::ExprKind::NullLiteral:

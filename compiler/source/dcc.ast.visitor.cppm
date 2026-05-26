@@ -39,6 +39,7 @@ export namespace dcc::ast
         virtual void visitIntLiteralExpr(IntLiteralExpr const*) {}
         virtual void visitFloatLiteralExpr(FloatLiteralExpr const*) {}
         virtual void visitStringLiteralExpr(StringLiteralExpr const*) {}
+        virtual void visitU16StringLiteralExpr(U16StringLiteralExpr const*) {}
         virtual void visitCharLiteralExpr(CharLiteralExpr const*) {}
         virtual void visitBoolLiteralExpr(BoolLiteralExpr const*) {}
         virtual void visitNullLiteralExpr(NullLiteralExpr const*) {}
@@ -123,6 +124,7 @@ export namespace dcc::ast
         void visitIntLiteralExpr(IntLiteralExpr const*) override {}
         void visitFloatLiteralExpr(FloatLiteralExpr const*) override {}
         void visitStringLiteralExpr(StringLiteralExpr const*) override {}
+        void visitU16StringLiteralExpr(U16StringLiteralExpr const*) override {}
         void visitCharLiteralExpr(CharLiteralExpr const*) override {}
         void visitBoolLiteralExpr(BoolLiteralExpr const*) override {}
         void visitNullLiteralExpr(NullLiteralExpr const*) override {}
@@ -424,6 +426,9 @@ namespace dcc::ast
                 break;
             case ExprKind::StringLiteral:
                 visitStringLiteralExpr(node_cast<StringLiteralExpr>(expr));
+                break;
+            case ExprKind::U16StringLiteral:
+                visitU16StringLiteralExpr(node_cast<U16StringLiteralExpr>(expr));
                 break;
             case ExprKind::CharLiteral:
                 visitCharLiteralExpr(node_cast<CharLiteralExpr>(expr));

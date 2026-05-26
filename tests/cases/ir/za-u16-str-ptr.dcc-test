@@ -1,0 +1,17 @@
+=== FILE: test.dc ===
+module test;
+
+public const u16* get_str() {
+    return u"hi";
+}
+
+=== EXPECT-IR ===
+module "test"
+
+const global @.u16str.0 : [3 x u16] = aggregate [3 x u16], #104, #105, #0
+
+
+ptr<u16>@_DC0F1.4.test7.get_str0PCqi16u() {
+%entry:
+  ret ptr<u16> @.u16str.0
+}

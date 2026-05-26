@@ -1561,6 +1561,12 @@ export namespace dcc::ir::lower
                     return lower_string_literal_value(sl, target_type);
                 }
 
+                case ast::ExprKind::U16StringLiteral: {
+                    auto* sl = static_cast<ast::U16StringLiteralExpr const*>(expr);
+                    auto* target_type = get_sema_resolved_type(expr);
+                    return lower_u16_string_literal_value(sl, target_type);
+                }
+
                 case ast::ExprKind::FieldAccess: {
                     return lower_field_access_expr(static_cast<ast::FieldAccessExpr const*>(expr));
                 }
@@ -3864,6 +3870,7 @@ export namespace dcc::ir::lower
             collect_globals(mod);
 
             m_string_globals.clear();
+            m_u16_string_globals.clear();
             m_next_str_id = 0;
 
             for (auto* vd : m_global_order)
@@ -3943,6 +3950,7 @@ export namespace dcc::ir::lower
         }
 
         std::unordered_map<std::string, std::string> m_string_globals;
+        std::unordered_map<std::string, std::string> m_u16_string_globals;
         std::uint32_t m_next_str_id{};
 
         IrGlobal* get_or_create_string_global(std::string_view content, bool with_null)
@@ -3982,6 +3990,46 @@ export namespace dcc::ir::lower
             return ir_global;
         }
 
+        IrGlobal* get_or_create_u16_string_global(std::u16string_view content, bool with_null)
+        {
+            std::string key(reinterpret_cast<char const*>(content.data()), content.size() * sizeof(char16_t));
+            if (with_null)
+            {
+                char16_t zero = 0;
+                key.append(reinterpret_cast<char const*>(&zero), sizeof(char16_t));
+            }
+
+            auto it = m_u16_string_globals.find(key);
+            if (it != m_u16_string_globals.end())
+                for (auto* g : m_module->globals)
+                    if (g->name == it->second)
+                        return g;
+
+            auto name = std::format(".u16str.{}", m_next_str_id++);
+            m_name_pool.push_back(name);
+            auto name_sv = std::string_view{m_name_pool.back()};
+
+            auto* u16_type = m_ctx.int_t(16, false);
+            std::uint64_t arr_len = content.size() + (with_null ? 1 : 0);
+            auto* arr_type = m_ctx.array_t(u16_type, arr_len);
+
+            auto* agg = m_ctx.aggregate(arr_type);
+            for (std::size_t i = 0; i < content.size(); ++i)
+            {
+                auto* elem_val = m_ctx.int_const(u16_type, static_cast<std::int64_t>(content[i]));
+                agg->values.push_back(elem_val);
+            }
+
+            if (with_null)
+                agg->values.push_back(m_ctx.int_const(u16_type, 0));
+
+            auto* ir_global = m_ctx.global(name_sv, arr_type, agg, true);
+            m_module->globals.push_back(ir_global);
+
+            m_u16_string_globals[key] = std::string(name_sv);
+            return ir_global;
+        }
+
         IrValue* lower_constant_expr(ast::Expr const* expr, dcc::types::TypePtr target_type)
         {
             if (!expr)
@@ -4017,6 +4065,10 @@ export namespace dcc::ir::lower
                 case ast::ExprKind::StringLiteral: {
                     auto* sl = static_cast<ast::StringLiteralExpr const*>(expr);
                     return lower_string_literal_value(sl, target_type);
+                }
+                case ast::ExprKind::U16StringLiteral: {
+                    auto* sl = static_cast<ast::U16StringLiteralExpr const*>(expr);
+                    return lower_u16_string_literal_value(sl, target_type);
                 }
                 case ast::ExprKind::StructLiteral: {
                     auto* sl = static_cast<ast::StructLiteralExpr const*>(expr);
@@ -4198,6 +4250,45 @@ export namespace dcc::ir::lower
             }
         }
 
+        IrValue* lower_u16_string_literal_value(ast::U16StringLiteralExpr const* sl, dcc::types::TypePtr target_type)
+        {
+            auto& content = sl->value;
+            if (!target_type)
+                target_type = get_sema_resolved_type(sl);
+
+            bool needs_null = false;
+            bool is_slice_target = false;
+            if (target_type)
+            {
+                if (target_type->kind == dcc::types::TypeKind::Pointer)
+                    needs_null = true;
+                else if (target_type->kind == dcc::types::TypeKind::Slice)
+                    is_slice_target = true;
+            }
+
+            auto* str_global = get_or_create_u16_string_global(std::u16string_view{content.data(), content.size()}, needs_null);
+
+            if (is_slice_target)
+            {
+                auto* slice_ir_ty = lower_type(target_type);
+                auto* u16_type = m_ctx.int_t(16, false);
+                auto* ptr_type = m_ctx.pointer_to(u16_type);
+                auto* ptr_val = m_ctx.global_ref(str_global, ptr_type);
+                auto* len_val = m_ctx.int_const(m_ctx.int_t(64, false), static_cast<std::int64_t>(content.size()));
+
+                auto* agg = m_ctx.aggregate(slice_ir_ty);
+                agg->values.push_back(ptr_val);
+                agg->values.push_back(len_val);
+                return agg;
+            }
+            else
+            {
+                auto* u16_type = m_ctx.int_t(16, false);
+                auto* ptr_type = m_ctx.pointer_to(u16_type);
+                return m_ctx.global_ref(str_global, ptr_type);
+            }
+        }
+
         IrValue* materialize_comptime(dcc::comptime::Value const& cv, dcc::types::TypePtr target_type)
         {
             switch (cv.kind())
@@ -4217,24 +4308,67 @@ export namespace dcc::ir::lower
                     if (!target_type)
                         target_type = cv.type;
 
-                    bool needs_null = target_type && target_type->kind == dcc::types::TypeKind::Pointer;
-                    auto* str_global = get_or_create_string_global(s, needs_null);
-
-                    if (target_type && target_type->kind == dcc::types::TypeKind::Slice)
+                    bool is_u16 = false;
+                    if (target_type)
                     {
-                        auto* slice_ir_ty = lower_type(target_type);
-                        auto* ptr_type = m_ctx.pointer_to(m_ctx.int_t(8, false));
-                        auto* ptr_val = m_ctx.global_ref(str_global, ptr_type);
-                        auto* len_val = m_ctx.int_const(m_ctx.int_t(64, false), static_cast<std::int64_t>(s.size()));
-                        auto* agg = m_ctx.aggregate(slice_ir_ty);
-                        agg->values.push_back(ptr_val);
-                        agg->values.push_back(len_val);
-                        return agg;
+                        auto const* pointee = [&]() -> dcc::types::TypePtr {
+                            if (auto* pt = types::type_cast<types::PointerType>(target_type))
+                                return pt->pointee;
+                            if (auto* st = types::type_cast<types::SliceType>(target_type))
+                                return st->element;
+                            return nullptr;
+                        }();
+                        if (pointee)
+                            if (auto* it = types::type_cast<types::IntType>(pointee))
+                                if (it->bits == 16 && !it->is_signed)
+                                    is_u16 = true;
+                    }
+
+                    if (is_u16)
+                    {
+                        auto u16v = std::u16string_view{reinterpret_cast<char16_t const*>(s.data()), s.size() / sizeof(char16_t)};
+                        bool needs_null = target_type && target_type->kind == dcc::types::TypeKind::Pointer;
+                        auto* str_global = get_or_create_u16_string_global(u16v, needs_null);
+                        auto* u16_ir = m_ctx.int_t(16, false);
+
+                        if (target_type && target_type->kind == dcc::types::TypeKind::Slice)
+                        {
+                            auto* slice_ir_ty = lower_type(target_type);
+                            auto* ptr_type = m_ctx.pointer_to(u16_ir);
+                            auto* ptr_val = m_ctx.global_ref(str_global, ptr_type);
+                            auto* len_val = m_ctx.int_const(m_ctx.int_t(64, false), static_cast<std::int64_t>(u16v.size()));
+                            auto* agg = m_ctx.aggregate(slice_ir_ty);
+                            agg->values.push_back(ptr_val);
+                            agg->values.push_back(len_val);
+                            return agg;
+                        }
+                        else
+                        {
+                            auto* ptr_type = m_ctx.pointer_to(u16_ir);
+                            return m_ctx.global_ref(str_global, ptr_type);
+                        }
                     }
                     else
                     {
-                        auto* ptr_type = m_ctx.pointer_to(m_ctx.int_t(8, false));
-                        return m_ctx.global_ref(str_global, ptr_type);
+                        bool needs_null = target_type && target_type->kind == dcc::types::TypeKind::Pointer;
+                        auto* str_global = get_or_create_string_global(s, needs_null);
+
+                        if (target_type && target_type->kind == dcc::types::TypeKind::Slice)
+                        {
+                            auto* slice_ir_ty = lower_type(target_type);
+                            auto* ptr_type = m_ctx.pointer_to(m_ctx.int_t(8, false));
+                            auto* ptr_val = m_ctx.global_ref(str_global, ptr_type);
+                            auto* len_val = m_ctx.int_const(m_ctx.int_t(64, false), static_cast<std::int64_t>(s.size()));
+                            auto* agg = m_ctx.aggregate(slice_ir_ty);
+                            agg->values.push_back(ptr_val);
+                            agg->values.push_back(len_val);
+                            return agg;
+                        }
+                        else
+                        {
+                            auto* ptr_type = m_ctx.pointer_to(m_ctx.int_t(8, false));
+                            return m_ctx.global_ref(str_global, ptr_type);
+                        }
                     }
                 }
                 case dcc::comptime::Value::Kind::Aggregate: {

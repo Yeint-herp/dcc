@@ -167,6 +167,20 @@ export namespace dcc::ast
         void visitIntLiteralExpr(IntLiteralExpr const* e) override { line_fmt("IntLiteral {}", e->value); }
         void visitFloatLiteralExpr(FloatLiteralExpr const* e) override { line_fmt("FloatLiteral {}", e->value); }
         void visitStringLiteralExpr(StringLiteralExpr const* e) override { line_fmt("StringLiteral \"{}\"", std::string_view{e->value}); }
+        void visitU16StringLiteralExpr(U16StringLiteralExpr const* e) override
+        {
+            std::string utf8_repr;
+            utf8_repr.reserve(e->value.size() * 3);
+            for (auto cu : e->value)
+            {
+                if (cu < 0x80)
+                    utf8_repr.push_back(static_cast<char>(cu));
+                else
+                    std::format_to(std::back_inserter(utf8_repr), "\\u{:04x}", static_cast<unsigned>(cu));
+            }
+
+            line_fmt("U16StringLiteral \"{}\"", utf8_repr);
+        }
         void visitCharLiteralExpr(CharLiteralExpr const* e) override { line_fmt("CharLiteral {}", e->codepoint); }
         void visitBoolLiteralExpr(BoolLiteralExpr const* e) override { line_fmt("BoolLiteral {}", e->value); }
         void visitNullLiteralExpr(NullLiteralExpr const*) override { line("NullLiteral"); }

@@ -2039,7 +2039,8 @@ export namespace dcc::parser
                                 arg.type = m_ctx.make<ast::NamedType>(tok.range, std::move(p));
                             }
                             else if (peek().kind == TK::IntLiteral || peek().kind == TK::FloatLiteral || peek().kind == TK::StringLiteral ||
-                                     peek().kind == TK::CharLiteral || peek().kind == TK::KwTrue || peek().kind == TK::KwFalse || peek().kind == TK::KwNull)
+                                     peek().kind == TK::U16StringLiteral || peek().kind == TK::CharLiteral || peek().kind == TK::KwTrue ||
+                                     peek().kind == TK::KwFalse || peek().kind == TK::KwNull)
                                 arg.expr = parse_primary(no_struct_lit);
                             else
                                 return expr;
@@ -2098,6 +2099,15 @@ export namespace dcc::parser
                             v = *sv;
 
                     return m_ctx.make<ast::StringLiteralExpr>(tok.range, v, tok.interned);
+                }
+                case TK::U16StringLiteral: {
+                    auto tok = advance();
+                    std::u16string_view v;
+                    if (tok.value)
+                        if (auto* uv = std::get_if<std::u16string>(&*tok.value))
+                            v = *uv;
+
+                    return m_ctx.make<ast::U16StringLiteralExpr>(tok.range, v, tok.interned);
                 }
                 case TK::CharLiteral: {
                     auto tok = advance();
@@ -2673,6 +2683,7 @@ export namespace dcc::parser
                 case TK::IntLiteral:
                 case TK::FloatLiteral:
                 case TK::StringLiteral:
+                case TK::U16StringLiteral:
                 case TK::CharLiteral:
                 case TK::KwTrue:
                 case TK::KwFalse:

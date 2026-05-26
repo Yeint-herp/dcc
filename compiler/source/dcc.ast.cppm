@@ -103,6 +103,7 @@ export namespace dcc::ast
         IntLiteral,
         FloatLiteral,
         StringLiteral,
+        U16StringLiteral,
         CharLiteral,
         BoolLiteral,
         NullLiteral,
@@ -502,6 +503,14 @@ export namespace dcc::ast
         std::pmr::string value;
         std::string_view spelling;
         StringLiteralExpr(sm::SourceRange r, std::string_view v, std::string_view sp, Allocator a) : Expr(Kind, r), value(v, a), spelling(sp) {}
+    };
+
+    struct U16StringLiteralExpr : Expr
+    {
+        static constexpr auto Kind = ExprKind::U16StringLiteral;
+        std::pmr::u16string value;
+        std::string_view spelling;
+        U16StringLiteralExpr(sm::SourceRange r, std::u16string_view v, std::string_view sp, Allocator a) : Expr(Kind, r), value(v, a), spelling(sp) {}
     };
 
     struct CharLiteralExpr : Expr
