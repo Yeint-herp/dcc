@@ -183,12 +183,10 @@ TEST_CASE("llvm-executable-x86-64-elf-valid")
 
     CHECK_EQ(static_cast<int>(exe[4]), 2);
 
-    auto e_type = static_cast<std::uint16_t>(static_cast<unsigned char>(exe[16])) |
-                  (static_cast<std::uint16_t>(static_cast<unsigned char>(exe[17])) << 8);
+    auto e_type = static_cast<std::uint16_t>(static_cast<unsigned char>(exe[16])) | (static_cast<std::uint16_t>(static_cast<unsigned char>(exe[17])) << 8);
     CHECK_EQ(e_type, 2);
 
-    auto e_machine = static_cast<std::uint16_t>(static_cast<unsigned char>(exe[18])) |
-                     (static_cast<std::uint16_t>(static_cast<unsigned char>(exe[19])) << 8);
+    auto e_machine = static_cast<std::uint16_t>(static_cast<unsigned char>(exe[18])) | (static_cast<std::uint16_t>(static_cast<unsigned char>(exe[19])) << 8);
     CHECK_EQ(e_machine, 0x3E);
 }
 
@@ -226,4 +224,172 @@ TEST_CASE("llvm-executable-non-x86-64-elf-rejected")
 
     CHECK(!artifact.diagnostics.empty());
     CHECK(!artifact.executable_bytes.has_value());
+}
+
+TEST_CASE("llvm-codegen-flags-no-red-zone")
+{
+    IrContext ir_ctx;
+    auto* mod = build_add_module(ir_ctx);
+
+    TargetConfig target = TargetConfig::host_default();
+    target.no_red_zone = true;
+
+    BackendOptions opts;
+    opts.target = target;
+    opts.requested_artifacts = {ArtifactKind::LlvmIrText};
+
+    auto backend = make_llvm_backend();
+    auto artifact = backend->emit(*mod, opts);
+
+    REQUIRE(artifact.llvm_ir_text.has_value());
+    auto const& ir = *artifact.llvm_ir_text;
+    CHECK(ir.find("attributes #") != std::string::npos);
+    CHECK(ir.find("noredzone") != std::string::npos);
+    CHECK(artifact.diagnostics.empty());
+}
+
+TEST_CASE("llvm-codegen-flags-pic")
+{
+    IrContext ir_ctx;
+    auto* mod = build_add_module(ir_ctx);
+
+    TargetConfig target = TargetConfig::host_default();
+    target.position_independent_code = true;
+
+    BackendOptions opts;
+    opts.target = target;
+    opts.requested_artifacts = {ArtifactKind::LlvmIrText};
+
+    auto backend = make_llvm_backend();
+    auto artifact = backend->emit(*mod, opts);
+
+    REQUIRE(artifact.llvm_ir_text.has_value());
+    CHECK(artifact.diagnostics.empty());
+}
+
+TEST_CASE("llvm-codegen-flags-mcmodel-kernel")
+{
+    IrContext ir_ctx;
+    auto* mod = build_add_module(ir_ctx);
+
+    TargetConfig target = TargetConfig::host_default();
+    target.code_model = CodeModel::Kernel;
+
+    BackendOptions opts;
+    opts.target = target;
+    opts.requested_artifacts = {ArtifactKind::LlvmIrText};
+
+    auto backend = make_llvm_backend();
+    auto artifact = backend->emit(*mod, opts);
+
+    if (!artifact.diagnostics.empty())
+        return;
+
+    REQUIRE(artifact.llvm_ir_text.has_value());
+    CHECK(artifact.diagnostics.empty());
+}
+
+TEST_CASE("llvm-codegen-flags-mcmodel-large")
+{
+    IrContext ir_ctx;
+    auto* mod = build_add_module(ir_ctx);
+
+    TargetConfig target = TargetConfig::host_default();
+    target.code_model = CodeModel::Large;
+
+    BackendOptions opts;
+    opts.target = target;
+    opts.requested_artifacts = {ArtifactKind::LlvmIrText};
+
+    auto backend = make_llvm_backend();
+    auto artifact = backend->emit(*mod, opts);
+
+    if (!artifact.diagnostics.empty())
+        return;
+
+    REQUIRE(artifact.llvm_ir_text.has_value());
+    CHECK(artifact.diagnostics.empty());
+}
+
+TEST_CASE("llvm-codegen-flags-no-simd")
+{
+    IrContext ir_ctx;
+    auto* mod = build_add_module(ir_ctx);
+
+    TargetConfig target = TargetConfig::host_default();
+    target.no_simd = true;
+
+    BackendOptions opts;
+    opts.target = target;
+    opts.requested_artifacts = {ArtifactKind::LlvmIrText};
+
+    auto backend = make_llvm_backend();
+    auto artifact = backend->emit(*mod, opts);
+
+    REQUIRE(artifact.llvm_ir_text.has_value());
+    CHECK(artifact.diagnostics.empty());
+}
+
+TEST_CASE("llvm-codegen-flags-no-x87")
+{
+    IrContext ir_ctx;
+    auto* mod = build_add_module(ir_ctx);
+
+    TargetConfig target = TargetConfig::host_default();
+    target.no_x87 = true;
+
+    BackendOptions opts;
+    opts.target = target;
+    opts.requested_artifacts = {ArtifactKind::LlvmIrText};
+
+    auto backend = make_llvm_backend();
+    auto artifact = backend->emit(*mod, opts);
+
+    REQUIRE(artifact.llvm_ir_text.has_value());
+    CHECK(artifact.diagnostics.empty());
+}
+
+TEST_CASE("llvm-codegen-flags-combined")
+{
+    IrContext ir_ctx;
+    auto* mod = build_add_module(ir_ctx);
+
+    TargetConfig target = TargetConfig::host_default();
+    target.no_red_zone = true;
+    target.no_simd = true;
+    target.no_x87 = true;
+    target.position_independent_code = true;
+    target.code_model = CodeModel::Medium;
+
+    BackendOptions opts;
+    opts.target = target;
+    opts.requested_artifacts = {ArtifactKind::LlvmIrText};
+
+    auto backend = make_llvm_backend();
+    auto artifact = backend->emit(*mod, opts);
+
+    REQUIRE(artifact.llvm_ir_text.has_value());
+    auto const& ir = *artifact.llvm_ir_text;
+    CHECK(ir.find("noredzone") != std::string::npos);
+    CHECK(artifact.diagnostics.empty());
+}
+
+TEST_CASE("llvm-codegen-flags-default-no-flags-preserved")
+{
+    IrContext ir_ctx;
+    auto* mod = build_add_module(ir_ctx);
+
+    TargetConfig target = TargetConfig::host_default();
+
+    BackendOptions opts;
+    opts.target = target;
+    opts.requested_artifacts = {ArtifactKind::LlvmIrText};
+
+    auto backend = make_llvm_backend();
+    auto artifact = backend->emit(*mod, opts);
+
+    REQUIRE(artifact.llvm_ir_text.has_value());
+    auto const& ir = *artifact.llvm_ir_text;
+    CHECK(ir.find("noredzone") == std::string::npos);
+    CHECK(artifact.diagnostics.empty());
 }

@@ -112,6 +112,11 @@ namespace
         bool help{false};
         bool libdcext{false};
         std::string target_triple;
+        bool no_red_zone{false};
+        bool no_simd{false};
+        bool no_x87{false};
+        bool position_independent_code{false};
+        std::optional<dcc::target::CodeModel> code_model;
     };
 
     [[nodiscard]] auto parse_args(int argc, char** argv) -> Options
@@ -199,6 +204,61 @@ namespace
                 continue;
             }
 
+            if (arg == "-fno-red-zone")
+            {
+                opts.no_red_zone = true;
+                ++i;
+                continue;
+            }
+
+            if (arg == "-fno-simd")
+            {
+                opts.no_simd = true;
+                ++i;
+                continue;
+            }
+
+            if (arg == "-fno-x87")
+            {
+                opts.no_x87 = true;
+                ++i;
+                continue;
+            }
+
+            if (arg == "-fPIC" || arg == "-fPIE")
+            {
+                opts.position_independent_code = true;
+                ++i;
+                continue;
+            }
+
+            if (arg == "-mcmodel" && i + 1 < argc)
+            {
+                auto parsed = dcc::target::TargetConfig::parse_code_model(argv[i + 1]);
+                if (!parsed)
+                {
+                    std::println(std::cerr, "dcc: invalid mcmodel value '{}' (expected: default, small, kernel, medium, large)", argv[i + 1]);
+                    std::exit(1);
+                }
+                opts.code_model = *parsed;
+                i += 2;
+                continue;
+            }
+
+            if (arg.starts_with("-mcmodel="))
+            {
+                auto value = arg.substr(9);
+                auto parsed = dcc::target::TargetConfig::parse_code_model(value);
+                if (!parsed)
+                {
+                    std::println(std::cerr, "dcc: invalid mcmodel value '{}' (expected: default, small, kernel, medium, large)", value);
+                    std::exit(1);
+                }
+                opts.code_model = *parsed;
+                ++i;
+                continue;
+            }
+
             if (arg == "-target" && i + 1 < argc)
             {
                 opts.target_triple = argv[++i];
@@ -269,8 +329,9 @@ namespace
 
     void print_usage()
     {
-        std::println("usage: dcc [-I<dir>] [-flibdcext] [-fbounds-check] [-fdump-ast] [-fdump-ir] [-fdump-llvm] [-fdump-asm] [-c] [-g|-g0|-g3] [-target "
-                     "<triple>] [-h] [-o "
+        std::println("usage: dcc [-I<dir>] [-flibdcext] [-fbounds-check] [-fdump-ast] [-fdump-ir] [-fdump-llvm] [-fdump-asm] [-c] [-g|-g0|-g3] "
+                     "[-fno-red-zone] [-fno-simd] [-fno-x87] [-fPIC|-fPIE] [-mcmodel <model>] "
+                     "[-target <triple>] [-h] [-o "
                      "<file>] <input-file>");
     }
 
@@ -586,6 +647,13 @@ auto main(int argc, char** argv) -> int
             }
             else
                 target = dcc::target::TargetConfig::host_default();
+
+            target.no_red_zone = opts.no_red_zone;
+            target.no_simd = opts.no_simd;
+            target.no_x87 = opts.no_x87;
+            target.position_independent_code = opts.position_independent_code;
+            if (opts.code_model)
+                target.code_model = *opts.code_model;
 
             auto kinds = desired_artifacts(opts);
             if (kinds.empty())

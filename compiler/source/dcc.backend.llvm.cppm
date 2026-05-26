@@ -72,6 +72,50 @@ namespace dcc::backend
             return t;
         }
 
+        [[nodiscard]] std::string llvm_target_features(TargetConfig const& target)
+        {
+            std::string features;
+
+            if (target.no_x87)
+            {
+                if (!features.empty())
+                    features += ',';
+                features += "-x87";
+            }
+
+            if (target.no_simd)
+            {
+                if (!features.empty())
+                    features += ',';
+                features += "-mmx,-sse,-sse2,-sse3,-ssse3,-sse4.1,-sse4.2,-avx,-avx2,-avx512f";
+            }
+
+            return features;
+        }
+
+        [[nodiscard]] LLVMRelocMode llvm_reloc_mode(TargetConfig const& target)
+        {
+            return target.position_independent_code ? LLVMRelocPIC : LLVMRelocDefault;
+        }
+
+        [[nodiscard]] LLVMCodeModel llvm_code_model(TargetConfig const& target)
+        {
+            switch (target.code_model)
+            {
+                case CodeModel::Default:
+                    return LLVMCodeModelDefault;
+                case CodeModel::Small:
+                    return LLVMCodeModelSmall;
+                case CodeModel::Kernel:
+                    return LLVMCodeModelKernel;
+                case CodeModel::Medium:
+                    return LLVMCodeModelMedium;
+                case CodeModel::Large:
+                    return LLVMCodeModelLarge;
+            }
+            return LLVMCodeModelDefault;
+        }
+
         [[nodiscard]] bool is_bool_type(IrType const* t)
         {
             return t && t->kind == IrTypeKind::Bool;
@@ -523,8 +567,7 @@ namespace dcc::backend
                     if (is_elf)
                     {
                         auto* dwarf_ver_md = LLVMValueAsMetadata(LLVMConstInt(LLVMInt32TypeInContext(ctx), 5, false));
-                        LLVMAddModuleFlag(llvm_mod, static_cast<LLVMModuleFlagBehavior>(7), // Max
-                                          "Dwarf Version", 13, dwarf_ver_md);
+                        LLVMAddModuleFlag(llvm_mod, static_cast<LLVMModuleFlagBehavior>(7), "Dwarf Version", 13, dwarf_ver_md);
                     }
                     else if (is_coff)
                     {
@@ -613,7 +656,9 @@ namespace dcc::backend
                     }
 
                     const auto* const cpu = (opts.target.arch == Arch::X86_64) ? "generic" : "i686";
-                    auto* tm = LLVMCreateTargetMachine(target_ref, cg_triple.c_str(), cpu, "", LLVMCodeGenLevelDefault, LLVMRelocDefault, LLVMCodeModelDefault);
+                    auto features = llvm_target_features(opts.target);
+                    auto* tm = LLVMCreateTargetMachine(target_ref, cg_triple.c_str(), cpu, features.c_str(), LLVMCodeGenLevelDefault,
+                                                       llvm_reloc_mode(opts.target), llvm_code_model(opts.target));
                     if (!tm)
                     {
                         add_diag(diags, {}, std::format("LLVM backend: could not create TargetMachine for '{}'", cg_triple));
@@ -1069,6 +1114,16 @@ namespace dcc::backend
                     LLVMSetFunctionCallConv(llvm_func, *cc_opt);
                 else if (found_cc_attr)
                     return false;
+
+                if (target.no_red_zone)
+                {
+                    auto kind = LLVMGetEnumAttributeKindForName("noredzone", 9);
+                    if (kind != 0)
+                    {
+                        auto* attr = LLVMCreateEnumAttribute(ctx, kind, 0);
+                        LLVMAddAttributeAtIndex(llvm_func, static_cast<LLVMAttributeIndex>(LLVMAttributeFunctionIndex), attr);
+                    }
+                }
 
                 if (func->entry_block)
                 {

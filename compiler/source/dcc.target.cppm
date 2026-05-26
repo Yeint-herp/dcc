@@ -23,6 +23,15 @@ export namespace dcc::target
         Coff,
     };
 
+    enum class CodeModel : std::uint8_t
+    {
+        Default,
+        Small,
+        Kernel,
+        Medium,
+        Large,
+    };
+
     struct Layout
     {
         std::uint64_t size{};
@@ -38,6 +47,27 @@ export namespace dcc::target
         std::uint8_t pointer_bits{64};
         std::uint8_t pointer_align{8};
         bool little_endian{true};
+
+        bool no_red_zone{false};
+        bool no_simd{false};
+        bool no_x87{false};
+        bool position_independent_code{false};
+        CodeModel code_model{CodeModel::Default};
+
+        [[nodiscard]] static std::optional<CodeModel> parse_code_model(std::string_view s)
+        {
+            if (s == "default")
+                return CodeModel::Default;
+            if (s == "small")
+                return CodeModel::Small;
+            if (s == "kernel")
+                return CodeModel::Kernel;
+            if (s == "medium")
+                return CodeModel::Medium;
+            if (s == "large")
+                return CodeModel::Large;
+            return std::nullopt;
+        }
 
         [[nodiscard]] Layout int_layout(std::uint8_t bits) const { return Layout{static_cast<std::uint64_t>(bits / 8), static_cast<std::uint64_t>(bits / 8)}; }
 

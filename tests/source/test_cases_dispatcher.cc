@@ -83,6 +83,11 @@ namespace
         std::string target_triple;
         bool is_error{false};
         bool verify{false};
+        bool no_red_zone{false};
+        bool no_simd{false};
+        bool no_x87{false};
+        bool position_independent_code{false};
+        std::optional<dcc::target::CodeModel> code_model;
     };
 
     struct ExpectRegistry
@@ -103,6 +108,11 @@ namespace
         std::string target_triple;
         bool is_error{false};
         std::size_t base_line{};
+        bool no_red_zone{false};
+        bool no_simd{false};
+        bool no_x87{false};
+        bool position_independent_code{false};
+        std::optional<dcc::target::CodeModel> code_model;
     };
 
     struct Fixture
@@ -326,6 +336,34 @@ namespace
 
                     if (flags_str.find("-verify") != std::string::npos)
                         e.verify = true;
+                    if (flags_str.find("-fno-red-zone") != std::string::npos)
+                        e.no_red_zone = true;
+                    if (flags_str.find("-fno-simd") != std::string::npos)
+                        e.no_simd = true;
+                    if (flags_str.find("-fno-x87") != std::string::npos)
+                        e.no_x87 = true;
+                    if (flags_str.find("-fPIC") != std::string::npos || flags_str.find("-fPIE") != std::string::npos)
+                        e.position_independent_code = true;
+
+                    auto mcmodel_pos = flags_str.find("-mcmodel=");
+                    if (mcmodel_pos != std::string::npos)
+                    {
+                        auto after = std::string_view{flags_str}.substr(mcmodel_pos + 9);
+                        auto sp = after.find(' ');
+                        auto mcmodel_val = (sp != std::string::npos) ? after.substr(0, sp) : after;
+                        e.code_model = dcc::target::TargetConfig::parse_code_model(trim(mcmodel_val));
+                    }
+                    else
+                    {
+                        mcmodel_pos = flags_str.find("-mcmodel ");
+                        if (mcmodel_pos != std::string::npos)
+                        {
+                            auto after = std::string_view{flags_str}.substr(mcmodel_pos + 9);
+                            auto sp = after.find(' ');
+                            auto mcmodel_val = (sp != std::string::npos) ? after.substr(0, sp) : after;
+                            e.code_model = dcc::target::TargetConfig::parse_code_model(trim(mcmodel_val));
+                        }
+                    }
                 }
                 fx.llvm_blocks.push_back(std::move(e));
             }
@@ -359,6 +397,35 @@ namespace
                                 e.target_triple = std::string{trim(std::string_view{target_val}.substr(0, sp))};
                             else
                                 e.target_triple = std::string{target_val};
+                        }
+                    }
+
+                    if (flags_str.find("-fno-red-zone") != std::string::npos)
+                        e.no_red_zone = true;
+                    if (flags_str.find("-fno-simd") != std::string::npos)
+                        e.no_simd = true;
+                    if (flags_str.find("-fno-x87") != std::string::npos)
+                        e.no_x87 = true;
+                    if (flags_str.find("-fPIC") != std::string::npos || flags_str.find("-fPIE") != std::string::npos)
+                        e.position_independent_code = true;
+
+                    auto mcmodel_pos = flags_str.find("-mcmodel=");
+                    if (mcmodel_pos != std::string::npos)
+                    {
+                        auto after = std::string_view{flags_str}.substr(mcmodel_pos + 9);
+                        auto sp = after.find(' ');
+                        auto mcmodel_val = (sp != std::string::npos) ? after.substr(0, sp) : after;
+                        e.code_model = dcc::target::TargetConfig::parse_code_model(trim(mcmodel_val));
+                    }
+                    else
+                    {
+                        mcmodel_pos = flags_str.find("-mcmodel ");
+                        if (mcmodel_pos != std::string::npos)
+                        {
+                            auto after = std::string_view{flags_str}.substr(mcmodel_pos + 9);
+                            auto sp = after.find(' ');
+                            auto mcmodel_val = (sp != std::string::npos) ? after.substr(0, sp) : after;
+                            e.code_model = dcc::target::TargetConfig::parse_code_model(trim(mcmodel_val));
                         }
                     }
                 }
@@ -1171,6 +1238,13 @@ namespace
             else
                 target = dcc::target::TargetConfig::host_default();
 
+            target.no_red_zone = exp.no_red_zone;
+            target.no_simd = exp.no_simd;
+            target.no_x87 = exp.no_x87;
+            target.position_independent_code = exp.position_independent_code;
+            if (exp.code_model)
+                target.code_model = *exp.code_model;
+
             dcc::backend::BackendOptions backend_opts;
             backend_opts.target = target;
             backend_opts.requested_artifacts = {dcc::backend::ArtifactKind::LlvmIrText};
@@ -1283,6 +1357,13 @@ namespace
             }
             else
                 target = dcc::target::TargetConfig::host_default();
+
+            target.no_red_zone = exp.no_red_zone;
+            target.no_simd = exp.no_simd;
+            target.no_x87 = exp.no_x87;
+            target.position_independent_code = exp.position_independent_code;
+            if (exp.code_model)
+                target.code_model = *exp.code_model;
 
             dcc::backend::BackendOptions backend_opts;
             backend_opts.target = target;

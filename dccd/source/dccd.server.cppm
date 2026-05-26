@@ -1905,10 +1905,6 @@ export namespace dccd
             read_global_config();
             read_project_configs();
 
-            // Collect URI keys into a vector first to avoid iterator invalidation:
-            // recompile_document / publish_diagnostics may mutate m_diagnostic_cache,
-            // and iterating by reference (for (auto const& [uri, _] : ...)) would leave
-            // 'uri' dangling after a map erase inside the called methods.
             std::vector<std::string> uris;
             uris.reserve(m_diagnostic_cache.size());
             for (auto const& [uri, _] : m_diagnostic_cache)
