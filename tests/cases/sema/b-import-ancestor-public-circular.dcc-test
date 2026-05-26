@@ -1,0 +1,34 @@
+=== FILE: efi.dc ===
+module efi;
+
+public struct guid {
+    u32 data1;
+    u16 data2;
+    u16 data3;
+    u8[8] data4;
+}
+
+public import efi::protocols::console;
+
+=== FILE: efi/protocols/console.dc ===
+module efi::protocols::console;
+public import efi;
+
+public const guid simple_text_input_protocol = {
+    0x387477c1, 0x69c7, 0x11d2,
+    {0x8e, 0x39, 0x3b, 0x00, 0xa0, 0x17, 0x85, 0x9d}
+};
+
+=== ENTRY: efi.dc ===
+
+=== EXPECT-TYPES FOR: efi::protocols::console ===
+Module efi::protocols::console
+  Var simple_text_input_protocol: struct guid
+
+=== EXPECT-TYPES FOR: efi ===
+Module efi
+  Struct guid
+    Field data1: u32
+    Field data2: u16
+    Field data3: u16
+    Field data4: [u8; 8]

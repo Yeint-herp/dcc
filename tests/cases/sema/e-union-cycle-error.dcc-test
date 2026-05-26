@@ -1,0 +1,15 @@
+=== FILE: main.dc ===
+module m;
+
+union U {
+    A a;
+}
+
+struct A {
+    U u;
+}
+
+void f() {}
+
+=== EXPECT-ERRORS ===
+main.dc:3: cyclic struct layout: U.a -> A.u -> U

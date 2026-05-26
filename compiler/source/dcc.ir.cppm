@@ -1392,6 +1392,7 @@ export namespace dcc::ir
     private:
         std::string m_out;
         std::size_t m_indent = 0;
+        std::unordered_set<IrType const*> m_printing_types;
 
         struct Indent
         {
@@ -1447,6 +1448,16 @@ export namespace dcc::ir
             {
                 write("<null-type>");
                 return;
+            }
+
+            if (t->kind == IrTypeKind::Aggregate || t->kind == IrTypeKind::Pointer || t->kind == IrTypeKind::Func || t->kind == IrTypeKind::Array ||
+                t->kind == IrTypeKind::Slice)
+            {
+                if (!m_printing_types.insert(t).second)
+                {
+                    std::format_to(std::back_inserter(m_out), "<cycle {}>", static_cast<void const*>(t));
+                    return;
+                }
             }
 
             switch (t->kind)
@@ -1529,6 +1540,12 @@ export namespace dcc::ir
                     print_type(ft->return_type);
                     break;
                 }
+            }
+
+            if (t->kind == IrTypeKind::Aggregate || t->kind == IrTypeKind::Pointer || t->kind == IrTypeKind::Func || t->kind == IrTypeKind::Array ||
+                t->kind == IrTypeKind::Slice)
+            {
+                m_printing_types.erase(t);
             }
         }
 

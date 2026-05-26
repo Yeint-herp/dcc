@@ -4519,6 +4519,11 @@ export namespace dcc::ir::lower
                 if (it != m_struct_type_cache.end())
                     return it->second;
 
+                auto* placeholder = m_ctx.make<IrAggregateType>();
+                placeholder->byte_size = type->byte_size;
+                placeholder->byte_align = type->byte_align;
+                m_struct_type_cache[sd] = placeholder;
+
                 std::vector<IrType const*> members;
                 std::vector<std::uint64_t> offsets;
                 members.reserve(sd->fields.size());
@@ -4532,9 +4537,10 @@ export namespace dcc::ir::lower
                     offsets.push_back(f.byte_offset);
                 }
 
-                auto* ir_agg = m_ctx.aggregate_t(members, offsets, type->byte_size, type->byte_align, type->layout_is_default);
-                m_struct_type_cache[sd] = ir_agg;
-                return ir_agg;
+                placeholder->members.assign(members.begin(), members.end());
+                placeholder->member_offsets.assign(offsets.begin(), offsets.end());
+
+                return placeholder;
             }
 
             if (auto* ut = types::type_cast<types::UnionType>(type))
@@ -4543,6 +4549,11 @@ export namespace dcc::ir::lower
                 auto it = m_struct_type_cache.find(ud);
                 if (it != m_struct_type_cache.end())
                     return it->second;
+
+                auto* placeholder = m_ctx.make<IrAggregateType>();
+                placeholder->byte_size = type->byte_size;
+                placeholder->byte_align = type->byte_align;
+                m_struct_type_cache[ud] = placeholder;
 
                 std::vector<IrType const*> members;
                 std::vector<std::uint64_t> offsets;
@@ -4560,9 +4571,10 @@ export namespace dcc::ir::lower
                     offsets.push_back(0);
                 }
 
-                auto* ir_agg = m_ctx.aggregate_t(members, offsets, type->byte_size, type->byte_align, false);
-                m_struct_type_cache[ud] = ir_agg;
-                return ir_agg;
+                placeholder->members.assign(members.begin(), members.end());
+                placeholder->member_offsets.assign(offsets.begin(), offsets.end());
+
+                return placeholder;
             }
 
             if (auto* et = types::type_cast<types::EnumType>(type))

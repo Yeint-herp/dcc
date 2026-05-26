@@ -1,0 +1,20 @@
+=== FILE: a.dc ===
+module a;
+public import b;
+
+public struct A {
+    b::B inner;
+}
+
+=== FILE: b.dc ===
+module b;
+public import a;
+
+public struct B {
+    a::A inner;
+}
+
+=== ENTRY: a.dc ===
+
+=== EXPECT-ERRORS ===
+a.dc:4: cyclic struct layout: A.inner -> B.inner -> A

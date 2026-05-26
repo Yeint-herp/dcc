@@ -1,0 +1,75 @@
+=== FILE: a.dc ===
+module a;
+public import b;
+
+public struct A {
+    b::B* ptr;
+}
+
+public i32 f_a() { return b::f_b(); }
+
+=== FILE: b.dc ===
+module b;
+public import c;
+
+public struct B {
+    c::C* ptr;
+}
+
+public i32 f_b() { return c::f_c(); }
+
+=== FILE: c.dc ===
+module c;
+public import a;
+
+public struct C {
+    a::A* ptr;
+}
+
+public i32 f_c() { return 3; }
+
+=== ENTRY: a.dc ===
+
+=== EXPECT-TYPES FOR: a ===
+Module a
+  Struct A
+    Field ptr: ptr(struct B)
+  Func f_a
+    Return: i32
+
+=== EXPECT-TYPES FOR: b ===
+Module b
+  Struct B
+    Field ptr: ptr(struct C)
+  Func f_b
+    Return: i32
+
+=== EXPECT-TYPES FOR: c ===
+Module c
+  Struct C
+    Field ptr: ptr(struct A)
+  Func f_c
+    Return: i32
+
+=== EXPECT-BODY FOR: a ===
+Module a
+  Func f_a diverging=true
+    Body
+      Return
+        Call [type=i32 const=<none> decl=f_b]
+          Path b::f_b [type=<unresolved> const=<none>]
+
+=== EXPECT-BODY FOR: b ===
+Module b
+  Func f_b diverging=true
+    Body
+      Return
+        Call [type=i32 const=<none> decl=f_c]
+          Path c::f_c [type=<unresolved> const=<none>]
+
+=== EXPECT-BODY FOR: c ===
+Module c
+  Func f_c diverging=true
+    Body
+      Return
+        IntLiteral 3 [type=i32 const=3 constant]

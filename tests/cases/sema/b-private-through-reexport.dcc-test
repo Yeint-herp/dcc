@@ -15,11 +15,15 @@ Module a
   OwnScope
     Binding A
       Type: struct exported
+    Binding Public
+      Type: struct exported
     Binding b
       Namespace: module exported
         (foreign-scope)
   ExportScope
     Binding A
+      Type: struct exported
+    Binding Public
       Type: struct exported
     Binding b
       Namespace: module exported

@@ -1,0 +1,46 @@
+=== FILE: a.dc ===
+module a;
+import b;
+import c;
+
+public i32 a_func() { return b::base() + c::other(); }
+
+=== FILE: b.dc ===
+module b;
+import shared;
+
+public i32 base() { return shared::value(); }
+
+=== FILE: c.dc ===
+module c;
+import shared;
+
+public i32 other() { return shared::value(); }
+
+=== FILE: shared.dc ===
+module shared;
+
+public i32 value() { return 42; }
+
+=== ENTRY: a.dc ===
+
+=== EXPECT-TYPES FOR: a ===
+Module a
+  Func a_func
+    Return: i32
+
+=== EXPECT-TYPES FOR: shared ===
+Module shared
+  Func value
+    Return: i32
+
+=== EXPECT-BODY FOR: a ===
+Module a
+  Func a_func diverging=true
+    Body
+      Return
+        Binary + [type=i32 const=<none>]
+          Call [type=i32 const=<none> decl=base]
+            Path b::base [type=<unresolved> const=<none>]
+          Call [type=i32 const=<none> decl=other]
+            Path c::other [type=<unresolved> const=<none>]

@@ -1,0 +1,37 @@
+=== FILE: a.dc ===
+module a;
+public import b;
+
+public struct A {
+    B* next;
+}
+
+public i32 fa(B* b) { return 1; }
+
+=== FILE: b.dc ===
+module b;
+public import a;
+
+public struct B {
+    A* prev;
+}
+
+public i32 fb(A* a) { return 2; }
+
+=== ENTRY: a.dc ===
+
+=== EXPECT-TYPES FOR: a ===
+Module a
+  Struct A
+    Field next: ptr(struct B)
+  Func fa
+    Return: i32
+    Param b: ptr(struct B)
+
+=== EXPECT-TYPES FOR: b ===
+Module b
+  Struct B
+    Field prev: ptr(struct A)
+  Func fb
+    Return: i32
+    Param a: ptr(struct A)

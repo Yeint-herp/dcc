@@ -1,0 +1,75 @@
+=== FILE: a.dc ===
+module a;
+public import b;
+
+public i32 a_get() { return 1; }
+
+public i32 a_through_b() { return b::b_get(); }
+
+=== FILE: b.dc ===
+module b;
+import a;
+
+public i32 b_get() { return 2; }
+
+public i32 b_through_a() { return a::a_get(); }
+
+=== ENTRY: a.dc ===
+
+=== EXPECT-SCOPE FOR: a ===
+Module a
+  OwnScope
+    Binding a_get
+      Value: function exported
+    Binding a_through_b
+      Value: function exported
+    Binding b
+      Namespace: module exported
+        (foreign-scope)
+    Binding b_get
+      Value: function exported
+    Binding b_through_a
+      Value: function exported
+  ExportScope
+    Binding a_get
+      Value: function exported
+    Binding a_through_b
+      Value: function exported
+    Binding b
+      Namespace: module exported
+        (foreign-scope)
+    Binding b_get
+      Value: function exported
+    Binding b_through_a
+      Value: function exported
+
+=== EXPECT-TYPES FOR: a ===
+Module a
+  Func a_get
+    Return: i32
+  Func a_through_b
+    Return: i32
+
+=== EXPECT-BODY FOR: a ===
+Module a
+  Func a_get diverging=true
+    Body
+      Return
+        IntLiteral 1 [type=i32 const=1 constant]
+  Func a_through_b diverging=true
+    Body
+      Return
+        Call [type=i32 const=<none> decl=b_get]
+          Path b::b_get [type=<unresolved> const=<none>]
+
+=== EXPECT-BODY FOR: b ===
+Module b
+  Func b_get diverging=true
+    Body
+      Return
+        IntLiteral 2 [type=i32 const=2 constant]
+  Func b_through_a diverging=true
+    Body
+      Return
+        Call [type=i32 const=<none> decl=a_get]
+          Path a::a_get [type=<unresolved> const=<none>]

@@ -21,11 +21,15 @@ Module graphics
   OwnScope
     Binding Mesh
       Type: struct exported
+    Binding Vec3
+      Type: struct exported
     Binding math
       Namespace: module exported
         (foreign-scope)
   ExportScope
     Binding Mesh
+      Type: struct exported
+    Binding Vec3
       Type: struct exported
     Binding math
       Namespace: module exported

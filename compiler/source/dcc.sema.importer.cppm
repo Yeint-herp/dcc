@@ -242,8 +242,6 @@ export namespace dcc::sema
 
                 if (seen.insert(target).second)
                     stack.push_back(target);
-                else
-                    imp.diag().warning(imp_node->module_path.range, "circular import of module `{}`", target->canonical_path.str());
 
                 ModuleInfo::ImportBinding b{};
                 b.decl = imp_node;

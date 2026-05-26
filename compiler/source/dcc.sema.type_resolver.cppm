@@ -106,7 +106,20 @@ export namespace dcc::sema
         std::unordered_map<ast::TypeExpr const*, detail::ResolvedType> m_type_cache;
         std::unordered_set<ast::UsingDecl const*> m_alias_resolving;
         std::unordered_set<ast::TypeExpr const*> m_type_resolving;
-        std::unordered_set<ast::Decl const*> m_finalizing;
+
+        struct FinalizeFrame
+        {
+            ast::Decl const* decl;
+            std::string_view field_name;
+        };
+        std::vector<FinalizeFrame> m_finalizing_stack;
+        std::unordered_set<ast::Decl const*> m_cycle_reported;
+
+        [[nodiscard]] bool is_finalizing(ast::Decl const* decl) const noexcept
+        {
+            return std::ranges::find_if(m_finalizing_stack,
+                                        [decl](FinalizeFrame const& fr) { return fr.decl == decl; }) != m_finalizing_stack.end();
+        }
 
         void prepare_placeholders()
         {
@@ -912,6 +925,41 @@ export namespace dcc::sema
             }
         }
 
+        [[nodiscard]] std::string format_cycle_path(std::vector<FinalizeFrame>::const_iterator first, ast::Decl const* repeated) const
+        {
+            std::string path;
+            for (auto it = first; it != m_finalizing_stack.cend(); ++it)
+            {
+                if (!path.empty())
+                    path += " -> ";
+
+                if (auto* sd = ast::node_cast<ast::StructDecl>(it->decl))
+                    path += sd->name;
+                else if (auto* ud = ast::node_cast<ast::UnionDecl>(it->decl))
+                    path += ud->name;
+                else
+                    path += "<decl>";
+
+                if (!it->field_name.empty())
+                {
+                    path += '.';
+                    path += it->field_name;
+                }
+            }
+
+            if (!path.empty())
+                path += " -> ";
+
+            if (auto* sd = ast::node_cast<ast::StructDecl>(repeated))
+                path += sd->name;
+            else if (auto* ud = ast::node_cast<ast::UnionDecl>(repeated))
+                path += ud->name;
+            else
+                path += "<decl>";
+
+            return path;
+        }
+
         void finalize_struct(ast::StructDecl& d)
         {
             auto* st = const_cast<types::StructType*>(types::type_cast<types::StructType>(type_of(d)));
@@ -921,11 +969,31 @@ export namespace dcc::sema
             if (st->is_complete)
                 return;
 
-            if (!m_finalizing.insert(&d).second)
+            auto it = std::ranges::find_if(m_finalizing_stack, [&d](FinalizeFrame const& fr) { return fr.decl == &d; });
+            if (it != m_finalizing_stack.end())
             {
-                m_diag.error(d.range, "cyclic struct layout");
+                bool already_reported = m_cycle_reported.contains(&d);
+                if (!already_reported)
+                    for (auto cur = it; cur != m_finalizing_stack.cend(); ++cur)
+                        if (m_cycle_reported.contains(cur->decl))
+                        {
+                            already_reported = true;
+                            break;
+                        }
+
+                if (!already_reported)
+                {
+                    for (auto cur = it; cur != m_finalizing_stack.cend(); ++cur)
+                        m_cycle_reported.insert(cur->decl);
+                    m_cycle_reported.insert(&d);
+                    m_diag.error(d.range, "cyclic struct layout: {}", format_cycle_path(it, &d));
+                }
+
+                st->is_complete = false;
                 return;
             }
+
+            m_finalizing_stack.push_back({&d, {}});
 
             bool is_packed = decl_has_attr(d, "packed");
             std::uint32_t forced_align = decl_align_val(d);
@@ -939,7 +1007,15 @@ export namespace dcc::sema
                 auto& f = d.fields[i];
                 f.index = static_cast<std::uint32_t>(i);
 
+                if (!f.type)
+                {
+                    complete = false;
+                    break;
+                }
+
+                m_finalizing_stack.back().field_name = f.name;
                 ensure_type_finalized(f.type->sema);
+                m_finalizing_stack.back().field_name = {};
 
                 auto const& ts = f.type->sema;
                 if (!ts.canonical || !ts.is_complete)
@@ -977,7 +1053,7 @@ export namespace dcc::sema
             else
                 st->is_complete = false;
 
-            m_finalizing.erase(&d);
+            m_finalizing_stack.pop_back();
         }
 
         void finalize_union(ast::UnionDecl& d)
@@ -989,11 +1065,31 @@ export namespace dcc::sema
             if (ut->is_complete)
                 return;
 
-            if (!m_finalizing.insert(&d).second)
+            auto it = std::ranges::find_if(m_finalizing_stack, [&d](FinalizeFrame const& fr) { return fr.decl == &d; });
+            if (it != m_finalizing_stack.end())
             {
-                m_diag.error(d.range, "cyclic struct layout");
+                bool already_reported = m_cycle_reported.contains(&d);
+                if (!already_reported)
+                    for (auto cur = it; cur != m_finalizing_stack.cend(); ++cur)
+                        if (m_cycle_reported.contains(cur->decl))
+                        {
+                            already_reported = true;
+                            break;
+                        }
+
+                if (!already_reported)
+                {
+                    for (auto cur = it; cur != m_finalizing_stack.cend(); ++cur)
+                        m_cycle_reported.insert(cur->decl);
+                    m_cycle_reported.insert(&d);
+                    m_diag.error(d.range, "cyclic struct layout: {}", format_cycle_path(it, &d));
+                }
+
+                ut->is_complete = false;
                 return;
             }
+
+            m_finalizing_stack.push_back({&d, {}});
 
             bool is_packed = decl_has_attr(d, "packed");
             std::uint32_t forced_align = decl_align_val(d);
@@ -1008,7 +1104,9 @@ export namespace dcc::sema
                 f.index = static_cast<std::uint32_t>(i);
                 f.byte_offset = 0;
 
+                m_finalizing_stack.back().field_name = f.name;
                 ensure_type_finalized(f.type->sema);
+                m_finalizing_stack.back().field_name = {};
 
                 auto const& ts = f.type->sema;
                 if (!ts.canonical || !ts.is_complete)
@@ -1042,7 +1140,7 @@ export namespace dcc::sema
             else
                 ut->is_complete = false;
 
-            m_finalizing.erase(&d);
+            m_finalizing_stack.pop_back();
         }
 
         [[nodiscard]] static bool is_const_variable(ast::VarDecl const* vd) noexcept
@@ -1349,11 +1447,13 @@ export namespace dcc::sema
 
             et->is_tagged = d.is_tagged;
 
-            if (!m_finalizing.insert(&d).second)
+            if (is_finalizing(&d))
             {
                 m_diag.error(d.range, "cyclic enum layout");
                 return;
             }
+
+            m_finalizing_stack.push_back({&d, {}});
 
             std::int64_t next_implicit = 0;
             si::InternedHashMap<std::int64_t> prior_variants;
@@ -1405,7 +1505,7 @@ export namespace dcc::sema
 
                 if (has_disc_error || has_payload_error)
                 {
-                    m_finalizing.erase(&d);
+                    m_finalizing_stack.pop_back();
                     return;
                 }
 
@@ -1538,7 +1638,7 @@ export namespace dcc::sema
             {
                 if (has_disc_error)
                 {
-                    m_finalizing.erase(&d);
+                    m_finalizing_stack.pop_back();
                     return;
                 }
 
@@ -1548,7 +1648,7 @@ export namespace dcc::sema
                     if (!types::type_cast<types::IntType>(bt))
                     {
                         m_diag.error(d.backing_type->range, "backing type of plain enum must be an integer type");
-                        m_finalizing.erase(&d);
+                        m_finalizing_stack.pop_back();
                         return;
                     }
                     et->backing = bt;
@@ -1624,7 +1724,7 @@ export namespace dcc::sema
                 et->is_complete = true;
             }
 
-            m_finalizing.erase(&d);
+            m_finalizing_stack.pop_back();
         }
 
         [[nodiscard]] static std::uint64_t align_up(std::uint64_t n, std::uint32_t align) noexcept

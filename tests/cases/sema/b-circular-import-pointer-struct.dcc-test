@@ -1,16 +1,18 @@
 === FILE: a.dc ===
 module a;
 public import b;
-public struct A { i32 v; }
+
+public struct A {
+    b::B* next;
+}
 
 === FILE: b.dc ===
 module b;
-public import c;
-public struct B { i32 v; }
+public import a;
 
-=== FILE: c.dc ===
-module c;
-public struct C { i32 v; }
+public struct B {
+    a::A* prev;
+}
 
 === ENTRY: a.dc ===
 
@@ -21,8 +23,6 @@ Module a
       Type: struct exported
     Binding B
       Type: struct exported
-    Binding C
-      Type: struct exported
     Binding b
       Namespace: module exported
         (foreign-scope)
@@ -31,8 +31,6 @@ Module a
       Type: struct exported
     Binding B
       Type: struct exported
-    Binding C
-      Type: struct exported
     Binding b
       Namespace: module exported
         (foreign-scope)
@@ -40,18 +38,23 @@ Module a
 === EXPECT-SCOPE FOR: b ===
 Module b
   OwnScope
+    Binding A
+      Type: struct exported
     Binding B
       Type: struct exported
-    Binding C
-      Type: struct exported
-    Binding c
+    Binding a
       Namespace: module exported
         (foreign-scope)
   ExportScope
+    Binding A
+      Type: struct exported
     Binding B
       Type: struct exported
-    Binding C
-      Type: struct exported
-    Binding c
+    Binding a
       Namespace: module exported
         (foreign-scope)
+
+=== EXPECT-TYPES FOR: a ===
+Module a
+  Struct A
+    Field next: ptr(struct B)
