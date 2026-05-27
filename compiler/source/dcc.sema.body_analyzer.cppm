@@ -7037,15 +7037,41 @@ export namespace dcc::sema
             if (out_is_callable)
                 *out_is_callable = false;
 
-            auto* ident = ast::node_cast<ast::IdentExpr>(fa.object);
-            if (!ident)
-                return false;
+            std::function<types::TypePtr(ast::Expr const*)> get_receiver_type = [&](ast::Expr const* object) -> types::TypePtr {
+                if (auto* id = ast::node_cast<ast::IdentExpr>(object))
+                {
+                    auto const* sym = lookup_name(mod, scope, id->name);
+                    if (!sym || !sym->decl)
+                        return nullptr;
 
-            auto const* sym = lookup_name(mod, scope, ident->name);
-            if (!sym || !sym->decl)
-                return false;
+                    return decl_type(*sym->decl);
+                }
 
-            auto* receiver_type = decl_type(*sym->decl);
+                if (auto* inner_fa = ast::node_cast<ast::FieldAccessExpr>(object))
+                {
+                    auto base_type = get_receiver_type(inner_fa->object);
+                    if (!base_type || base_type->kind == types::TypeKind::Error)
+                        return nullptr;
+
+                    auto const* nominal = nominal_decl(base_type);
+                    if (!nominal)
+                        return nullptr;
+
+                    auto* field = find_field(*const_cast<ast::Decl*>(nominal), inner_fa->field);
+                    if (!field || !field->type || !field->type->sema.canonical)
+                        return nullptr;
+
+                    auto* field_type = get_canonical(field->type->sema);
+                    if (!field_type)
+                        return nullptr;
+
+                    return substitute_in_nominal_context(field_type, base_type);
+                }
+
+                return nullptr;
+            };
+
+            auto* receiver_type = get_receiver_type(fa.object);
             if (!receiver_type || receiver_type->kind == types::TypeKind::Error)
                 return false;
 

@@ -1,0 +1,23 @@
+=== MODE: interactive ===
+
+=== FILE: efi.dc ===
+module efi;
+public void write() {}
+public void clear() {}
+
+=== FILE: main.dc ===
+module main;
+import efi;
+using efi::{write, clear};
+
+=== ENTRY: main.dc ===
+
+=== EXPECT-AST ===
+TranslationUnit
+  Module main
+  Import efi
+  Using kind=list
+    target_path=efi
+    Targets
+      write
+      clear

@@ -1,0 +1,20 @@
+=== MODE: interactive ===
+
+=== FILE: efi.dc ===
+module efi;
+public void write() {}
+public void clear() {}
+
+=== FILE: main.dc ===
+module main;
+import efi;
+using efi::*;
+
+=== ENTRY: main.dc ===
+
+=== EXPECT-AST ===
+TranslationUnit
+  Module main
+  Import efi
+  Using kind=wildcard
+    target_path=efi

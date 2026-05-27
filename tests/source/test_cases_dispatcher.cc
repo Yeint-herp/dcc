@@ -130,6 +130,7 @@ namespace
         std::vector<ExpectError> errors;
         std::vector<ExpectExecutable> executable_blocks;
         bool errors_block_present{};
+        bool interactive_mode{};
     };
 
     struct Section
@@ -232,6 +233,8 @@ namespace
             }
             else if (starts_with(h, "ENTRY:"))
                 fx.entry = trim(std::string_view{h}.substr(6));
+            else if (starts_with(h, "MODE:") && trim(std::string_view{h}.substr(5)) == "interactive")
+                fx.interactive_mode = true;
             else if (starts_with(h, "EXPECT-AST FOR:"))
             {
                 ExpectAst e;
@@ -739,7 +742,8 @@ namespace
                 return nullptr;
 
             dcc::lex::Lexer lexer{*file, interner};
-            dcc::parser::Parser parser{lexer, ctx, d};
+            auto mode = fx.interactive_mode ? dcc::parser::ParseMode::Interactive : dcc::parser::ParseMode::Batch;
+            dcc::parser::Parser parser{lexer, ctx, d, mode};
             return parser.parse();
         };
 

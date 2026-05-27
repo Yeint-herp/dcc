@@ -356,6 +356,9 @@ export namespace dcc::parser
                 }
                 else if (m_mode == ParseMode::Interactive)
                 {
+                    if (check_at(1, TK::LBrace) || check_at(1, TK::Star))
+                        break;
+
                     advance();
                     error_at(single_range(), "expected identifier after '::'");
                     auto delim_end = m_prev_end;

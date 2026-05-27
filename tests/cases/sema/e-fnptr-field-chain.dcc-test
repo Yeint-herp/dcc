@@ -1,0 +1,29 @@
+=== FILE: test.dc ===
+module m;
+
+using ClearFn = void(*)();
+
+struct console_output {
+    ClearFn clear_fn;
+}
+
+struct system_table_type {
+    console_output console_out;
+}
+
+struct wrapper {
+    console_output inner;
+    ClearFn fn_ptr;
+}
+
+void test_single_level(wrapper* w) {
+    w.fn_ptr();
+}
+
+void test_nested(system_table_type* st) {
+    st.console_out.clear_fn();
+}
+
+void test_deep(wrapper* w) {
+    w.inner.clear_fn();
+}
