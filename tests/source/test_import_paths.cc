@@ -373,3 +373,91 @@ TEST_CASE("expand_workspaceFolderBasename with root ending in dot")
     auto result = test_expand_workspace_variables("${workspaceFolderBasename}.cfg", "/path/to/my.app");
     CHECK_EQ(result, "my.app.cfg");
 }
+
+SECTION("Import-roots: in-memory file resolution (LSP simulation)");
+
+TEST_CASE("in-memory import target resolves without disk file")
+{
+    TempDir td;
+    write_module(td, "app.dc", "app", {"dep"});
+
+    dcc::session::SessionOptions sopts;
+    sopts.silent_diagnostics = true;
+    std::stringstream diag_stream;
+    sopts.diagnostic_stream = &diag_stream;
+
+    dcc::session::CompilerSession session{sopts};
+
+    auto entry_path = td.file("app.dc");
+
+    auto dep_path = td.file("dep.dc");
+    auto dep_uri = dcc::sm::SourceManager::to_file_uri(dep_path);
+    std::ignore = session.open_in_memory(dep_uri, "module dep;\npublic void helper() {}\n");
+
+    dcc::session::CompileOptions opts;
+    opts.import_roots = {td.path};
+
+    auto result = session.analyze_entry(entry_path, opts);
+
+    std::string errors = diag_stream.str();
+    CHECK(!result.has_errors);
+    CHECK(result.module != nullptr);
+}
+
+TEST_CASE("in-memory entry with in-memory import target both resolve")
+{
+    TempDir td;
+
+    dcc::session::SessionOptions sopts;
+    sopts.silent_diagnostics = true;
+    std::stringstream diag_stream;
+    sopts.diagnostic_stream = &diag_stream;
+
+    dcc::session::CompilerSession session{sopts};
+
+    auto dep_path = td.file("dep.dc");
+    auto dep_uri = dcc::sm::SourceManager::to_file_uri(dep_path);
+    std::ignore = session.open_in_memory(dep_uri, "module dep;\npublic i32 value = 42;\n");
+
+    auto entry_path = td.file("app.dc");
+    auto entry_uri = dcc::sm::SourceManager::to_file_uri(entry_path);
+    std::ignore = session.open_in_memory(entry_uri, "module app;\nimport dep;\npublic i32 get() { return dep::value; }\n");
+
+    write_module(td, "app.dc", "app", {"dep"}, "public i32 get() { return dep::value; }\n");
+
+    dcc::session::CompileOptions opts;
+    opts.import_roots = {td.path};
+
+    auto result = session.analyze_entry(entry_path, opts);
+
+    std::string errors = diag_stream.str();
+    CHECK(!result.has_errors);
+    CHECK(result.module != nullptr);
+}
+
+TEST_CASE("in-memory files survive repeated recompilation")
+{
+    TempDir td;
+
+    dcc::session::SessionOptions sopts;
+    sopts.silent_diagnostics = true;
+    std::stringstream diag_stream;
+    sopts.diagnostic_stream = &diag_stream;
+
+    dcc::session::CompilerSession session{sopts};
+
+    auto dep_path2 = td.file("dep.dc");
+    auto dep_uri2 = dcc::sm::SourceManager::to_file_uri(dep_path2);
+    std::ignore = session.open_in_memory(dep_uri2, "module dep;\npublic void helper() {}\n");
+    write_module(td, "app.dc", "app", {"dep"});
+
+    for (int i = 0; i < 3; ++i)
+    {
+        dcc::session::CompileOptions opts;
+        opts.import_roots = {td.path};
+
+        auto result = session.analyze_entry(td.file("app.dc"), opts);
+        CHECK(result.module != nullptr);
+        CHECK(!result.has_errors);
+    }
+}

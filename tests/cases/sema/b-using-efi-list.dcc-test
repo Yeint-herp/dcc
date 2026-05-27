@@ -1,0 +1,23 @@
+=== FILE: efi.dc ===
+module efi;
+public void write() {}
+public void clear() {}
+
+=== FILE: main.dc ===
+module main;
+import efi;
+using efi::{write, clear};
+
+=== ENTRY: main.dc ===
+
+=== EXPECT-SCOPE FOR: main ===
+Module main
+  OwnScope
+    Binding clear
+      Value: function via-using
+    Binding efi
+      Namespace: module
+        (foreign-scope)
+    Binding write
+      Value: function via-using
+  ExportScope

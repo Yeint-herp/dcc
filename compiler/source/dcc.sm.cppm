@@ -459,6 +459,13 @@ export namespace dcc::sm
             auto parsed = parse_file_uri(uri);
             auto path = parsed ? *parsed : std::filesystem::path{uri};
 
+            {
+                std::error_code wc_ec;
+                auto wc = std::filesystem::weakly_canonical(path, wc_ec);
+                if (!wc_ec)
+                    path = std::move(wc);
+            }
+
             auto file = std::make_unique<SourceFile>(id, std::move(path), FileKind::InMemory, std::move(uri), version, std::move(owned));
             m_files.push_back(std::move(file));
             return id;
@@ -702,10 +709,34 @@ namespace dcc::sm
         if (auto existing = find_by_path(path))
             return *existing;
 
+        {
+            auto wc = std::filesystem::weakly_canonical(path);
+            for (auto const& f : m_files)
+            {
+                if (f && f->kind() != FileKind::Disk)
+                {
+                    auto fwc = std::filesystem::weakly_canonical(f->path());
+                    if (fwc == wc)
+                        return f->id();
+                }
+            }
+        }
+
         std::error_code ec;
         auto canonical = std::filesystem::canonical(path, ec);
         if (ec)
         {
+            auto wc = std::filesystem::weakly_canonical(path);
+            for (auto const& f : m_files)
+            {
+                if (f && f->kind() != FileKind::Disk)
+                {
+                    auto fwc = std::filesystem::weakly_canonical(f->path());
+                    if (fwc == wc)
+                        return f->id();
+                }
+            }
+
             switch (ec.value())
             {
                 case ENOENT:

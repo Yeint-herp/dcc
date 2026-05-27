@@ -1643,6 +1643,10 @@ export namespace dccd
 
             opts.import_roots = std::move(deduped);
 
+            std::println(m_log, "[dccd] recompile_document: {} import root(s)", opts.import_roots.size());
+            for (auto const& r : opts.import_roots)
+                std::println(m_log, "[dccd]   import root: \"{}\"", r.string());
+
             auto result = m_session->analyze_entry(*path, opts);
 
             if (result.module)
@@ -1906,9 +1910,24 @@ export namespace dccd
             read_project_configs();
 
             std::vector<std::string> uris;
-            uris.reserve(m_diagnostic_cache.size());
+            m_session->source_manager().for_each_file([&](dcc::sm::SourceFile const& sf) {
+                if (sf.kind() == dcc::sm::FileKind::InMemory && !sf.is_closed() && !sf.uri().empty())
+                    uris.push_back(sf.uri());
+            });
+
             for (auto const& [uri, _] : m_diagnostic_cache)
-                uris.push_back(uri);
+            {
+                bool found = false;
+                for (auto const& u : uris)
+                    if (u == uri)
+                    {
+                        found = true;
+                        break;
+                    }
+
+                if (!found)
+                    uris.push_back(uri);
+            }
 
             for (auto const& uri : uris)
             {

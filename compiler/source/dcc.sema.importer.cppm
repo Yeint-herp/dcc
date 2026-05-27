@@ -142,9 +142,14 @@ export namespace dcc::sema
             for (auto const& root : m_graph.roots())
             {
                 auto candidate = root / rel;
+                auto canonical = std::filesystem::weakly_canonical(candidate);
+
+                if (m_sm.find_by_path(canonical) || m_sm.find_by_path(candidate))
+                    return load_file(canonical, path);
+
                 std::error_code ec;
                 if (std::filesystem::exists(candidate, ec) && !ec)
-                    return load_file(std::filesystem::weakly_canonical(candidate), path);
+                    return load_file(canonical, path);
             }
 
             return nullptr;
