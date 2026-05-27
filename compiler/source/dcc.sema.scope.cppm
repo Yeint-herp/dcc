@@ -464,6 +464,7 @@ export namespace dcc::sema
 
         Scope* own_scope{};
         Scope* export_scope{};
+        Scope* ufcs_scope{};
 
         std::vector<ast::UsingDecl*> using_worklist;
 

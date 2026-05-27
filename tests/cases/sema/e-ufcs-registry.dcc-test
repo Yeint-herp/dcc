@@ -1,0 +1,53 @@
+=== FILE: main.dc ===
+module m;
+
+public struct S {
+    i32 value;
+}
+
+i32 double_val(S s) {
+    return s.value * 2;
+}
+
+i32 triple_val(S s) {
+    return s.value * 3;
+}
+
+public i32 test_ufcs_registry() {
+    S x = S{10};
+    return x.double_val() + x.triple_val();
+}
+
+=== ENTRY: main.dc ===
+
+=== EXPECT-BODY ===
+Module m
+  Func double_val diverging=true
+    Param s type=struct S storage=param offset=0 index=0
+    Body
+      Return
+        Binary * [type=i32 const=<none>]
+          FieldAccess value [type=i32 const=<none> lvalue decl=S]
+            Ident s [type=struct S const=<none> lvalue decl=s]
+          IntLiteral 2 [type=i32 const=2 constant]
+  Func triple_val diverging=true
+    Param s type=struct S storage=param offset=0 index=0
+    Body
+      Return
+        Binary * [type=i32 const=<none>]
+          FieldAccess value [type=i32 const=<none> lvalue decl=S]
+            Ident s [type=struct S const=<none> lvalue decl=s]
+          IntLiteral 3 [type=i32 const=3 constant]
+  Func test_ufcs_registry diverging=true
+    Body
+      Var x type=struct S storage=local offset=0
+        StructLiteral [type=struct S const=agg(10) constant]
+          IntLiteral 10 [type=i32 const=10 constant]
+      Return
+        Binary + [type=i32 const=<none>]
+          Call [type=i32 const=<none> decl=double_val ufcs=double_val]
+            FieldAccess double_val [type=<unresolved> const=<none> decl=double_val ufcs=double_val]
+              Ident x [type=struct S const=agg(10) lvalue constant decl=x]
+          Call [type=i32 const=<none> decl=triple_val ufcs=triple_val]
+            FieldAccess triple_val [type=<unresolved> const=<none> decl=triple_val ufcs=triple_val]
+              Ident x [type=struct S const=agg(10) lvalue constant decl=x]

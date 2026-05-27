@@ -7428,23 +7428,50 @@ export namespace dcc::sema
             bool saw_constraint_failure = false;
             bool saw_non_constraint_failure = false;
 
-            auto try_in_scope = [&](Scope const& s) -> std::optional<detail::ExprResult> {
-                auto vs = s.lookup_values(f.field);
-                std::vector<RankedCandidate> ranked;
-                ranked.reserve(vs.size());
-                bool saw_function = false;
+            auto collect_unique = [&](Scope const* s, std::pmr::vector<Symbol const*>& out) {
+                if (!s)
+                    return;
 
+                auto vs = s->lookup_values(f.field);
                 for (auto const& sym : vs)
                 {
                     if (!sym.decl || sym.decl->kind != ast::DeclKind::Func)
                         continue;
 
-                    saw_function = true;
+                    bool dup = false;
+                    for (auto* existing : out)
+                    {
+                        if (existing->decl == sym.decl)
+                        {
+                            dup = true;
+                            break;
+                        }
+                    }
+
+                    if (!dup)
+                        out.push_back(&sym);
+                }
+            };
+
+            std::pmr::vector<Symbol const*> all_syms(m_alloc);
+            if (mod.ufcs_scope)
+                collect_unique(mod.ufcs_scope, all_syms);
+            if (mod.own_scope)
+                collect_unique(mod.own_scope, all_syms);
+            collect_unique(&scope, all_syms);
+
+            if (!all_syms.empty())
+            {
+                std::vector<RankedCandidate> ranked;
+                ranked.reserve(all_syms.size());
+
+                for (auto const* sym : all_syms)
+                {
                     bool probe_error = false;
                     bool probe_constraint_failure = false;
                     bool probe_non_constraint_failure = false;
 
-                    if (auto probe = probe_ufcs_candidate(mod, scope, sym, *f.object, args, next_off, loop_depth, const_env, &probe_error,
+                    if (auto probe = probe_ufcs_candidate(mod, scope, *sym, *f.object, args, next_off, loop_depth, const_env, &probe_error,
                                                           &probe_constraint_failure, &probe_non_constraint_failure, expected_type);
                         probe)
                         ranked.push_back(std::move(*probe));
@@ -7454,92 +7481,79 @@ export namespace dcc::sema
                     saw_non_constraint_failure |= probe_non_constraint_failure;
                 }
 
-                if (!saw_function)
-                    return std::nullopt;
-
-                if (ranked.empty())
+                if (!ranked.empty())
                 {
-                    if (saw_non_constraint_failure)
+                    auto winner = choose_best_candidate(ranked);
+                    if (!winner)
                     {
-                        for (auto const& sym : vs)
+                        error(f.range, "ambiguous UFCS call for `{}`", f.field);
+                        return detail::ExprResult{m_types.m_errort()};
+                    }
+
+                    auto out_opt = invoke_ufcs_candidate(mod, scope, *ranked[*winner].sym, *f.object, args, f.range, loop_depth, next_off, const_env,
+                                                         ranked[*winner].receiver_match, expected_type);
+                    if (!out_opt)
+                        return detail::ExprResult{m_types.m_errort()};
+
+                    auto result = *out_opt;
+                    result.ufcs_callee = ranked[*winner].sym->decl;
+                    f.sema.ufcs_callee = ranked[*winner].sym->decl;
+                    f.sema.resolved_decl = ranked[*winner].sym->decl;
+                    return result;
+                }
+
+                if (saw_non_constraint_failure)
+                {
+                    for (auto const* sym : all_syms)
+                    {
+                        auto const& diagnostic_f = *static_cast<ast::FuncDecl const*>(sym->decl);
+                        std::vector<types::TypePtr> diagnostic_params;
+                        diagnostic_params.reserve(diagnostic_f.params.size());
+
+                        for (auto const& p : diagnostic_f.params)
+                            diagnostic_params.push_back(p.type ? get_canonical(p.type->sema) : m_types.m_errort());
+
+                        if (diagnostic_params.size() != args.size() + 1)
+                            continue;
+
+                        infer::TemplateBindings diag_b{m_types};
+                        if (expected_type && !diagnostic_f.template_params.empty() && diagnostic_f.return_type)
                         {
-                            if (!sym.decl || sym.decl->kind != ast::DeclKind::Func)
-                                continue;
+                            auto return_ty = get_canonical(diagnostic_f.return_type->sema);
+                            if (return_ty && contains_template_param(return_ty) && !contains_template_param(expected_type))
+                                std::ignore = diag_b.deduce(return_ty, expected_type);
+                        }
 
-                            auto const& diagnostic_f = *static_cast<ast::FuncDecl const*>(sym.decl);
-                            std::vector<types::TypePtr> diagnostic_params;
-                            diagnostic_params.reserve(diagnostic_f.params.size());
+                        std::uint32_t tmp_off = next_off;
+                        auto p0 = diag_b.substitute(diagnostic_params[0]);
+                        auto receiver_type = analyze_expr(mod, nullptr, scope, *f.object, loop_depth, tmp_off, p0, const_env);
+                        if (has_error(receiver_type.type))
+                            continue;
 
-                            for (auto const& p : diagnostic_f.params)
-                                diagnostic_params.push_back(p.type ? get_canonical(p.type->sema) : m_types.m_errort());
+                        auto diag_match = match_ufcs_receiver(receiver_type, p0);
+                        if (!diag_match)
+                            continue;
 
-                            if (diagnostic_params.size() != args.size() + 1)
-                                continue;
-
-                            infer::TemplateBindings diag_b{m_types};
-                            if (expected_type && !diagnostic_f.template_params.empty() && diagnostic_f.return_type)
+                        bool all_args_ok = true;
+                        for (std::size_t ai = 0; ai < args.size(); ++ai)
+                        {
+                            auto param_ty = diag_b.substitute(diagnostic_params[ai + 1]);
+                            auto arg_r = analyze_expr(mod, nullptr, scope, *args[ai], loop_depth, tmp_off, param_ty, const_env);
+                            if (has_error(arg_r.type))
                             {
-                                auto return_ty = get_canonical(diagnostic_f.return_type->sema);
-                                if (return_ty && contains_template_param(return_ty) && !contains_template_param(expected_type))
-                                    std::ignore = diag_b.deduce(return_ty, expected_type);
-                            }
-
-                            std::uint32_t tmp_off = next_off;
-                            auto p0 = diag_b.substitute(diagnostic_params[0]);
-                            auto receiver_type = analyze_expr(mod, nullptr, scope, *f.object, loop_depth, tmp_off, p0, const_env);
-                            if (has_error(receiver_type.type))
-                                continue;
-
-                            auto diag_match = match_ufcs_receiver(receiver_type, p0);
-                            if (!diag_match)
-                                continue;
-
-                            bool all_args_ok = true;
-                            for (std::size_t ai = 0; ai < args.size(); ++ai)
-                            {
-                                auto param_ty = diag_b.substitute(diagnostic_params[ai + 1]);
-                                auto arg_r = analyze_expr(mod, nullptr, scope, *args[ai], loop_depth, tmp_off, param_ty, const_env);
-                                if (has_error(arg_r.type))
-                                {
-                                    all_args_ok = false;
-                                    break;
-                                }
-                            }
-
-                            if (all_args_ok)
-                            {
-                                error(f.range, "call argument mismatch for `{}`", diagnostic_f.name);
-                                return detail::ExprResult{m_types.m_errort()};
+                                all_args_ok = false;
+                                break;
                             }
                         }
+
+                        if (all_args_ok)
+                        {
+                            error(f.range, "call argument mismatch for `{}`", diagnostic_f.name);
+                            return detail::ExprResult{m_types.m_errort()};
+                        }
                     }
-                    return std::nullopt;
                 }
-
-                auto winner = choose_best_candidate(ranked);
-                if (!winner)
-                {
-                    error(f.range, "ambiguous UFCS call for `{}`", f.field);
-                    return detail::ExprResult{m_types.m_errort()};
-                }
-
-                auto out = invoke_ufcs_candidate(mod, scope, *ranked[*winner].sym, *f.object, args, f.range, loop_depth, next_off, const_env,
-                                                 ranked[*winner].receiver_match, expected_type);
-                if (!out)
-                    return detail::ExprResult{m_types.m_errort()};
-
-                out->ufcs_callee = ranked[*winner].sym->decl;
-                f.sema.ufcs_callee = ranked[*winner].sym->decl;
-                f.sema.resolved_decl = ranked[*winner].sym->decl;
-                return out;
-            };
-
-            if (auto r = try_in_scope(scope); r)
-                return *r;
-
-            if (mod.own_scope)
-                if (auto r = try_in_scope(*mod.own_scope); r)
-                    return *r;
+            }
 
             if (saw_probe_error)
                 return {m_types.m_errort()};
@@ -8233,6 +8247,28 @@ export namespace dcc::sema
                 }
                 else
                     out.foldable = false;
+            }
+            else if (auto* fd = ast::node_cast<ast::FuncDecl>(&d))
+            {
+                Symbol sym{};
+                sym.name = fd->name;
+                sym.kind = SymbolKind::Function;
+                sym.decl = fd;
+                sym.definition_range = fd->range;
+                Symbol const* existing = nullptr;
+                auto r = scope.add_function_overload(sym, &existing);
+                if (r == DefineResult::Conflict)
+                    m_diag.emit(existing ? diag::Diagnostic{diag::Severity::Error, std::format("name `{}` already declared as a variable", fd->name)}
+                                               .primary(fd->range)
+                                               .secondary(existing->definition_range, "previous declaration here")
+                                         : diag::Diagnostic{diag::Severity::Error, std::format("name `{}` already declared as a variable", fd->name)}.primary(
+                                               fd->range));
+
+                if (mod.ufcs_scope)
+                    std::ignore = mod.ufcs_scope->add_function_overload(sym);
+
+                fd->sema.storage = ast::StorageClass::Local;
+                out.foldable = false;
             }
             return out;
         }

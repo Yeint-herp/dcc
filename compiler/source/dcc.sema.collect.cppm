@@ -19,6 +19,7 @@ export namespace dcc::sema
 
             m_mod.own_scope = make_scope(ScopeKind::Module, nullptr);
             m_mod.export_scope = make_scope(ScopeKind::Module, nullptr);
+            m_mod.ufcs_scope = make_scope(ScopeKind::Module, nullptr);
 
             for (auto* d : m_mod.tu->decls)
                 collect_top_level(d);
@@ -99,6 +100,7 @@ export namespace dcc::sema
 
             auto s = make_symbol(d, d->name, SymbolKind::Function);
             install_function(*m_mod.own_scope, s, d);
+            install_function(*m_mod.ufcs_scope, s, d);
             if (d->is_public)
             {
                 d->sema.exported = true;
