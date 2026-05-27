@@ -7597,7 +7597,13 @@ export namespace dcc::sema
                 collect_unique(mod.ufcs_scope, all_syms);
             if (mod.own_scope)
                 collect_unique(mod.own_scope, all_syms);
+
             collect_unique(&scope, all_syms);
+            for (auto const& imp : mod.imports)
+            {
+                if (imp.target && imp.target->export_scope)
+                    collect_unique(imp.target->export_scope, all_syms);
+            }
 
             if (!all_syms.empty())
             {

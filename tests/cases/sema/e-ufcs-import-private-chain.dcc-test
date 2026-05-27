@@ -1,0 +1,27 @@
+=== FILE: console.dc ===
+module console;
+
+public struct ConOut {
+    i32 mode;
+}
+
+public void clear(ConOut* self) {}
+
+=== FILE: mid.dc ===
+module mid;
+import console;
+
+=== FILE: entry.dc ===
+module entry;
+import mid;
+
+struct Local { i32 x; }
+
+void try_ufcs(Local loc) {
+    loc.clear();
+}
+
+=== ENTRY: entry.dc ===
+
+=== EXPECT-ERRORS ===
+entry.dc:7: no matching UFCS function for `clear`

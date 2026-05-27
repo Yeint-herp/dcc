@@ -1,0 +1,31 @@
+=== FILE: util.dc ===
+module util;
+
+public struct Point {
+    i32 x;
+    i32 y;
+}
+
+public i32 dist(Point p) {
+    return p.x;
+}
+
+=== FILE: main.dc ===
+module main;
+import util;
+
+i32 use_ufcs(util::Point p) {
+    return p.dist();
+}
+
+=== ENTRY: main.dc ===
+
+=== EXPECT-BODY ===
+Module main
+  Func use_ufcs diverging=true
+    Param p type=struct Point storage=param offset=0 index=0
+    Body
+      Return
+        Call [type=i32 const=<none> decl=dist ufcs=dist]
+          FieldAccess dist [type=<unresolved> const=<none> decl=dist ufcs=dist]
+            Ident p [type=struct Point const=<none> lvalue decl=p]

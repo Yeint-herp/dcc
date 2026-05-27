@@ -1,0 +1,38 @@
+=== FILE: console.dc ===
+module console;
+
+public struct ConOut {
+    i32 mode;
+}
+
+public void clear(ConOut* self) {}
+public void write(ConOut* self, i32 c) {}
+
+=== FILE: efi.dc ===
+module efi;
+public import console;
+
+=== FILE: entry.dc ===
+module entry;
+import efi;
+
+void use_console() {
+    efi::ConOut co;
+    co.clear();
+    co.write(65);
+}
+
+=== ENTRY: entry.dc ===
+
+=== EXPECT-BODY ===
+Module entry
+  Func use_console diverging=false
+    Body
+      Var co type=struct ConOut storage=local offset=0
+      Call [type=void const=<none> decl=clear ufcs=clear]
+        FieldAccess clear [type=<unresolved> const=<none> decl=clear ufcs=clear]
+          Ident co [type=struct ConOut const=<none> lvalue addr_of decl=co]
+      Call [type=void const=<none> decl=write ufcs=write]
+        FieldAccess write [type=<unresolved> const=<none> decl=write ufcs=write]
+          Ident co [type=struct ConOut const=<none> lvalue addr_of decl=co]
+        IntLiteral 65 [type=i32 const=65 constant]

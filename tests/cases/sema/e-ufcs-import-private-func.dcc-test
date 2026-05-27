@@ -1,0 +1,33 @@
+=== FILE: util.dc ===
+module util;
+
+public struct Data {
+    i32 v;
+}
+
+public i32 public_op(Data d) {
+    return d.v;
+}
+
+i32 private_op(Data d) {
+    return d.v + 1;
+}
+
+=== FILE: main.dc ===
+module main;
+import util;
+
+void use_public_ufcs() {
+    util::Data d = {1};
+    d.public_op();
+}
+
+void use_private_ufcs() {
+    util::Data d = {1};
+    d.private_op();
+}
+
+=== ENTRY: main.dc ===
+
+=== EXPECT-ERRORS ===
+main.dc:11: no matching UFCS function for `private_op`
