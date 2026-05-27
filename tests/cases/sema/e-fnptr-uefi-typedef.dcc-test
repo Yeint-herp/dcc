@@ -1,0 +1,12 @@
+=== FILE: test.dc ===
+module m;
+
+public using OutputString = u64(*)(simple_text_output*, u16*);
+
+public struct simple_text_output { OutputString output_string; }
+
+public void output_string(simple_text_output* self, u16* str) {
+    OutputString os = self.output_string;
+    os(self, str);
+    self.output_string(self, str);
+}

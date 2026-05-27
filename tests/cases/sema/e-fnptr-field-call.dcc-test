@@ -1,0 +1,18 @@
+=== FILE: test.dc ===
+module m;
+
+using Fn = i32(*)(i32);
+
+i32 inc(i32 x) { return x + 1; }
+
+struct Table { Fn f; }
+
+void test(Table* t) {
+    i32 y = t.f(2);
+    i32 z = (t.f)(3);
+}
+
+void test_var() {
+    Fn f = inc;
+    i32 x = f(1);
+}

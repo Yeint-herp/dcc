@@ -6919,13 +6919,61 @@ export namespace dcc::sema
             return out;
         }
 
+        [[nodiscard]] bool receiver_has_field_named(ModuleInfo const& mod, Scope& scope, ast::FieldAccessExpr const& fa, bool* out_is_callable = nullptr)
+        {
+            if (out_is_callable)
+                *out_is_callable = false;
+
+            auto* ident = ast::node_cast<ast::IdentExpr>(fa.object);
+            if (!ident)
+                return false;
+
+            auto const* sym = lookup_name(mod, scope, ident->name);
+            if (!sym || !sym->decl)
+                return false;
+
+            auto* receiver_type = decl_type(*sym->decl);
+            if (!receiver_type || receiver_type->kind == types::TypeKind::Error)
+                return false;
+
+            auto const* nominal = nominal_decl(receiver_type);
+            if (!nominal)
+                return false;
+
+            auto* field = find_field(*const_cast<ast::Decl*>(nominal), fa.field);
+            if (!field)
+                return false;
+
+            if (out_is_callable && field->type && field->type->sema.canonical)
+            {
+                auto* field_type = get_canonical(field->type->sema);
+                *out_is_callable = (types::type_cast<types::FuncPtrType>(field_type) != nullptr);
+            }
+            return true;
+        }
+
         detail::ExprResult analyze_call(ModuleInfo& mod, ast::FuncDecl* fn, Scope& scope, ast::CallExpr& c, int loop_depth, std::uint32_t& next_off,
                                         types::TypePtr expected_type, ConstEnv const* const_env)
         {
             auto* generic_callee = c.callee;
             auto* template_callee = ast::node_cast<ast::TemplateInstExpr>(c.callee);
+            bool defer_to_generic_resolution = false;
             if (auto* fa = ast::node_cast<ast::FieldAccessExpr>(c.callee))
-                return resolve_ufcs(mod, fn, scope, *fa, c.args, loop_depth, next_off, const_env, expected_type);
+            {
+                bool field_is_callable = false;
+                if (receiver_has_field_named(mod, scope, *fa, &field_is_callable))
+                {
+                    if (field_is_callable)
+                        defer_to_generic_resolution = true;
+                    else
+                    {
+                        error(fa->field_range, "field `{}` is not callable", fa->field);
+                        return {m_types.m_errort()};
+                    }
+                }
+                else
+                    return resolve_ufcs(mod, fn, scope, *fa, c.args, loop_depth, next_off, const_env, expected_type);
+            }
 
             if (auto* t = template_callee)
             {
@@ -7073,7 +7121,6 @@ export namespace dcc::sema
             bool saw_probe_error = false;
             bool saw_constraint_failure = false;
             bool saw_non_constraint_failure = false;
-            bool defer_to_generic_resolution = false;
             auto resolve_and_rank = [&](std::span<Symbol const> syms, std::string_view display_name) -> std::optional<detail::ExprResult> {
                 std::vector<RankedCandidate> ranked;
                 ranked.reserve(syms.size());
@@ -7619,7 +7666,10 @@ export namespace dcc::sema
             if (fp->params.size() != arg_exprs.size())
             {
                 if (!quiet)
-                    error(range, "function pointer call argument mismatch");
+                {
+                    error(range, "argument count mismatch for function pointer call: expected {}, got {}", fp->params.size(), arg_exprs.size());
+                    m_diag.note(range, "callee type is `{}`", format_type_str(types::TypePtr{fp}));
+                }
 
                 return {m_types.m_errort()};
             }
@@ -7641,7 +7691,24 @@ export namespace dcc::sema
             if (!b.deduce_function(fp->params, actuals))
             {
                 if (!quiet)
-                    error(range, "function pointer call argument mismatch");
+                {
+                    bool reported = false;
+                    for (std::size_t i = 0; i < actuals.size(); ++i)
+                    {
+                        if (actuals[i] != fp->params[i] && !has_error(actuals[i]) && !has_error(fp->params[i]))
+                        {
+                            error(range, "argument {} of function pointer call has wrong type: expected `{}`, found `{}`", i + 1,
+                                  format_type_str(fp->params[i]), format_type_str(actuals[i]));
+
+                            reported = true;
+                            break;
+                        }
+                    }
+                    if (!reported)
+                        error(range, "function pointer call argument mismatch");
+
+                    m_diag.note(range, "callee type is `{}`", format_type_str(types::TypePtr{fp}));
+                }
 
                 return {m_types.m_errort()};
             }

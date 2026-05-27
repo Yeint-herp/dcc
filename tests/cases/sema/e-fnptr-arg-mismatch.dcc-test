@@ -1,0 +1,15 @@
+=== FILE: test.dc ===
+module m;
+
+public using OutputString = u64(*)(simple_text_output, u16*);
+
+public struct simple_text_output { OutputString output_string; }
+
+void test(simple_text_output* self, u16* str) {
+    OutputString os = self.output_string;
+    os(self, str);
+}
+
+=== EXPECT-ERRORS ===
+test.dc:9: argument 1 of function pointer call has wrong type: expected `struct simple_text_output`
+test.dc:9: callee type is `fn(struct simple_text_output, ptr(u16)) -> u64`

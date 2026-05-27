@@ -1,0 +1,15 @@
+=== FILE: test.dc ===
+module m;
+
+public using print = u64(*)(printer*, u16*);
+
+public struct printer {
+    print print;
+}
+
+public void print(printer* self, u16* str) {
+    print os = self.print;
+    print(self, str);
+    os = self.print;
+    os(self, str);
+}

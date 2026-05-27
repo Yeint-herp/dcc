@@ -1,0 +1,13 @@
+=== FILE: test.dc ===
+module m;
+
+struct S { i32 action; }
+
+i32 action(S* self) { return 1; }
+
+void test(S* s) {
+    s.action();
+}
+
+=== EXPECT-ERRORS ===
+test.dc:8: field `action` is not callable

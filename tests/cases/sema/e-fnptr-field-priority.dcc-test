@@ -1,0 +1,15 @@
+=== FILE: test.dc ===
+module m;
+
+using Fn = i32(*)(i32);
+
+i32 inc(i32 x) { return x + 1; }
+
+struct S { Fn action; }
+
+i32 action(S* self, i32 x) { return 999; }
+
+void test(S* s) {
+    s.action = inc;
+    i32 x = s.action(1);
+}

@@ -350,8 +350,6 @@ export namespace dcc::infer
                 case types::TypeKind::Pointer: {
                     auto const* a = static_cast<types::PointerType const*>(lhs);
                     auto const* b = static_cast<types::PointerType const*>(rhs);
-                    if (a->pointee_quals != b->pointee_quals)
-                        return fail(DeductionError::Conflict, "pointer qualifier mismatch");
                     return deduce(a->pointee, b->pointee);
                 }
 
