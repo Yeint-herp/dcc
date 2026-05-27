@@ -13,4 +13,6 @@ void test_valid_brace() {
 }
 
 === EXPECT-ERRORS ===
-main.dc:7: slice element type mismatch
+main.dc:7: no matching UFCS function for `write` on receiver type `ptr(const char)`
+main.dc:3: = note: candidate `write(ptr(const char), slice(ptr(const char)))`
+main.dc:3: = note: reason: cannot convert argument 1: expected `slice(ptr(const char))`

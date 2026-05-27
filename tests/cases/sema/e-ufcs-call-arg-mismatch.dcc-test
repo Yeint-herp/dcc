@@ -1,0 +1,48 @@
+=== FILE: main.dc ===
+module m;
+
+public struct S {
+    i32 value;
+}
+
+i32 add(S s, i32 x) {
+    return s.value + x;
+}
+
+T id(T)(T x) {
+    return x;
+}
+
+void wrong_arity() {
+    S s = {1};
+    s.add();
+}
+
+void wrong_type() {
+    S s = {1};
+    s.add(true);
+}
+
+void receiver_mismatch() {
+    i32 x = 1;
+    x.add(2);
+}
+
+void template_mismatch() {
+    S s = {1};
+    s.id(1, 2);
+}
+
+=== EXPECT-ERRORS ===
+main.dc:17: no matching UFCS function for `add` on receiver type `struct S`
+main.dc:7: = note: candidate `add(struct S, i32)`
+main.dc:7: = note: reason: argument count mismatch: expected 2 (including receiver), got 1
+main.dc:22: no matching UFCS function for `add` on receiver type `struct S`
+main.dc:7: = note: candidate `add(struct S, i32)`
+main.dc:7: = note: reason: cannot convert argument 1: expected `i32`, found `bool`
+main.dc:27: no matching UFCS function for `add` on receiver type `i32`
+main.dc:7: = note: candidate `add(struct S, i32)`
+main.dc:7: = note: reason: receiver type mismatch: expected `struct S`, found `i32`
+main.dc:32: no matching UFCS function for `id` on receiver type `struct S`
+main.dc:11: = note: candidate `id(T)`
+main.dc:11: = note: reason: argument count mismatch: expected 1 (including receiver), got 3

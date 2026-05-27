@@ -1,0 +1,29 @@
+=== FILE: main.dc ===
+module m;
+
+i32 add(i32 a, i32 b) {
+    return a + b;
+}
+
+void wrong_arity_few() {
+    add(1);
+}
+
+void wrong_arity_many() {
+    add(1, 2, 3);
+}
+
+void wrong_type() {
+    add(true, 1);
+}
+
+=== EXPECT-ERRORS ===
+main.dc:8: no matching call for `add`
+main.dc:3: = note: candidate `add(i32, i32)`
+main.dc:3: = note: reason: argument count mismatch: expected 2, got 1
+main.dc:12: no matching call for `add`
+main.dc:3: = note: candidate `add(i32, i32)`
+main.dc:3: = note: reason: argument count mismatch: expected 2, got 3
+main.dc:16: no matching call for `add`
+main.dc:3: = note: candidate `add(i32, i32)`
+main.dc:3: = note: reason: cannot convert argument 1: expected `i32`, found `bool`

@@ -2869,7 +2869,7 @@ export namespace dcc::sema
                         *had_non_constraint_failure = true;
 
                     if (rejection_reason)
-                        *rejection_reason = std::format("cannot convert argument {} to parameter type", func_arg_start + i);
+                        *rejection_reason = std::format("cannot convert argument {}: expected `{}`", func_arg_start + i + 1, format_type_str(param_ty));
 
                     return std::nullopt;
                 }
@@ -2892,11 +2892,28 @@ export namespace dcc::sema
 
                 if (rejection_reason)
                 {
-                    auto trace = trace_template_deduction(func, params, actuals);
-                    if (!trace.empty())
-                        *rejection_reason = std::format("template argument deduction failed: {}", trace);
-                    else
-                        *rejection_reason = std::format("template argument deduction failed: {}", deduce_result.detail);
+                    bool arg_mismatch_found = false;
+                    for (std::size_t i = 0; i < actuals.size(); ++i)
+                    {
+                        auto subbed_param = b.substitute(params[i]);
+                        if (actuals[i] != subbed_param && !has_error(actuals[i]) && !has_error(subbed_param) &&
+                            !types::type_cast<types::TemplateParamType>(subbed_param))
+                        {
+                            *rejection_reason = std::format("cannot convert argument {}: expected `{}`, found `{}`", func_arg_start + i + 1,
+                                                            format_type_str(subbed_param), format_type_str(actuals[i]));
+
+                            arg_mismatch_found = true;
+                            break;
+                        }
+                    }
+                    if (!arg_mismatch_found)
+                    {
+                        auto trace = trace_template_deduction(func, params, actuals);
+                        if (!trace.empty())
+                            *rejection_reason = std::format("template argument deduction failed: {}", trace);
+                        else
+                            *rejection_reason = std::format("template argument deduction failed: {}", deduce_result.detail);
+                    }
                 }
 
                 return std::nullopt;
@@ -2947,7 +2964,7 @@ export namespace dcc::sema
                                                                           std::span<ast::Expr* const> arg_exprs, std::uint32_t next_off, int loop_depth,
                                                                           ConstEnv const* const_env, bool* had_suppressed_errors = nullptr,
                                                                           bool* had_constraint_failure = nullptr, bool* had_non_constraint_failure = nullptr,
-                                                                          types::TypePtr expected_type = nullptr)
+                                                                          types::TypePtr expected_type = nullptr, std::string* rejection_reason = nullptr)
         {
             if (!sym.decl || sym.decl->kind != ast::DeclKind::Func)
                 return std::nullopt;
@@ -2967,6 +2984,21 @@ export namespace dcc::sema
             {
                 if (had_non_constraint_failure)
                     *had_non_constraint_failure = true;
+
+                if (rejection_reason)
+                    *rejection_reason = std::format("argument count mismatch: expected {} (including receiver), got {}", params.size() + num_value_tparams,
+                                                    arg_exprs.size() + 1);
+
+                return std::nullopt;
+            }
+
+            if (std::ranges::any_of(arg_exprs, [](auto* e) { return e == nullptr; }))
+            {
+                if (had_non_constraint_failure)
+                    *had_non_constraint_failure = true;
+
+                if (rejection_reason)
+                    *rejection_reason = "incomplete call argument";
 
                 return std::nullopt;
             }
@@ -2988,6 +3020,9 @@ export namespace dcc::sema
                 if (had_non_constraint_failure)
                     *had_non_constraint_failure = true;
 
+                if (rejection_reason)
+                    *rejection_reason = std::format("receiver type mismatch: expected `{}`", format_type_str(param0));
+
                 return std::nullopt;
             }
 
@@ -2999,6 +3034,10 @@ export namespace dcc::sema
 
                 if (had_non_constraint_failure)
                     *had_non_constraint_failure = true;
+
+                if (rejection_reason)
+                    *rejection_reason =
+                        std::format("receiver type mismatch: expected `{}`, found `{}`", format_type_str(param0), format_type_str(receiver.type));
 
                 return std::nullopt;
             }
@@ -3025,6 +3064,9 @@ export namespace dcc::sema
                     if (had_non_constraint_failure)
                         *had_non_constraint_failure = true;
 
+                    if (rejection_reason)
+                        *rejection_reason = "value template argument type is not resolved";
+
                     return std::nullopt;
                 }
 
@@ -3037,6 +3079,9 @@ export namespace dcc::sema
 
                     if (had_non_constraint_failure)
                         *had_non_constraint_failure = true;
+
+                    if (rejection_reason)
+                        *rejection_reason = std::format("value template argument {} could not be evaluated", vi);
 
                     return std::nullopt;
                 }
@@ -3066,6 +3111,9 @@ export namespace dcc::sema
                     if (had_non_constraint_failure)
                         *had_non_constraint_failure = true;
 
+                    if (rejection_reason)
+                        *rejection_reason = std::format("cannot convert argument {}: expected `{}`", i + 1, format_type_str(param_ty));
+
                     return std::nullopt;
                 }
                 args.push_back(r);
@@ -3084,6 +3132,35 @@ export namespace dcc::sema
 
                 if (had_non_constraint_failure)
                     *had_non_constraint_failure = true;
+
+                if (rejection_reason)
+                {
+                    bool arg_mismatch_found = false;
+                    for (std::size_t i = 0; i < actuals.size(); ++i)
+                    {
+                        auto subbed_param = b.substitute(params[i]);
+                        if (actuals[i] != subbed_param && !has_error(actuals[i]) && !has_error(subbed_param) &&
+                            !types::type_cast<types::TemplateParamType>(subbed_param))
+                        {
+                            if (i == 0)
+                                *rejection_reason = std::format("receiver type mismatch: expected `{}`, found `{}`", format_type_str(subbed_param),
+                                                                format_type_str(actuals[i]));
+                            else
+                                *rejection_reason = std::format("cannot convert argument {}: expected `{}`, found `{}`", i, format_type_str(subbed_param),
+                                                                format_type_str(actuals[i]));
+                            arg_mismatch_found = true;
+                            break;
+                        }
+                    }
+                    if (!arg_mismatch_found)
+                    {
+                        auto trace = trace_template_deduction(&f, params, actuals);
+                        if (!trace.empty())
+                            *rejection_reason = std::format("template argument deduction failed: {}", trace);
+                        else
+                            *rejection_reason = "template argument deduction failed";
+                    }
+                }
 
                 return std::nullopt;
             }
@@ -3185,7 +3262,10 @@ export namespace dcc::sema
 
             if (params.size() + num_value_tparams != arg_exprs.size() + 1)
             {
-                error(range, "call argument mismatch for `{}`", f.name);
+                auto loc = format_source_location(f.range);
+                error(range, "argument count mismatch for UFCS call to `{}`: expected {} (including receiver), got {}", f.name,
+                      params.size() + num_value_tparams, arg_exprs.size() + 1);
+                m_diag.note(f.range, "declared at {}", loc);
                 return std::nullopt;
             }
 
@@ -3194,7 +3274,10 @@ export namespace dcc::sema
             auto param0 = b.substitute(params[0]);
             auto receiver = analyze_expr(mod, nullptr, scope, object, loop_depth, next_off, param0, const_env);
             if (has_error(receiver.type))
+            {
+                error(range, "receiver type mismatch for UFCS call to `{}`: expected `{}`", f.name, format_type_str(param0));
                 return std::nullopt;
+            }
 
             auto match = match_ufcs_receiver(receiver, param0);
             if (!match || match->first != expected_match)
@@ -3254,9 +3337,39 @@ export namespace dcc::sema
             for (auto const& a : args)
                 actuals.push_back(a.type);
 
-            if (!b.deduce_function(params, actuals))
+            auto deduce_result = b.deduce_function(params, actuals);
+            if (!deduce_result)
             {
-                error(range, "call argument mismatch for `{}`", f.name);
+                bool reported = false;
+                for (std::size_t i = 0; i < actuals.size(); ++i)
+                {
+                    auto param_ty = b.substitute(params[i]);
+                    if (actuals[i] != param_ty && !has_error(actuals[i]) && !has_error(param_ty))
+                    {
+                        if (i == 0)
+                            error(range, "receiver type mismatch for UFCS call to `{}`: expected `{}`, found `{}`", f.name, format_type_str(param_ty),
+                                  format_type_str(actuals[i]));
+                        else
+                            error(range, "argument {} of UFCS call to `{}` has wrong type: expected `{}`, found `{}`", i, f.name, format_type_str(param_ty),
+                                  format_type_str(actuals[i]));
+
+                        reported = true;
+                        break;
+                    }
+                }
+                if (!reported)
+                {
+                    auto loc = format_source_location(f.range);
+                    error(range, "call argument mismatch for UFCS call to `{}`: {}", f.name,
+                          deduce_result.detail.empty() ? "template argument deduction failed" : deduce_result.detail);
+                    m_diag.note(f.range, "declared at {}", loc);
+                }
+                else
+                {
+                    auto loc = format_source_location(f.range);
+                    m_diag.note(f.range, "declared at {}", loc);
+                }
+
                 return std::nullopt;
             }
 
@@ -7464,17 +7577,21 @@ export namespace dcc::sema
             {
                 std::vector<RankedCandidate> ranked;
                 ranked.reserve(all_syms.size());
+                std::vector<CandidateInfo> rejected;
 
                 for (auto const* sym : all_syms)
                 {
                     bool probe_error = false;
                     bool probe_constraint_failure = false;
                     bool probe_non_constraint_failure = false;
+                    std::string rejection_reason;
 
                     if (auto probe = probe_ufcs_candidate(mod, scope, *sym, *f.object, args, next_off, loop_depth, const_env, &probe_error,
-                                                          &probe_constraint_failure, &probe_non_constraint_failure, expected_type);
+                                                          &probe_constraint_failure, &probe_non_constraint_failure, expected_type, &rejection_reason);
                         probe)
                         ranked.push_back(std::move(*probe));
+                    else if (!rejection_reason.empty())
+                        collect_candidate_rejection(rejected, *sym, std::move(rejection_reason));
 
                     saw_probe_error |= probe_error;
                     saw_constraint_failure |= probe_constraint_failure;
@@ -7486,7 +7603,12 @@ export namespace dcc::sema
                     auto winner = choose_best_candidate(ranked);
                     if (!winner)
                     {
-                        error(f.range, "ambiguous UFCS call for `{}`", f.field);
+                        std::vector<CandidateInfo> ambig_candidates;
+                        for (auto const& cand : ranked)
+                            if (cand.sym)
+                                collect_candidate_rejection(ambig_candidates, *cand.sym, "viable candidate with indistinguishable conversions");
+
+                        emit_overload_error(f.range, std::format("ambiguous UFCS call for `{}`", f.field), ambig_candidates);
                         return detail::ExprResult{m_types.m_errort()};
                     }
 
@@ -7504,54 +7626,20 @@ export namespace dcc::sema
 
                 if (saw_non_constraint_failure)
                 {
-                    for (auto const* sym : all_syms)
+                    if (!rejected.empty())
                     {
-                        auto const& diagnostic_f = *static_cast<ast::FuncDecl const*>(sym->decl);
-                        std::vector<types::TypePtr> diagnostic_params;
-                        diagnostic_params.reserve(diagnostic_f.params.size());
+                        auto* probe_scope = make_probe_scope(scope);
+                        auto receiver_r = analyze_expr(mod, nullptr, *probe_scope, *f.object, loop_depth, next_off, nullptr, const_env);
+                        std::string receiver_ctx;
+                        if (receiver_r.type && receiver_r.type->kind != types::TypeKind::Error)
+                            receiver_ctx = std::format(" on receiver type `{}`", format_type_str(receiver_r.type));
 
-                        for (auto const& p : diagnostic_f.params)
-                            diagnostic_params.push_back(p.type ? get_canonical(p.type->sema) : m_types.m_errort());
-
-                        if (diagnostic_params.size() != args.size() + 1)
-                            continue;
-
-                        infer::TemplateBindings diag_b{m_types};
-                        if (expected_type && !diagnostic_f.template_params.empty() && diagnostic_f.return_type)
-                        {
-                            auto return_ty = get_canonical(diagnostic_f.return_type->sema);
-                            if (return_ty && contains_template_param(return_ty) && !contains_template_param(expected_type))
-                                std::ignore = diag_b.deduce(return_ty, expected_type);
-                        }
-
-                        std::uint32_t tmp_off = next_off;
-                        auto p0 = diag_b.substitute(diagnostic_params[0]);
-                        auto receiver_type = analyze_expr(mod, nullptr, scope, *f.object, loop_depth, tmp_off, p0, const_env);
-                        if (has_error(receiver_type.type))
-                            continue;
-
-                        auto diag_match = match_ufcs_receiver(receiver_type, p0);
-                        if (!diag_match)
-                            continue;
-
-                        bool all_args_ok = true;
-                        for (std::size_t ai = 0; ai < args.size(); ++ai)
-                        {
-                            auto param_ty = diag_b.substitute(diagnostic_params[ai + 1]);
-                            auto arg_r = analyze_expr(mod, nullptr, scope, *args[ai], loop_depth, tmp_off, param_ty, const_env);
-                            if (has_error(arg_r.type))
-                            {
-                                all_args_ok = false;
-                                break;
-                            }
-                        }
-
-                        if (all_args_ok)
-                        {
-                            error(f.range, "call argument mismatch for `{}`", diagnostic_f.name);
-                            return detail::ExprResult{m_types.m_errort()};
-                        }
+                        emit_overload_error(f.range, std::format("no matching UFCS function for `{}`{}", f.field, receiver_ctx), rejected);
                     }
+                    else
+                        error(f.range, "no matching UFCS function for `{}`", f.field);
+
+                    return detail::ExprResult{m_types.m_errort()};
                 }
             }
 
@@ -7585,7 +7673,11 @@ export namespace dcc::sema
             if (params.size() + num_value_tparams != arg_exprs.size())
             {
                 if (!quiet)
-                    error(range, "call argument mismatch for `{}`", f.name);
+                {
+                    auto loc = format_source_location(f.range);
+                    error(range, "argument count mismatch for `{}`: expected {}, got {}", f.name, params.size() + num_value_tparams, arg_exprs.size());
+                    m_diag.note(f.range, "declared at {}", loc);
+                }
 
                 return {m_types.m_errort()};
             }
@@ -7657,10 +7749,37 @@ export namespace dcc::sema
             for (auto const& a : args)
                 actuals.push_back(a.type);
 
-            if (!b.deduce_function(params, actuals))
+            auto deduce_result = b.deduce_function(params, actuals);
+            if (!deduce_result)
             {
                 if (!quiet)
-                    error(range, "call argument mismatch for `{}`", f.name);
+                {
+                    bool reported = false;
+                    for (std::size_t i = 0; i < actuals.size(); ++i)
+                    {
+                        auto param_ty = b.substitute(params[i]);
+                        if (actuals[i] != param_ty && !has_error(actuals[i]) && !has_error(param_ty))
+                        {
+                            error(range, "argument {} of call to `{}` has wrong type: expected `{}`, found `{}`", i + 1, f.name, format_type_str(param_ty),
+                                  format_type_str(actuals[i]));
+
+                            reported = true;
+                            break;
+                        }
+                    }
+                    if (!reported)
+                    {
+                        auto loc = format_source_location(f.range);
+                        error(range, "call argument mismatch for `{}`: {}", f.name,
+                              deduce_result.detail.empty() ? "template argument deduction failed" : deduce_result.detail);
+                        m_diag.note(f.range, "declared at {}", loc);
+                    }
+                    else
+                    {
+                        auto loc = format_source_location(f.range);
+                        m_diag.note(f.range, "declared at {}", loc);
+                    }
+                }
 
                 return {m_types.m_errort()};
             }
