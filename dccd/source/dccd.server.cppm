@@ -2209,6 +2209,10 @@ export namespace dccd
                     auto const* a = static_cast<dcc::types::ArrayType const*>(ty);
                     return std::format("{}[{}]", format_dcc_type(a->element), a->count);
                 }
+                case dcc::types::TypeKind::RuntimeArray: {
+                    auto const* a = static_cast<dcc::types::RuntimeArrayType const*>(ty);
+                    return std::format("{}[]", format_dcc_type(a->element));
+                }
                 case dcc::types::TypeKind::Slice: {
                     auto const* s = static_cast<dcc::types::SliceType const*>(ty);
                     std::string quals;

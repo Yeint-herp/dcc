@@ -333,6 +333,9 @@ export namespace dcc::sema
                 case types::TypeKind::Array:
                     validate_canonical(mod, static_cast<types::ArrayType const*>(ty)->element, range);
                     return;
+                case types::TypeKind::RuntimeArray:
+                    validate_canonical(mod, static_cast<types::RuntimeArrayType const*>(ty)->element, range);
+                    return;
                 case types::TypeKind::Slice:
                     validate_canonical(mod, static_cast<types::SliceType const*>(ty)->element, range);
                     return;

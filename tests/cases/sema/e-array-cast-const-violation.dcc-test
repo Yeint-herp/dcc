@@ -1,0 +1,22 @@
+=== FILE: main.dc ===
+module m;
+
+void test_const_drop() {
+    const u16* p = null;
+    u16* q = p as u16*;
+}
+
+void test_const_preserve() {
+    const u16* p = null;
+    const u16* q = p as const u16*;
+}
+
+void test_array_to_const_ptr() {
+    u16[10] buf;
+    const u16* ptr = buf as const u16*;
+}
+
+=== ENTRY: main.dc ===
+
+=== EXPECT-ERRORS ===
+main.dc:6: invalid cast from `ptr(const u16)` to `ptr(u16)`: cannot drop const qualifier

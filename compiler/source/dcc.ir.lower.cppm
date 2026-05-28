@@ -873,6 +873,12 @@ export namespace dcc::ir::lower
                 return m_ctx.array_t(ir_el, at->count);
             }
 
+            if (auto* rt = dcc::types::type_cast<dcc::types::RuntimeArrayType>(type))
+            {
+                auto* ir_el = lower_type(rt->element);
+                return m_ctx.array_t(ir_el, 0);
+            }
+
             if (auto* ft = dcc::types::type_cast<dcc::types::FamType>(type))
             {
                 auto* ir_el = lower_type(ft->element);
@@ -1400,6 +1406,79 @@ export namespace dcc::ir::lower
                     auto* canon = get_canonical_type(vd->type);
                     if (!canon)
                         lower_panic(ds, "VarDecl without canonical type");
+
+                    if (auto* rta = types::type_cast<types::RuntimeArrayType>(canon))
+                    {
+                        auto* ir_elem_type = lower_type(rta->element);
+                        auto* ptr_type = m_ctx.pointer_to(ir_elem_type, ir::Segment::None);
+
+                        IrValue* count_val = nullptr;
+                        if (vd->type && vd->type->kind == ast::TypeKind::Array)
+                        {
+                            auto const* arr_type = static_cast<ast::ArrayType const*>(vd->type);
+                            if (arr_type->size)
+                            {
+                                if (arr_type->size->kind == ast::ExprKind::Ident)
+                                {
+                                    auto const* id = static_cast<ast::IdentExpr const*>(arr_type->size);
+                                    auto name_it = m_named_values.find(id->name);
+                                    if (name_it != m_named_values.end())
+                                    {
+                                        if (name_it->second.is_storage)
+                                        {
+                                            auto* ir_ty = lower_type(name_it->second.sema_type);
+                                            count_val = m_ctx.load(ir_ty, name_it->second.value);
+                                            auto load_name = ident_name();
+                                            count_val->name = m_name_pool.back();
+                                            append_inst(count_val);
+                                        }
+                                        else
+                                            count_val = name_it->second.value;
+                                    }
+                                    if (!count_val && arr_type->size->sema.resolved_decl)
+                                    {
+                                        auto it = m_value_map.find(arr_type->size->sema.resolved_decl);
+                                        if (it != m_value_map.end())
+                                        {
+                                            auto& entry = it->second;
+                                            if (entry.is_storage)
+                                            {
+                                                auto* ir_ty = lower_type(entry.sema_type);
+                                                count_val = m_ctx.load(ir_ty, entry.value);
+                                                auto load_name = ident_name();
+                                                count_val->name = m_name_pool.back();
+                                                append_inst(count_val);
+                                            }
+                                            else
+                                                count_val = entry.value;
+                                        }
+                                    }
+                                }
+                                if (!count_val)
+                                    count_val = lower_expr(arr_type->size);
+                            }
+                        }
+
+                        if (!count_val)
+                            lower_panic(ds, "RuntimeArray without count value");
+
+                        auto* alloca = m_ctx.alloca(ptr_type, ir_elem_type, count_val);
+                        alloca->alignment = vd->sema.alignment;
+
+                        auto name = ident_name();
+                        alloca->name = m_name_pool.back();
+                        append_inst(alloca);
+
+                        bool is_volatile = false;
+                        if (vd->type)
+                        {
+                            if (auto* qt = ast::node_cast<ast::QualifiedType>(vd->type))
+                                is_volatile = ast::has_qual(qt->quals, ast::Qual::Volatile);
+                        }
+
+                        m_value_map[vd] = MapEntry{alloca, true, canon, is_volatile};
+                        break;
+                    }
 
                     auto* ir_alloc_type = lower_type(canon);
                     auto* ptr_type = m_ctx.pointer_to(ir_alloc_type, ir::Segment::None);
@@ -2587,6 +2666,53 @@ export namespace dcc::ir::lower
                 append_inst(inst);
 
                 return inst;
+            }
+
+            if (src_ir_ty->kind == IrTypeKind::Array && dst_ir_ty->kind == IrTypeKind::Pointer)
+            {
+                IrValue* arr_ptr = nullptr;
+
+                if (c->operand->kind == ast::ExprKind::Ident)
+                {
+                    auto const* id = static_cast<ast::IdentExpr const*>(c->operand);
+                    if (auto* resolved = id->sema.resolved_decl)
+                    {
+                        auto it = m_value_map.find(resolved);
+                        if (it != m_value_map.end() && it->second.is_storage)
+                            arr_ptr = it->second.value;
+                    }
+                }
+
+                if (!arr_ptr)
+                {
+                    auto* arr_ptr_type = m_ctx.pointer_to(src_ir_ty);
+                    auto* temp = m_ctx.alloca(arr_ptr_type, src_ir_ty);
+                    auto temp_name = ident_name();
+                    temp->name = m_name_pool.back();
+                    append_inst(temp);
+                    append_inst(m_ctx.store(operand, temp));
+                    arr_ptr = temp;
+                }
+
+                auto const* ir_arr = static_cast<IrArrayType const*>(src_ir_ty);
+                auto* ir_elem_type = ir_arr->element;
+
+                auto* gep = m_ctx.gep(m_ctx.pointer_to(ir_elem_type), arr_ptr);
+                gep->indices.push_back({IrGepInst::IndexKind::Array, m_ctx.int_const(m_ctx.int_t(64, false), 0), 0});
+                auto gep_name = ident_name();
+                gep->name = m_name_pool.back();
+                append_inst(gep);
+
+                if (gep->type != dst_ir_ty)
+                {
+                    auto* bc = m_ctx.bitcast(dst_ir_ty, gep);
+                    auto bc_name = ident_name();
+                    bc->name = m_name_pool.back();
+                    append_inst(bc);
+                    return bc;
+                }
+
+                return gep;
             }
 
             auto* inst = m_ctx.bitcast(dst_ir_ty, operand);

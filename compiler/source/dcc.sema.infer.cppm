@@ -228,6 +228,10 @@ export namespace dcc::infer
                     auto const* t = static_cast<types::ArrayType const*>(type);
                     return contains_param(t->element, target);
                 }
+                case types::TypeKind::RuntimeArray: {
+                    auto const* t = static_cast<types::RuntimeArrayType const*>(type);
+                    return contains_param(t->element, target);
+                }
                 case types::TypeKind::Slice: {
                     auto const* t = static_cast<types::SliceType const*>(type);
                     return contains_param(t->element, target);
@@ -310,15 +314,23 @@ export namespace dcc::infer
                 return bind(rp, lhs);
 
             if (lhs && rhs && (lhs->kind == types::TypeKind::Slice || rhs->kind == types::TypeKind::Slice) &&
-                (lhs->kind == types::TypeKind::Array || rhs->kind == types::TypeKind::Array))
+                (lhs->kind == types::TypeKind::Array || rhs->kind == types::TypeKind::Array ||
+                 lhs->kind == types::TypeKind::RuntimeArray || rhs->kind == types::TypeKind::RuntimeArray))
             {
                 auto const* slice =
                     (lhs->kind == types::TypeKind::Slice) ? static_cast<types::SliceType const*>(lhs) : static_cast<types::SliceType const*>(rhs);
 
-                auto const* array =
-                    (lhs->kind == types::TypeKind::Array) ? static_cast<types::ArrayType const*>(lhs) : static_cast<types::ArrayType const*>(rhs);
+                types::TypePtr array_elem = nullptr;
+                if (lhs->kind == types::TypeKind::Array)
+                    array_elem = static_cast<types::ArrayType const*>(lhs)->element;
+                else if (lhs->kind == types::TypeKind::RuntimeArray)
+                    array_elem = static_cast<types::RuntimeArrayType const*>(lhs)->element;
+                else if (rhs->kind == types::TypeKind::Array)
+                    array_elem = static_cast<types::ArrayType const*>(rhs)->element;
+                else if (rhs->kind == types::TypeKind::RuntimeArray)
+                    array_elem = static_cast<types::RuntimeArrayType const*>(rhs)->element;
 
-                if (slice->element == array->element)
+                if (slice->element == array_elem)
                     return ok();
             }
 
@@ -358,6 +370,12 @@ export namespace dcc::infer
                     auto const* b = static_cast<types::ArrayType const*>(rhs);
                     if (a->count != b->count)
                         return fail(DeductionError::ArityMismatch, "array bound mismatch");
+                    return deduce(a->element, b->element);
+                }
+
+                case types::TypeKind::RuntimeArray: {
+                    auto const* a = static_cast<types::RuntimeArrayType const*>(lhs);
+                    auto const* b = static_cast<types::RuntimeArrayType const*>(rhs);
                     return deduce(a->element, b->element);
                 }
 
@@ -480,6 +498,15 @@ export namespace dcc::infer
                     auto element = substitute_impl(t->element, memo);
                     if (element != t->element)
                         out = m_types.array_t(element, t->count);
+
+                    break;
+                }
+
+                case types::TypeKind::RuntimeArray: {
+                    auto const* t = static_cast<types::RuntimeArrayType const*>(type);
+                    auto element = substitute_impl(t->element, memo);
+                    if (element != t->element)
+                        out = m_types.runtime_array_t(element);
 
                     break;
                 }

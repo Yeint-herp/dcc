@@ -1,0 +1,10 @@
+=== FILE: main.dc ===
+module m;
+
+u64 g_len = 10;
+u16[g_len] bad_global;
+
+=== ENTRY: main.dc ===
+
+=== EXPECT-ERRORS ===
+main.dc:5: global array size must be a constant integer

@@ -1,0 +1,45 @@
+=== FILE: main.dc ===
+module m;
+
+const u64 max_len = 128;
+
+void test_const_fold() {
+    u16[max_len + 1] buffer;
+}
+
+void test_runtime(u64 len) {
+    u16[len] buffer;
+    buffer[0] = 42;
+}
+
+void test_array_to_const_ptr() {
+    u16[10] buf;
+    const u16* ptr = buf as const u16*;
+}
+
+void test_implicit_decay() {
+    u16[10] buf;
+    u16* ptr = buf;
+}
+
+void test_runtime_from_local() {
+    u64 n = 10;
+    u16[n] buffer;
+}
+
+=== ENTRY: main.dc ===
+
+=== EXPECT-TYPES FOR: m ===
+Module m
+  Var max_len: u64
+  Func test_const_fold
+    Return: void
+  Func test_runtime
+    Return: void
+    Param len: u64
+  Func test_array_to_const_ptr
+    Return: void
+  Func test_implicit_decay
+    Return: void
+  Func test_runtime_from_local
+    Return: void

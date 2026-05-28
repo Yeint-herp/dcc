@@ -169,6 +169,8 @@ export namespace dcc::sema
                 }
                 case types::TypeKind::Fam:
                     return std::format("fam({})", type_str(static_cast<types::FamType const*>(t)->element));
+                case types::TypeKind::RuntimeArray:
+                    return std::format("runtime[{}]", type_str(static_cast<types::RuntimeArrayType const*>(t)->element));
                 case types::TypeKind::FuncPtr: {
                     auto const* f = static_cast<types::FuncPtrType const*>(t);
                     std::string params;
@@ -871,6 +873,8 @@ export namespace dcc::sema
             }
             case types::TypeKind::Fam:
                 return std::format("fam({})", format_type_str(static_cast<types::FamType const*>(ty)->element));
+            case types::TypeKind::RuntimeArray:
+                return std::format("runtime[{}]", format_type_str(static_cast<types::RuntimeArrayType const*>(ty)->element));
             case types::TypeKind::FuncPtr: {
                 auto const* f = static_cast<types::FuncPtrType const*>(ty);
                 std::string params;
@@ -1099,6 +1103,12 @@ export namespace dcc::sema
             {
                 if (types::is_fam_type(at->element) || types::type_has_fam_struct(at->element))
                     error(range, "array of flexible-array-member type is not allowed");
+            }
+
+            if (types::type_cast<types::RuntimeArrayType>(ty))
+            {
+                if (context.find("variable") == std::string_view::npos)
+                    error(range, "runtime-sized array type is not allowed in {}", context);
             }
         }
 
@@ -1371,6 +1381,8 @@ export namespace dcc::sema
                     return contains_template_param(static_cast<types::PointerType const*>(ty)->pointee);
                 case types::TypeKind::Array:
                     return contains_template_param(static_cast<types::ArrayType const*>(ty)->element);
+                case types::TypeKind::RuntimeArray:
+                    return contains_template_param(static_cast<types::RuntimeArrayType const*>(ty)->element);
                 case types::TypeKind::Slice:
                     return contains_template_param(static_cast<types::SliceType const*>(ty)->element);
                 case types::TypeKind::Fam:
@@ -3577,6 +3589,7 @@ export namespace dcc::sema
                     return Layout{elem->size * a->count, elem->align};
                 }
                 case types::TypeKind::Fam:
+                case types::TypeKind::RuntimeArray:
                 case types::TypeKind::TemplateParam:
                 case types::TypeKind::Error:
                     return std::nullopt;
@@ -3825,6 +3838,23 @@ export namespace dcc::sema
                 return es->element == ga->element;
             }
 
+            if (expected->kind == types::TypeKind::Pointer)
+            {
+                auto const* ep = static_cast<types::PointerType const*>(expected);
+                if (got->kind == types::TypeKind::Array)
+                {
+                    auto const* ga = static_cast<types::ArrayType const*>(got);
+                    if (ep->pointee == ga->element)
+                        return true;
+                }
+                if (got->kind == types::TypeKind::RuntimeArray)
+                {
+                    auto const* gra = static_cast<types::RuntimeArrayType const*>(got);
+                    if (ep->pointee == gra->element)
+                        return true;
+                }
+            }
+
             return false;
         }
 
@@ -3908,6 +3938,26 @@ export namespace dcc::sema
             }
 
             auto* var_type = var.type && var.type->sema.canonical ? get_canonical(var.type->sema) : nullptr;
+
+            if (types::type_cast<types::RuntimeArrayType>(var_type))
+            {
+                error(var.range, "runtime-sized array is only allowed for local variables, not globals");
+                return;
+            }
+
+            if (auto const* at = types::type_cast<types::ArrayType>(var_type))
+            {
+                if (at->count == 0 && var.type && var.type->kind == ast::TypeKind::Array)
+                {
+                    auto const* arr_type = static_cast<ast::ArrayType const*>(var.type);
+                    if (arr_type->size && arr_type->size->kind != ast::ExprKind::IntLiteral)
+                    {
+                        error(var.range, "global array size must be a constant integer");
+                        return;
+                    }
+                }
+            }
+
             if (!var.is_extern)
                 check_type_valid_for_value(var.range, var_type, "variable type");
 
@@ -6144,6 +6194,10 @@ export namespace dcc::sema
                     validate_range_bounds_for_array(r, a->count, i.range);
                     slice_out.type = m_types.slice_t(a->element, types::Qual::None);
                 }
+                else if (auto const* ra = types::type_cast<types::RuntimeArrayType>(obj.type))
+                {
+                    slice_out.type = m_types.slice_t(ra->element, types::Qual::None);
+                }
                 else if (auto const* s = types::type_cast<types::SliceType>(obj.type))
                 {
                     slice_out.type = m_types.slice_t(s->element, s->element_quals);
@@ -6165,6 +6219,8 @@ export namespace dcc::sema
 
             if (auto const* a = types::type_cast<types::ArrayType>(obj.type))
                 out.type = a->element;
+            else if (auto const* ra = types::type_cast<types::RuntimeArrayType>(obj.type))
+                out.type = ra->element;
             else if (auto const* s = types::type_cast<types::SliceType>(obj.type))
                 out.type = s->element;
             else if (auto const* p = types::type_cast<types::PointerType>(obj.type))
@@ -6207,6 +6263,19 @@ export namespace dcc::sema
 
             if (!out.type)
                 out.type = m_types.m_errort();
+
+            if (op.type && out.type && op.type != out.type && !has_error(op.type) && !has_error(out.type))
+            {
+                if (op.type->kind == types::TypeKind::Pointer && out.type->kind == types::TypeKind::Pointer)
+                {
+                    auto const* src_ptr = static_cast<types::PointerType const*>(op.type);
+                    auto const* dst_ptr = static_cast<types::PointerType const*>(out.type);
+                    if (types::has_qual(src_ptr->pointee_quals, types::Qual::Const) && !types::has_qual(dst_ptr->pointee_quals, types::Qual::Const))
+                    {
+                        error(c.range, "invalid cast from `{}` to `{}`: cannot drop const qualifier", format_type_str(op.type), format_type_str(out.type));
+                    }
+                }
+            }
 
             if (op.constant)
                 out.constant = fold_cast_constant(*op.constant, out.type);
@@ -8227,6 +8296,9 @@ export namespace dcc::sema
                                 case types::TypeKind::Array:
                                     element_type = static_cast<types::ArrayType const*>(iterable_result.type)->element;
                                     break;
+                                case types::TypeKind::RuntimeArray:
+                                    element_type = static_cast<types::RuntimeArrayType const*>(iterable_result.type)->element;
+                                    break;
                                 case types::TypeKind::Slice:
                                     element_type = static_cast<types::SliceType const*>(iterable_result.type)->element;
                                     element_quals = static_cast<types::SliceType const*>(iterable_result.type)->element_quals;
@@ -8369,6 +8441,11 @@ export namespace dcc::sema
                 {
                     auto* canon = get_canonical(v->type->sema);
                     v->sema.frame_offset = allocate_frame_slot(next_off, canon);
+
+                    if (types::type_cast<types::RuntimeArrayType>(canon))
+                        if (!fn)
+                            error(v->range, "runtime-sized array is only allowed for local variables, not globals");
+
                     if (!v->is_extern)
                         check_type_valid_for_value(v->range, canon, "variable type");
                 }
@@ -8391,8 +8468,19 @@ export namespace dcc::sema
                     auto expected = v->type && v->type->sema.canonical ? get_canonical(v->type->sema) : nullptr;
                     auto init = analyze_expr(mod, fn, scope, *v->init, loop_depth, next_off, expected, const_env);
                     if (expected && !has_error(init.type) && init.type != expected)
-                        if (!can_assign_return(expected, init.type) && !try_implicit_enum_conversion(expected, init.type, mod, scope))
+                    {
+                        bool implicit_decay_ok = false;
+                        if (auto const* exp_ptr = types::type_cast<types::PointerType>(expected))
+                        {
+                            if (auto const* got_ra = types::type_cast<types::RuntimeArrayType>(init.type))
+                                implicit_decay_ok = (got_ra->element == exp_ptr->pointee);
+                            else if (auto const* got_arr = types::type_cast<types::ArrayType>(init.type))
+                                implicit_decay_ok = (got_arr->element == exp_ptr->pointee);
+                        }
+
+                        if (!implicit_decay_ok && !can_assign_return(expected, init.type) && !try_implicit_enum_conversion(expected, init.type, mod, scope))
                             error(v->range, "initializer type mismatch");
+                    }
 
                     if (init.constant && const_env && fn)
                         define_constant(*const_cast<ConstEnv*>(const_env), v->name, init.constant);
@@ -8704,6 +8792,153 @@ export namespace dcc::sema
             }
         }
 
+        struct ConstSizeResult
+        {
+            enum class Tag
+            {
+                Folded,
+                NonInteger,
+                NotConstant
+            };
+
+            Tag tag;
+            std::int64_t value{};
+
+            static ConstSizeResult folded(std::int64_t v)
+            {
+                ConstSizeResult r;
+                r.tag = Tag::Folded;
+                r.value = v;
+                return r;
+            }
+
+            static ConstSizeResult non_integer() { return {Tag::NonInteger, {}}; }
+            static ConstSizeResult not_constant() { return {Tag::NotConstant, {}}; }
+        };
+
+        [[nodiscard]] ConstSizeResult try_eval_const_size_expr(ModuleInfo& mod, Scope const& scope, ast::Expr const* e)
+        {
+            if (!e)
+                return ConstSizeResult::not_constant();
+
+            switch (e->kind)
+            {
+                case ast::ExprKind::IntLiteral: {
+                    auto val = static_cast<ast::IntLiteralExpr const*>(e)->value;
+                    return ConstSizeResult::folded(val);
+                }
+                case ast::ExprKind::FloatLiteral:
+                case ast::ExprKind::CharLiteral:
+                case ast::ExprKind::BoolLiteral:
+                case ast::ExprKind::StringLiteral:
+                case ast::ExprKind::U16StringLiteral:
+                case ast::ExprKind::NullLiteral:
+                    return ConstSizeResult::non_integer();
+                case ast::ExprKind::Ident: {
+                    auto const* id = static_cast<ast::IdentExpr const*>(e);
+                    auto const* sym = lookup_name(mod, scope, id->name);
+                    if (!sym || !sym->decl)
+                        return ConstSizeResult::not_constant();
+
+                    auto const* vd = ast::node_cast<ast::VarDecl>(sym->decl);
+                    if (!vd || !vd->init)
+                        return ConstSizeResult::not_constant();
+
+                    if (vd->init->sema.const_value)
+                    {
+                        auto maybe_int = vd->init->sema.const_value->const_to_int();
+                        if (maybe_int.has_value())
+                            return ConstSizeResult::folded(*maybe_int);
+                    }
+
+                    return ConstSizeResult::not_constant();
+                }
+                case ast::ExprKind::Binary: {
+                    auto const* be = static_cast<ast::BinaryExpr const*>(e);
+                    auto lhs = try_eval_const_size_expr(mod, scope, be->lhs);
+                    auto rhs = try_eval_const_size_expr(mod, scope, be->rhs);
+                    if (lhs.tag == ConstSizeResult::Tag::NonInteger || rhs.tag == ConstSizeResult::Tag::NonInteger)
+                        return ConstSizeResult::non_integer();
+                    if (lhs.tag != ConstSizeResult::Tag::Folded || rhs.tag != ConstSizeResult::Tag::Folded)
+                        return ConstSizeResult::not_constant();
+
+                    auto* fold_ty = m_types.int_t(64, false);
+                    switch (be->op)
+                    {
+                        case lex::TokenKind::Plus: {
+                            auto result = comptime::Value::fold_int_binary(comptime::BinaryOp::Add, lhs.value, rhs.value, fold_ty);
+                            if (result)
+                                return ConstSizeResult::folded(result->get_int());
+                            return ConstSizeResult::not_constant();
+                        }
+                        case lex::TokenKind::Minus: {
+                            auto result = comptime::Value::fold_int_binary(comptime::BinaryOp::Sub, lhs.value, rhs.value, fold_ty);
+                            if (result)
+                                return ConstSizeResult::folded(result->get_int());
+                            return ConstSizeResult::not_constant();
+                        }
+                        case lex::TokenKind::Star: {
+                            auto result = comptime::Value::fold_int_binary(comptime::BinaryOp::Mul, lhs.value, rhs.value, fold_ty);
+                            if (result)
+                                return ConstSizeResult::folded(result->get_int());
+                            return ConstSizeResult::not_constant();
+                        }
+                        case lex::TokenKind::Slash: {
+                            if (rhs.value == 0)
+                                return ConstSizeResult::not_constant();
+                            auto result = comptime::Value::fold_int_binary(comptime::BinaryOp::Div, lhs.value, rhs.value, fold_ty);
+                            if (result)
+                                return ConstSizeResult::folded(result->get_int());
+                            return ConstSizeResult::not_constant();
+                        }
+                        case lex::TokenKind::LtLt: {
+                            if (rhs.value < 0)
+                                return ConstSizeResult::not_constant();
+                            auto result = comptime::Value::fold_int_binary(comptime::BinaryOp::Shl, lhs.value, rhs.value, fold_ty);
+                            if (result)
+                                return ConstSizeResult::folded(result->get_int());
+                            return ConstSizeResult::not_constant();
+                        }
+                        case lex::TokenKind::GtGt: {
+                            if (rhs.value < 0)
+                                return ConstSizeResult::not_constant();
+                            auto result = comptime::Value::fold_int_binary(comptime::BinaryOp::Shr, lhs.value, rhs.value, fold_ty);
+                            if (result)
+                                return ConstSizeResult::folded(result->get_int());
+                            return ConstSizeResult::not_constant();
+                        }
+                        default:
+                            return ConstSizeResult::not_constant();
+                    }
+                }
+                case ast::ExprKind::Unary: {
+                    auto const* ue = static_cast<ast::UnaryExpr const*>(e);
+                    auto inner = try_eval_const_size_expr(mod, scope, ue->operand);
+                    if (inner.tag == ConstSizeResult::Tag::NonInteger)
+                        return ConstSizeResult::non_integer();
+                    if (inner.tag != ConstSizeResult::Tag::Folded)
+                        return ConstSizeResult::not_constant();
+
+                    auto* fold_ty = m_types.int_t(64, false);
+                    switch (ue->op)
+                    {
+                        case lex::TokenKind::Plus:
+                            return ConstSizeResult::folded(inner.value);
+                        case lex::TokenKind::Minus: {
+                            auto result = comptime::Value::fold_int_binary(comptime::BinaryOp::Sub, static_cast<std::int64_t>(0), inner.value, fold_ty);
+                            if (result)
+                                return ConstSizeResult::folded(result->get_int());
+                            return ConstSizeResult::not_constant();
+                        }
+                        default:
+                            return ConstSizeResult::not_constant();
+                    }
+                }
+                default:
+                    return ConstSizeResult::not_constant();
+            }
+        }
+
         ResolvedType resolve_type_node_resolved(ModuleInfo& mod, Scope const& scope, ast::TypeExpr const* t)
         {
             if (!t)
@@ -8801,10 +9036,34 @@ export namespace dcc::sema
                 case ast::TypeKind::Array: {
                     auto inner = resolve_type_node_resolved(mod, scope, static_cast<ast::ArrayType const*>(t)->element);
                     auto const* arr = static_cast<ast::ArrayType const*>(t);
-                    std::uint64_t count = 0;
-                    if (auto* lit = ast::node_cast<ast::IntLiteralExpr>(arr->size); lit && lit->value >= 0)
-                        count = static_cast<std::uint64_t>(lit->value);
-                    return {.type = m_types.array_t(materialize_type(inner), count)};
+
+                    auto result = try_eval_const_size_expr(mod, scope, arr->size);
+                    switch (result.tag)
+                    {
+                        case ConstSizeResult::Tag::Folded: {
+                            auto val = result.value;
+                            if (val < 0)
+                            {
+                                error(arr->size ? arr->size->range : arr->range, "array size must be non-negative");
+                                return {.type = m_types.m_errort()};
+                            }
+                            return {.type = m_types.array_t(materialize_type(inner), static_cast<std::uint64_t>(val))};
+                        }
+                        case ConstSizeResult::Tag::NonInteger: {
+                            error(arr->size ? arr->size->range : arr->range, "array size must be an integer constant");
+                            return {.type = m_types.m_errort()};
+                        }
+                        case ConstSizeResult::Tag::NotConstant: {
+                            if (arr->size && arr->size->kind == ast::ExprKind::Ident)
+                            {
+                                auto const* id = static_cast<ast::IdentExpr const*>(arr->size);
+                                if (auto const* sym = lookup_name(mod, scope, id->name))
+                                    const_cast<ast::Expr*>(arr->size)->sema.resolved_decl = sym->decl;
+                            }
+                            return {.type = m_types.runtime_array_t(materialize_type(inner))};
+                        }
+                    }
+                    return {.type = m_types.m_errort()};
                 }
                 case ast::TypeKind::Slice: {
                     auto inner = resolve_type_node_resolved(mod, scope, static_cast<ast::SliceType const*>(t)->element);

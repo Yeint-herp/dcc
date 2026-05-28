@@ -89,6 +89,10 @@ namespace dccd::completion
                     auto const* a = static_cast<dcc::types::ArrayType const*>(ty);
                     return std::format("[{}; {}]", format_type_str_local(a->element), a->count);
                 }
+                case TypeKind::RuntimeArray: {
+                    auto const* a = static_cast<dcc::types::RuntimeArrayType const*>(ty);
+                    return std::format("[{}]", format_type_str_local(a->element));
+                }
                 case TypeKind::Slice: {
                     auto const* s = static_cast<dcc::types::SliceType const*>(ty);
                     return std::format("slice({})", format_type_str_local(s->element));

@@ -1437,7 +1437,16 @@ namespace dcc::backend
                         if (!at)
                             return false;
 
-                        auto* ai = LLVMBuildAlloca(builder, at, "");
+                        LLVMValueRef ai = nullptr;
+                        if (a->count)
+                        {
+                            auto* count_val = lookup(a->count);
+                            if (!count_val)
+                                return false;
+                            ai = LLVMBuildArrayAlloca(builder, at, count_val, "");
+                        }
+                        else
+                            ai = LLVMBuildAlloca(builder, at, "");
                         if (a->alignment > 0)
                             LLVMSetAlignment(ai, a->alignment);
 

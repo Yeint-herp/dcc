@@ -490,6 +490,12 @@ namespace dcc::ir::mangle
                     encode_type(out, at->element, resolver);
                     return;
                 }
+                case dcc::types::TypeKind::RuntimeArray: {
+                    auto* rt = static_cast<dcc::types::RuntimeArrayType const*>(type);
+                    out += 'a';
+                    encode_type(out, rt->element, resolver);
+                    return;
+                }
                 case dcc::types::TypeKind::Slice: {
                     auto* st = static_cast<dcc::types::SliceType const*>(type);
                     out += 'S';

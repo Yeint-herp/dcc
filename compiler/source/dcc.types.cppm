@@ -30,6 +30,7 @@ export namespace dcc::types
         TemplateParam,
         Range,
         RangeInclusive,
+        RuntimeArray,
         Error,
     };
 
@@ -206,6 +207,19 @@ export namespace dcc::types
         FamType(TypePtr e) : Type(Kind), element(e) { is_complete = false; }
     };
 
+    struct RuntimeArrayType : Type
+    {
+        static constexpr auto Kind = TypeKind::RuntimeArray;
+
+        TypePtr element;
+
+        RuntimeArrayType(TypePtr e) : Type(Kind), element(e)
+        {
+            is_complete = false;
+            is_zero_sized = true;
+        }
+    };
+
     struct FuncPtrType : Type
     {
         static constexpr auto Kind = TypeKind::FuncPtr;
@@ -321,6 +335,9 @@ export namespace dcc::types
 
         if (auto const* at = type_cast<ArrayType>(t))
             return type_has_fam_struct(at->element);
+
+        if (auto const* rt = type_cast<RuntimeArrayType>(t))
+            return type_has_fam_struct(rt->element);
 
         return false;
     }
@@ -457,6 +474,17 @@ export namespace dcc::types
             return t;
         }
 
+        [[nodiscard]] TypePtr runtime_array_t(TypePtr element)
+        {
+            for (auto const* t : m_runtime_arrays)
+                if (t->element == element)
+                    return t;
+
+            auto* t = make<RuntimeArrayType>(element);
+            m_runtime_arrays.push_back(t);
+            return t;
+        }
+
         [[nodiscard]] TypePtr funcptr_t(TypePtr ret, std::span<TypePtr const> params)
         {
             for (auto const* t : m_funcptrs)
@@ -548,6 +576,7 @@ export namespace dcc::types
         std::vector<RangeType const*> m_ranges;
         std::vector<RangeInclusiveType const*> m_range_inclusives;
         std::vector<FamType const*> m_fams;
+        std::vector<RuntimeArrayType const*> m_runtime_arrays;
         std::vector<FuncPtrType const*> m_funcptrs;
         std::vector<StructType const*> m_structs;
         std::vector<UnionType const*> m_unions;

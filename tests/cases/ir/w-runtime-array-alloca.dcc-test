@@ -1,0 +1,18 @@
+=== FILE: test.dc ===
+module test;
+
+// Runtime-sized local array lowered to dynamic alloca with count
+public void dyn_alloca(u64 len) {
+    u16[len] buf;
+    buf[0] = 42;
+}
+
+=== EXPECT-IR ===
+module "test"
+void@_DC0F1.4.test10.dyn_alloca1i64uv(u64) {
+%entry(u64 %len):
+  %0 = alloca u16, u64 %len
+  %1 = gep ptr<u16> %0, #0
+  store u16 #42, ptr<u16> %1
+  ret void
+}

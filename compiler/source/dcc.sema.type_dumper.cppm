@@ -213,6 +213,8 @@ export namespace dcc::sema
                     return std::format("range_inclusive({})", type_str(static_cast<types::RangeInclusiveType const*>(ty)->element));
                 case types::TypeKind::Fam:
                     return fam_str(*static_cast<types::FamType const*>(ty));
+                case types::TypeKind::RuntimeArray:
+                    return runtime_array_str(*static_cast<types::RuntimeArrayType const*>(ty));
                 case types::TypeKind::FuncPtr:
                     return funcptr_str(*static_cast<types::FuncPtrType const*>(ty));
                 case types::TypeKind::Struct:
@@ -258,6 +260,7 @@ export namespace dcc::sema
         }
 
         [[nodiscard]] std::string fam_str(types::FamType const& t) const { return std::format("fam({})", type_str(t.element)); }
+        [[nodiscard]] std::string runtime_array_str(types::RuntimeArrayType const& t) const { return std::format("runtime[{}]", type_str(t.element)); }
 
         [[nodiscard]] std::string funcptr_str(types::FuncPtrType const& t) const
         {
