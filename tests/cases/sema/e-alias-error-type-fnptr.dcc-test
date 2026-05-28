@@ -1,0 +1,7 @@
+=== FILE: test.dc ===
+module m;
+
+public using FnPtr = void(*)(MissingType*);
+
+=== EXPECT-ERRORS ===
+test.dc:3: unknown type `MissingType`

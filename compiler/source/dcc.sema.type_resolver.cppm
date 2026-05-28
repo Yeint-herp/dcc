@@ -396,7 +396,10 @@ export namespace dcc::sema
                             nt && d.alias_path.is_simple() && nt->path.is_simple() && nt->path.simple_name() == d.alias_path.segments.back().name)
                             m_diag.error(d.target_type->range, "cyclic type alias");
                         else
-                            std::ignore = resolve_type_expr(d.target_type, mod, env, true);
+                        {
+                            bool quiet = ast::node_cast<ast::NamedType>(d.target_type) != nullptr;
+                            std::ignore = resolve_type_expr(d.target_type, mod, env, quiet);
+                        }
                     }
                     break;
                 case ast::UsingKind::Concept:
@@ -652,7 +655,7 @@ export namespace dcc::sema
             }
 
             if (u.target_type)
-                out = resolve_type_expr(u.target_type, mod, inst_env, true);
+                out = resolve_type_expr(u.target_type, mod, inst_env, quiet_unknown);
             else
             {
                 if (!quiet_unknown)

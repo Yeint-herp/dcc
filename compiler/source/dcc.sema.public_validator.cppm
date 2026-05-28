@@ -217,6 +217,7 @@ export namespace dcc::sema
                 return;
 
             auto const* ty = get_canonical(node->sema);
+
             if (ty->kind == types::TypeKind::Error)
                 return;
 
@@ -293,8 +294,14 @@ export namespace dcc::sema
 
         void validate_canonical(ModuleInfo const& mod, types::Type const* ty, sm::SourceRange range)
         {
-            if (!ty || ty->kind == types::TypeKind::Error)
+            if (!ty)
                 return;
+
+            if (ty->kind == types::TypeKind::Error)
+            {
+                m_diag.error(range, "unresolved type in public signature");
+                return;
+            }
 
             if (types::type_cast<types::TemplateParamType>(ty))
                 return;

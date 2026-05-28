@@ -1,0 +1,13 @@
+=== FILE: test.dc ===
+module m;
+
+public using FuncPtrAlias = void(*)(MissingType*);
+public using PtrAlias = MissingType*;
+public using SliceAlias = []MissingType;
+public using ArrayAlias = MissingType[4];
+
+=== EXPECT-ERRORS ===
+test.dc:3: unknown type `MissingType`
+test.dc:4: unknown type `MissingType`
+test.dc:5: unknown type `MissingType`
+test.dc:6: unknown type `MissingType`
