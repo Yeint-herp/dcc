@@ -118,6 +118,7 @@ namespace
         bool no_x87{false};
         bool position_independent_code{false};
         std::optional<dcc::target::CodeModel> code_model;
+        bool omit_frame_pointer{true};
     };
 
     [[nodiscard]] auto parse_args(int argc, char** argv) -> Options
@@ -222,6 +223,20 @@ namespace
             if (arg == "-fno-x87")
             {
                 opts.no_x87 = true;
+                ++i;
+                continue;
+            }
+
+            if (arg == "-fomit-frame-pointer")
+            {
+                opts.omit_frame_pointer = true;
+                ++i;
+                continue;
+            }
+
+            if (arg == "-fno-omit-frame-pointer")
+            {
+                opts.omit_frame_pointer = false;
                 ++i;
                 continue;
             }
@@ -350,7 +365,7 @@ namespace
     {
         std::println(
             "usage: dcc [-I<dir>] [-flibdcext] [-fbounds-check] [-fdump-ast] [-fdump-ir] [-fdump-llvm] [-fdump-asm] [-c] [-g|-g0|-g3|-gdwarf|-gpdb|-gnone] "
-            "[-fno-red-zone] [-fno-simd] [-fno-x87] [-fPIC|-fPIE] [-mcmodel <model>] "
+            "[-fno-red-zone] [-fno-simd] [-fno-x87] [-fomit-frame-pointer|-fno-omit-frame-pointer] [-fPIC|-fPIE] [-mcmodel <model>] "
             "[-target <triple>] [-h] [-o "
             "<file>] <input-file>");
     }
@@ -687,6 +702,7 @@ auto main(int argc, char** argv) -> int
             backend_opts.requested_artifacts = kinds;
             backend_opts.emit_debug_info = opts.emit_debug_info;
             backend_opts.debug_format = opts.debug_format;
+            backend_opts.omit_frame_pointer = opts.omit_frame_pointer;
 
             if (opts.libdcext && kinds.contains(dcc::backend::ArtifactKind::ExecutableBytes))
             {

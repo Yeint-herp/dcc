@@ -617,3 +617,185 @@ TEST_CASE("debug-coff-exe-rejected-with-clear-diagnostic")
 
     CHECK(has_helpful_msg);
 }
+
+TEST_CASE("omit-frame-pointer-false-adds-frame-pointer-attribute")
+{
+    IrContext ir_ctx;
+    auto* mod = build_add_module(ir_ctx);
+
+    TargetConfig target = TargetConfig::host_default();
+
+    BackendOptions opts;
+    opts.target = target;
+    opts.requested_artifacts = {ArtifactKind::LlvmIrText};
+    opts.omit_frame_pointer = false;
+
+    auto backend = make_llvm_backend();
+    auto artifact = backend->emit(*mod, opts);
+
+    REQUIRE(artifact.llvm_ir_text.has_value());
+    auto const& ir = *artifact.llvm_ir_text;
+    CHECK(ir.find("\"frame-pointer\"") != std::string::npos);
+    CHECK(ir.find("attributes #") != std::string::npos);
+    CHECK(artifact.diagnostics.empty());
+}
+
+TEST_CASE("omit-frame-pointer-true-omits-frame-pointer-attribute")
+{
+    IrContext ir_ctx;
+    auto* mod = build_add_module(ir_ctx);
+
+    TargetConfig target = TargetConfig::host_default();
+
+    BackendOptions opts;
+    opts.target = target;
+    opts.requested_artifacts = {ArtifactKind::LlvmIrText};
+    opts.omit_frame_pointer = true;
+
+    auto backend = make_llvm_backend();
+    auto artifact = backend->emit(*mod, opts);
+
+    REQUIRE(artifact.llvm_ir_text.has_value());
+    auto const& ir = *artifact.llvm_ir_text;
+    CHECK(ir.find("\"frame-pointer\"") == std::string::npos);
+    CHECK(artifact.diagnostics.empty());
+}
+
+TEST_CASE("omit-frame-pointer-default-omits-attribute")
+{
+    IrContext ir_ctx;
+    auto* mod = build_add_module(ir_ctx);
+
+    TargetConfig target = TargetConfig::host_default();
+
+    BackendOptions opts;
+    opts.target = target;
+    opts.requested_artifacts = {ArtifactKind::LlvmIrText};
+
+    auto backend = make_llvm_backend();
+    auto artifact = backend->emit(*mod, opts);
+
+    REQUIRE(artifact.llvm_ir_text.has_value());
+    auto const& ir = *artifact.llvm_ir_text;
+    CHECK(ir.find("\"frame-pointer\"") == std::string::npos);
+    CHECK(artifact.diagnostics.empty());
+}
+
+TEST_CASE("omit-frame-pointer-false-coff-target")
+{
+    IrContext ir_ctx;
+    auto* mod = build_add_module(ir_ctx);
+
+    TargetConfig target;
+    target.triple = "x86_64-coff";
+    target.arch = Arch::X86_64;
+    target.os = Os::Windows;
+    target.object_format = ObjectFormat::Coff;
+    target.pointer_bits = 64;
+    target.pointer_align = 8;
+    target.little_endian = true;
+
+    BackendOptions opts;
+    opts.target = target;
+    opts.requested_artifacts = {ArtifactKind::LlvmIrText};
+    opts.omit_frame_pointer = false;
+
+    auto backend = make_llvm_backend();
+    auto artifact = backend->emit(*mod, opts);
+
+    REQUIRE(artifact.llvm_ir_text.has_value());
+    auto const& ir = *artifact.llvm_ir_text;
+    CHECK(ir.find("\"frame-pointer\"") != std::string::npos);
+    CHECK(artifact.diagnostics.empty());
+}
+
+TEST_CASE("omit-frame-pointer-false-kernel-code-model")
+{
+    IrContext ir_ctx;
+    auto* mod = build_add_module(ir_ctx);
+
+    TargetConfig target = TargetConfig::host_default();
+    target.code_model = CodeModel::Kernel;
+
+    BackendOptions opts;
+    opts.target = target;
+    opts.requested_artifacts = {ArtifactKind::LlvmIrText};
+    opts.omit_frame_pointer = false;
+
+    auto backend = make_llvm_backend();
+    auto artifact = backend->emit(*mod, opts);
+
+    if (!artifact.diagnostics.empty())
+        return;
+
+    REQUIRE(artifact.llvm_ir_text.has_value());
+    auto const& ir = *artifact.llvm_ir_text;
+    CHECK(ir.find("\"frame-pointer\"") != std::string::npos);
+    CHECK(artifact.diagnostics.empty());
+}
+
+TEST_CASE("omit-frame-pointer-false-with-debug-info-elf")
+{
+    IrContext ir_ctx;
+    auto* mod = build_add_module(ir_ctx);
+
+    TargetConfig target;
+    target.triple = "x86_64-elf";
+    target.arch = Arch::X86_64;
+    target.os = Os::Linux;
+    target.object_format = ObjectFormat::Elf;
+    target.pointer_bits = 64;
+    target.pointer_align = 8;
+    target.little_endian = true;
+
+    BackendOptions opts;
+    opts.target = target;
+    opts.requested_artifacts = {ArtifactKind::LlvmIrText};
+    opts.emit_debug_info = true;
+    opts.debug_format = DebugFormat::Dwarf;
+    opts.omit_frame_pointer = false;
+
+    auto backend = make_llvm_backend();
+    auto artifact = backend->emit(*mod, opts);
+
+    REQUIRE(artifact.llvm_ir_text.has_value());
+    auto const& ir = *artifact.llvm_ir_text;
+    CHECK(ir.find("Dwarf Version") != std::string::npos);
+    CHECK(ir.find("\"frame-pointer\"") != std::string::npos);
+    CHECK(artifact.diagnostics.empty());
+}
+
+TEST_CASE("omit-frame-pointer-false-asm-has-frame-pointer-prologue")
+{
+    IrContext ir_ctx;
+    auto* mod = build_add_module(ir_ctx);
+
+    TargetConfig target;
+    target.triple = "x86_64-elf";
+    target.arch = Arch::X86_64;
+    target.os = Os::Linux;
+    target.object_format = ObjectFormat::Elf;
+    target.pointer_bits = 64;
+    target.pointer_align = 8;
+    target.little_endian = true;
+
+    BackendOptions opts;
+    opts.target = target;
+    opts.requested_artifacts = {ArtifactKind::AsmText};
+    opts.omit_frame_pointer = false;
+
+    auto backend = make_llvm_backend();
+    auto artifact = backend->emit(*mod, opts);
+
+    if (!artifact.diagnostics.empty())
+        return;
+
+    REQUIRE(artifact.asm_text.has_value());
+    auto const& asm_text = *artifact.asm_text;
+    CHECK(!asm_text.empty());
+
+    bool has_frame_prologue = (asm_text.find("pushq") != std::string::npos && asm_text.find("%rbp") != std::string::npos) ||
+                              (asm_text.find("push") != std::string::npos && asm_text.find("rbp") != std::string::npos);
+
+    CHECK(has_frame_prologue);
+}

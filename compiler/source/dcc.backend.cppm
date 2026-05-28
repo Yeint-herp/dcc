@@ -48,6 +48,7 @@ export namespace dcc::backend
         std::vector<std::string> linker_args;
         bool emit_debug_info{false};
         DebugFormat debug_format{DebugFormat::Auto};
+        bool omit_frame_pointer{true};
     };
 
     class Backend

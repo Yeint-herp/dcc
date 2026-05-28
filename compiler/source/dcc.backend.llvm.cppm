@@ -631,7 +631,7 @@ namespace dcc::backend
                     if (!func)
                         continue;
 
-                    if (!create_function_decl(func, llvm_mod, ctx, type_cache, val_map, opts.target, diags, debug_ptr))
+                    if (!create_function_decl(func, llvm_mod, ctx, type_cache, val_map, opts, diags, debug_ptr))
                         has_unsupported = true;
                 }
 
@@ -1124,7 +1124,7 @@ namespace dcc::backend
             }
 
             [[nodiscard]] static bool create_function_decl(IrFunction const* func, LLVMModuleRef mod, LLVMContextRef ctx, TypeCache& tc,
-                                                           std::unordered_map<IrValue const*, LLVMValueRef>& val_map, TargetConfig const& target,
+                                                           std::unordered_map<IrValue const*, LLVMValueRef>& val_map, BackendOptions const& opts,
                                                            std::vector<BackendDiagnostic>& diags, DebugEmitContext* debug)
             {
                 const auto* ft = func->func_type;
@@ -1163,13 +1163,13 @@ namespace dcc::backend
                 }
 
                 bool found_cc_attr = false;
-                auto cc_opt = map_calling_conv_to_llvm(func, target, diags, found_cc_attr);
+                auto cc_opt = map_calling_conv_to_llvm(func, opts.target, diags, found_cc_attr);
                 if (cc_opt)
                     LLVMSetFunctionCallConv(llvm_func, *cc_opt);
                 else if (found_cc_attr)
                     return false;
 
-                if (target.no_red_zone)
+                if (opts.target.no_red_zone)
                 {
                     auto kind = LLVMGetEnumAttributeKindForName("noredzone", 9);
                     if (kind != 0)
@@ -1177,6 +1177,16 @@ namespace dcc::backend
                         auto* attr = LLVMCreateEnumAttribute(ctx, kind, 0);
                         LLVMAddAttributeAtIndex(llvm_func, static_cast<LLVMAttributeIndex>(LLVMAttributeFunctionIndex), attr);
                     }
+                }
+
+                if (!opts.omit_frame_pointer)
+                {
+                    auto const* fp_key = "frame-pointer";
+                    auto const* fp_val = "all";
+                    auto* attr =
+                        LLVMCreateStringAttribute(ctx, fp_key, static_cast<unsigned>(std::strlen(fp_key)), fp_val, static_cast<unsigned>(std::strlen(fp_val)));
+
+                    LLVMAddAttributeAtIndex(llvm_func, static_cast<LLVMAttributeIndex>(LLVMAttributeFunctionIndex), attr);
                 }
 
                 if (func->entry_block)

@@ -88,6 +88,7 @@ namespace
         bool no_x87{false};
         bool position_independent_code{false};
         std::optional<dcc::target::CodeModel> code_model;
+        bool omit_frame_pointer{true};
     };
 
     struct ExpectRegistry
@@ -113,6 +114,7 @@ namespace
         bool no_x87{false};
         bool position_independent_code{false};
         std::optional<dcc::target::CodeModel> code_model;
+        bool omit_frame_pointer{true};
     };
 
     struct Fixture
@@ -347,6 +349,10 @@ namespace
                         e.no_x87 = true;
                     if (flags_str.find("-fPIC") != std::string::npos || flags_str.find("-fPIE") != std::string::npos)
                         e.position_independent_code = true;
+                    if (flags_str.find("-fno-omit-frame-pointer") != std::string::npos)
+                        e.omit_frame_pointer = false;
+                    else if (flags_str.find("-fomit-frame-pointer") != std::string::npos)
+                        e.omit_frame_pointer = true;
 
                     auto mcmodel_pos = flags_str.find("-mcmodel=");
                     if (mcmodel_pos != std::string::npos)
@@ -411,6 +417,10 @@ namespace
                         e.no_x87 = true;
                     if (flags_str.find("-fPIC") != std::string::npos || flags_str.find("-fPIE") != std::string::npos)
                         e.position_independent_code = true;
+                    if (flags_str.find("-fno-omit-frame-pointer") != std::string::npos)
+                        e.omit_frame_pointer = false;
+                    else if (flags_str.find("-fomit-frame-pointer") != std::string::npos)
+                        e.omit_frame_pointer = true;
 
                     auto mcmodel_pos = flags_str.find("-mcmodel=");
                     if (mcmodel_pos != std::string::npos)
@@ -1252,6 +1262,7 @@ namespace
             dcc::backend::BackendOptions backend_opts;
             backend_opts.target = target;
             backend_opts.requested_artifacts = {dcc::backend::ArtifactKind::LlvmIrText};
+            backend_opts.omit_frame_pointer = exp.omit_frame_pointer;
 
             auto backend = dcc::backend::make_llvm_backend();
             auto artifact = backend->emit(*ir_mod, backend_opts);
@@ -1372,6 +1383,7 @@ namespace
             dcc::backend::BackendOptions backend_opts;
             backend_opts.target = target;
             backend_opts.requested_artifacts = {dcc::backend::ArtifactKind::ExecutableBytes};
+            backend_opts.omit_frame_pointer = exp.omit_frame_pointer;
 
             auto backend = dcc::backend::make_llvm_backend();
             auto artifact = backend->emit(*ir_mod, backend_opts);
