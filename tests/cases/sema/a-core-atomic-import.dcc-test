@@ -1,0 +1,15 @@
+=== FILE: main.dc ===
+module main;
+import core::atomic;
+
+u64 get_store(core::atomic::AtomicStore store) {
+    return core::atomic::atomic_load(store);
+}
+
+=== ENTRY: main.dc ===
+
+=== EXPECT-TYPES FOR: main ===
+Module main
+  Func get_store
+    Return: u64
+    Param store: struct AtomicStore

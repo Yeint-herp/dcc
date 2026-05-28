@@ -6,6 +6,7 @@ import dcc.sm;
 import dcc.si;
 import dcc.diag;
 import dcc.sema.scope;
+import dcc.vfs;
 
 export namespace dcc::sema
 {
@@ -105,10 +106,7 @@ export namespace dcc::sema
             return nullptr;
         }
 
-        [[nodiscard]] static ModulePath alias_prefix_for(ModulePath const& target, ModulePath const& importer)
-        {
-            return target.strip_common_prefix(importer.parent());
-        }
+        [[nodiscard]] static ModulePath alias_prefix_for(ModulePath const& target, ModulePath const& importer) { return target.strip_common_prefix(importer); }
 
     private:
         ModuleGraph& m_graph;
@@ -133,10 +131,45 @@ export namespace dcc::sema
             return rel;
         }
 
+        ModuleInfo* try_resolve_virtual(ModulePath const& path)
+        {
+            auto module_path_str = path.str();
+            auto const* entry = dcc::vfs::lookup_by_module_path(module_path_str);
+            if (!entry)
+                return nullptr;
+
+            if (auto* hit = m_graph.find(path))
+                return hit;
+
+            auto fid = dcc::vfs::materialize(*entry, m_sm);
+            auto* tu = m_parse(fid, m_ast_ctx, m_diag);
+            if (!tu)
+                return nullptr;
+
+            ModulePath canonical = ModulePath::from_ast(ast::node_cast<ast::ModuleDecl>(tu->module_decl)->module_path);
+            if (canonical.empty())
+                canonical = path;
+
+            if (auto* hit = m_graph.find(canonical))
+                return hit;
+
+            auto info = std::make_unique<ModuleInfo>();
+            info->canonical_path = canonical;
+            info->file_path = std::string{entry->uri};
+            info->file_id = fid;
+            info->tu = tu;
+            info->state = ModuleState::Parsed;
+
+            return m_graph.insert(std::move(info));
+        }
+
         ModuleInfo* try_resolve(ModulePath const& path)
         {
             if (auto* hit = m_graph.find(path))
                 return hit;
+
+            if (auto* virt = try_resolve_virtual(path))
+                return virt;
 
             auto rel = module_to_relative(path);
             for (auto const& root : m_graph.roots())

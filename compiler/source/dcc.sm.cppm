@@ -471,6 +471,24 @@ export namespace dcc::sm
             return id;
         }
 
+        [[nodiscard]] FileId open_virtual_in_memory(std::string uri, std::string content, std::filesystem::path synthetic_path)
+        {
+            if (auto existing = find_by_uri(uri))
+            {
+                auto* file = get_mut(*existing);
+                if (file && file->kind() == FileKind::InMemory)
+                    file->replace_buffer(std::make_unique<std::string>(std::move(content)));
+
+                return *existing;
+            }
+
+            auto const id = next_id();
+            auto owned = std::make_unique<std::string>(std::move(content));
+            auto file = std::make_unique<SourceFile>(id, std::move(synthetic_path), FileKind::InMemory, std::move(uri), std::nullopt, std::move(owned));
+            m_files.push_back(std::move(file));
+            return id;
+        }
+
         [[nodiscard]] std::expected<void, Error> update_in_memory(std::string_view uri, std::string new_content,
                                                                   std::optional<std::int64_t> new_version = std::nullopt)
         {

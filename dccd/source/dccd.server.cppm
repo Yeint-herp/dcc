@@ -14,6 +14,7 @@ import dcc.query;
 import dcc.ast;
 import dcc.sema;
 import dcc.sema.type_helpers;
+import dcc.vfs;
 
 export namespace dccd
 {
@@ -84,6 +85,8 @@ export namespace dccd
                     return handle_formatting(rpc);
                 if (method == "workspace/symbol")
                     return handle_workspace_symbol(rpc);
+                if (method == "dccd/virtualDocument")
+                    return handle_virtual_document(rpc);
 
                 return protocol::build_error_response(rpc.id.value(), -32601, std::format("Method not found: {}", method));
             }
@@ -214,6 +217,12 @@ export namespace dccd
         {
             auto params = protocol::DidOpenTextDocumentParams::from_json(rpc.params.value());
 
+            if (dcc::vfs::is_dcc_core_uri(params.textDocument.uri))
+            {
+                std::println(m_log, "[dccd] didOpen: rejecting read-only dcc-core: document {}", params.textDocument.uri);
+                return;
+            }
+
             auto fid = m_session->open_in_memory(params.textDocument.uri, params.textDocument.text, params.textDocument.version);
 
             auto const* sf = m_session->source_manager().get(fid);
@@ -230,6 +239,12 @@ export namespace dccd
         void handle_did_change(protocol::RpcInfo const& rpc)
         {
             auto params = protocol::DidChangeTextDocumentParams::from_json(rpc.params.value());
+
+            if (dcc::vfs::is_dcc_core_uri(params.textDocument.uri))
+            {
+                std::println(m_log, "[dccd] didChange: rejecting read-only dcc-core: document {}", params.textDocument.uri);
+                return;
+            }
 
             if (params.contentChanges.empty())
             {
@@ -284,6 +299,19 @@ export namespace dccd
             auto fid = m_session->source_manager().find_by_uri(uri);
             if (fid)
                 return *fid;
+
+            if (dcc::vfs::is_dcc_core_uri(uri))
+            {
+                auto const* entry = dcc::vfs::lookup_by_uri(uri);
+                if (entry)
+                {
+                    auto materialized = dcc::vfs::materialize(*entry, m_session->source_manager());
+                    return materialized;
+                }
+
+                std::println(m_log, "[dccd] file_id_from_uri: dcc-core: URI has no matching entry: {}", uri);
+                return std::nullopt;
+            }
 
             if (uri.starts_with("file://"))
             {
@@ -1328,6 +1356,29 @@ export namespace dccd
             return protocol::build_response(rpc.id.value(), std::move(arr));
         }
 
+        [[nodiscard]] std::optional<protocol::JsonValue> handle_virtual_document(protocol::RpcInfo const& rpc)
+        {
+            std::string uri;
+            if (rpc.params.has_value())
+                if (auto const* uri_val = rpc.params->find_member("uri"))
+                    if (uri_val->is_string())
+                        uri = uri_val->as_string();
+
+            std::println(m_log, "[dccd] dccd/virtualDocument: uri=\"{}\"", uri);
+
+            if (!dcc::vfs::is_dcc_core_uri(uri))
+                return protocol::build_error_response(rpc.id.value(), -32602, std::format("not a virtual URI: {}", uri));
+
+            auto text = dcc::vfs::source_text_for_uri(uri);
+            if (text.empty())
+                return protocol::build_error_response(rpc.id.value(), -32602, std::format("unknown virtual URI: {}", uri));
+
+            auto result = protocol::JsonValue::empty_object();
+            result.set("text", protocol::JsonValue::string_val(std::string{text}));
+
+            return protocol::build_response(rpc.id.value(), std::move(result));
+        }
+
         void collect_field_references_in_expr(dcc::ast::Expr const* expr, std::vector<dcc::sm::SourceRange>& out, std::string_view field_name,
                                               dcc::ast::Decl const* parent_decl)
         {
@@ -1590,6 +1641,12 @@ export namespace dccd
         void recompile_document(std::string const& uri)
         {
             std::println(m_log, "[dccd] recompile_document: incoming URI=\"{}\"", uri);
+
+            if (dcc::vfs::is_dcc_core_uri(uri))
+            {
+                std::println(m_log, "[dccd] recompile_document: skipping read-only dcc-core: URI {}", uri);
+                return;
+            }
 
             auto path = dcc::sm::SourceManager::parse_file_uri(uri);
             if (!path)
