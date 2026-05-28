@@ -18,4 +18,4 @@ Module m
     Body
       Sizeof [type=u64 const=16 constant]
       Alignof [type=u64 const=8 constant]
-      Offsetof [type=u64 const=4 constant]
+      Offsetof [type=u64 const=8 constant]

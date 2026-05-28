@@ -6850,7 +6850,10 @@ export namespace dcc::sema
                     {
                         if (field.name == s.field)
                         {
-                            out.constant = make_int_const(static_cast<std::int64_t>(offset), out.type);
+                            if (auto layout = layout_of(field.type))
+                                out.constant = make_int_const(static_cast<std::int64_t>(align_up(offset, layout->align)), out.type);
+                            else
+                                out.constant = make_int_const(static_cast<std::int64_t>(offset), out.type);
                             break;
                         }
 
