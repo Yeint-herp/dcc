@@ -21,8 +21,6 @@ Module a
   OwnScope
     Binding A
       Type: struct exported
-    Binding B
-      Type: struct exported
     Binding b
       Namespace: module exported
         (foreign-scope)
@@ -38,8 +36,6 @@ Module a
 === EXPECT-SCOPE FOR: b ===
 Module b
   OwnScope
-    Binding A
-      Type: struct exported
     Binding B
       Type: struct exported
     Binding a

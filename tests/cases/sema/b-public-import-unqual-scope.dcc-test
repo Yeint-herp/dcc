@@ -1,0 +1,101 @@
+=== FILE: math.dc ===
+module math;
+public struct Vec3 { f32 x; f32 y; f32 z; }
+public f32 sin(f32 x) { return 0.0; }
+
+=== FILE: consumer_qualified.dc ===
+module consumer_qualified;
+public import math;
+
+public math::Vec3 make_qualified() {
+    return math::Vec3 { x = 0.0, y = 0.0, z = 0.0 };
+}
+
+=== FILE: consumer_using_wildcard.dc ===
+module consumer_using_wildcard;
+public import math;
+using math::*;
+
+public Vec3 make_unqual() {
+    return Vec3 { x = 0.0, y = 0.0, z = 0.0 };
+}
+
+=== FILE: consumer_using_bare.dc ===
+module consumer_using_bare;
+public import math;
+using math::Vec3;
+
+public Vec3 make_bare() {
+    return Vec3 { x = 0.0, y = 0.0, z = 0.0 };
+}
+
+=== FILE: main.dc ===
+module main;
+import consumer_qualified;
+import consumer_using_wildcard;
+import consumer_using_bare;
+
+=== ENTRY: main.dc ===
+
+=== EXPECT-SCOPE FOR: consumer_qualified ===
+Module consumer_qualified
+  OwnScope
+    Binding make_qualified
+      Value: function exported
+    Binding math
+      Namespace: module exported
+        (foreign-scope)
+  ExportScope
+    Binding Vec3
+      Type: struct exported
+    Binding make_qualified
+      Value: function exported
+    Binding math
+      Namespace: module exported
+        (foreign-scope)
+    Binding sin
+      Value: function exported
+
+=== EXPECT-SCOPE FOR: consumer_using_wildcard ===
+Module consumer_using_wildcard
+  OwnScope
+    Binding Vec3
+      Type: struct via-using
+    Binding make_unqual
+      Value: function exported
+    Binding math
+      Namespace: module exported
+        (foreign-scope)
+    Binding sin
+      Value: function via-using
+  ExportScope
+    Binding Vec3
+      Type: struct exported
+    Binding make_unqual
+      Value: function exported
+    Binding math
+      Namespace: module exported
+        (foreign-scope)
+    Binding sin
+      Value: function exported
+
+=== EXPECT-SCOPE FOR: consumer_using_bare ===
+Module consumer_using_bare
+  OwnScope
+    Binding Vec3
+      Type: struct via-using
+    Binding make_bare
+      Value: function exported
+    Binding math
+      Namespace: module exported
+        (foreign-scope)
+  ExportScope
+    Binding Vec3
+      Type: struct exported
+    Binding make_bare
+      Value: function exported
+    Binding math
+      Namespace: module exported
+        (foreign-scope)
+    Binding sin
+      Value: function exported

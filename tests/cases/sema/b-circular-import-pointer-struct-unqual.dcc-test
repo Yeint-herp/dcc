@@ -3,20 +3,20 @@ module a;
 public import b;
 
 public struct A {
-    B* next;
+    b::B* next;
 }
 
-public i32 fa(B* b) { return 1; }
+public i32 fa(b::B* b) { return 1; }
 
 === FILE: b.dc ===
 module b;
 public import a;
 
 public struct B {
-    A* prev;
+    a::A* prev;
 }
 
-public i32 fb(A* a) { return 2; }
+public i32 fb(a::A* a) { return 2; }
 
 === ENTRY: a.dc ===
 

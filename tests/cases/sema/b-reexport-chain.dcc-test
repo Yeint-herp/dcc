@@ -19,10 +19,6 @@ Module a
   OwnScope
     Binding A
       Type: struct exported
-    Binding B
-      Type: struct exported
-    Binding C
-      Type: struct exported
     Binding b
       Namespace: module exported
         (foreign-scope)
@@ -41,8 +37,6 @@ Module a
 Module b
   OwnScope
     Binding B
-      Type: struct exported
-    Binding C
       Type: struct exported
     Binding c
       Namespace: module exported

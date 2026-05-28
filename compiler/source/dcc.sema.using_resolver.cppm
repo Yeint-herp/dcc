@@ -73,18 +73,9 @@ export namespace dcc::sema
                 bool publicly_imported = imp.decl->is_public;
 
                 if (imp.alias_prefix.empty())
-                {
-                    auto target_segs = imp.target->canonical_path.segments();
-                    if (!target_segs.empty())
-                    {
-                        ModulePath leaf_prefix{{std::vector<std::string_view>{target_segs.back()}}};
-                        progress = install_module_alias(mod, leaf_prefix, *imp.target, publicly_imported) || progress;
-                    }
-                }
+                    progress = inject_ancestor_exports(mod, *imp.target, publicly_imported) || progress;
                 else
-                {
                     progress = install_module_alias(mod, imp.alias_prefix, *imp.target, publicly_imported) || progress;
-                }
 
                 progress = absorb_spills(mod, *imp.target, publicly_imported) || progress;
 
@@ -190,9 +181,30 @@ export namespace dcc::sema
                 if (src.has_namespace && !src.has_type && src.value_syms.empty())
                     continue;
 
-                progress = install_binding_in_scope(src, name, *mod.own_scope) || progress;
-                progress = install_binding_in_scope(src, name, *mod.export_scope) || progress;
+                progress = install_binding_in_scope(src, name, *mod.export_scope, true) || progress;
             }
+            return progress;
+        }
+
+        bool inject_ancestor_exports(ModuleInfo& mod, ModuleInfo const& target, bool publicly_imported)
+        {
+            if (!target.export_scope)
+                return false;
+            if (&target == &mod)
+                return false;
+
+            bool progress = false;
+            for (auto const& [name, src] : target.export_scope->bindings())
+            {
+                if (src.empty())
+                    continue;
+
+                if (src.has_namespace && !src.has_type && src.value_syms.empty())
+                    continue;
+
+                progress = install_binding_in_scope(src, name, *mod.own_scope, publicly_imported) || progress;
+            }
+
             return progress;
         }
 
@@ -208,7 +220,7 @@ export namespace dcc::sema
             return b.has_namespace && b.namespace_sym.is_spilled;
         }
 
-        static bool install_binding_in_scope(NameBinding const& src, std::string_view target_name, Scope& dst)
+        static bool install_binding_in_scope(NameBinding const& src, std::string_view target_name, Scope& dst, bool is_exported)
         {
             bool added = false;
             auto* existing = dst.find_binding_local(target_name);
@@ -217,6 +229,7 @@ export namespace dcc::sema
             {
                 Symbol s = src.type_sym;
                 s.name = target_name;
+                s.is_exported = is_exported;
                 if (existing && existing->has_type && existing->type_sym.decl == s.decl)
                     added = merge_symbol(existing->type_sym, s) || added;
                 else if ((!existing || !existing->has_type) && dst.define_type(s) == DefineResult::Ok)
@@ -227,6 +240,7 @@ export namespace dcc::sema
             {
                 Symbol s = vs;
                 s.name = target_name;
+                s.is_exported = is_exported;
                 auto* binding = dst.find_binding_local(target_name);
 
                 if (vs.kind == SymbolKind::Variable)
@@ -261,6 +275,7 @@ export namespace dcc::sema
             {
                 Symbol s = src.namespace_sym;
                 s.name = target_name;
+                s.is_exported = is_exported;
                 auto* binding = dst.find_binding_local(target_name);
                 if (binding && binding->has_namespace && binding->namespace_scope == src.namespace_scope)
                     added = merge_symbol(binding->namespace_sym, s) || added;

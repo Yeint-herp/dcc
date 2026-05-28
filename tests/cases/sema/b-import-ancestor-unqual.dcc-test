@@ -1,0 +1,70 @@
+=== FILE: root/mid.dc ===
+module root::mid;
+
+public struct Shared {
+    i32 value;
+}
+
+public i32 read_val(Shared s) {
+    return s.value;
+}
+
+=== FILE: root/mid/deep.dc ===
+module root::mid::deep;
+import root::mid;
+
+const Shared local_shared = { value = 42 };
+
+i32 get_value() {
+    return read_val(local_shared);
+}
+
+import root::mid::deep_pub;
+
+=== FILE: root/mid/deep_pub.dc ===
+module root::mid::deep_pub;
+public import root::mid;
+
+i32 get_deep_pub() {
+    Shared s = { value = 99 };
+    return read_val(s);
+}
+
+=== ENTRY: root/mid/deep.dc ===
+
+=== EXPECT-TYPES FOR: root::mid::deep ===
+Module root::mid::deep
+  Var local_shared: struct Shared
+  Func get_value
+    Return: i32
+
+=== EXPECT-SCOPE FOR: root::mid::deep ===
+Module root::mid::deep
+  OwnScope
+    Binding Shared
+      Type: struct
+    Binding deep_pub
+      Namespace: module
+        (foreign-scope)
+    Binding get_value
+      Value: function
+    Binding local_shared
+      Value: variable
+    Binding read_val
+      Value: function
+  ExportScope
+
+=== EXPECT-SCOPE FOR: root::mid::deep_pub ===
+Module root::mid::deep_pub
+  OwnScope
+    Binding Shared
+      Type: struct exported
+    Binding get_deep_pub
+      Value: function
+    Binding read_val
+      Value: function exported
+  ExportScope
+    Binding Shared
+      Type: struct exported
+    Binding read_val
+      Value: function exported

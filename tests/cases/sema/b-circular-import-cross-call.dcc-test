@@ -26,10 +26,6 @@ Module a
     Binding b
       Namespace: module exported
         (foreign-scope)
-    Binding b_get
-      Value: function exported
-    Binding b_through_a
-      Value: function exported
   ExportScope
     Binding a_get
       Value: function exported

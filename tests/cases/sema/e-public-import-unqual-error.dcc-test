@@ -1,0 +1,21 @@
+=== FILE: math.dc ===
+module math;
+public struct Vec3 { f32 x; f32 y; f32 z; }
+
+=== FILE: consumer.dc ===
+module consumer;
+public import math;
+
+public Vec3 make_vec3() {
+    return Vec3 { x = 0.0, y = 0.0, z = 0.0 };
+}
+
+=== FILE: main.dc ===
+module main;
+import consumer;
+
+=== ENTRY: main.dc ===
+
+=== EXPECT-ERRORS ===
+consumer.dc:4: unknown type `Vec3`
+consumer.dc:5: brace literal requires an aggregate type
