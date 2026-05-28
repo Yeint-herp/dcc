@@ -15,6 +15,14 @@ export namespace dcc::backend
         ExecutableBytes,
     };
 
+    enum class DebugFormat : std::uint8_t
+    {
+        Auto,
+        None,
+        Dwarf,
+        Pdb,
+    };
+
     struct BackendDiagnostic
     {
         sm::SourceRange where;
@@ -39,6 +47,7 @@ export namespace dcc::backend
         std::vector<std::string> libraries;
         std::vector<std::string> linker_args;
         bool emit_debug_info{false};
+        DebugFormat debug_format{DebugFormat::Auto};
     };
 
     class Backend

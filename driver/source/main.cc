@@ -109,6 +109,7 @@ namespace
         bool compile_only{false};
         bool bounds_check{false};
         bool emit_debug_info{false};
+        dcc::backend::DebugFormat debug_format{dcc::backend::DebugFormat::Auto};
         bool help{false};
         bool libdcext{false};
         std::string target_triple;
@@ -294,9 +295,10 @@ namespace
                 continue;
             }
 
-            if (arg == "-g0")
+            if (arg == "-g0" || arg == "-gnone")
             {
                 opts.emit_debug_info = false;
+                opts.debug_format = dcc::backend::DebugFormat::None;
                 ++i;
                 continue;
             }
@@ -304,13 +306,30 @@ namespace
             if (arg == "-g3" || arg == "-g")
             {
                 opts.emit_debug_info = true;
+                opts.debug_format = dcc::backend::DebugFormat::Auto;
+                ++i;
+                continue;
+            }
+
+            if (arg == "-gdwarf")
+            {
+                opts.emit_debug_info = true;
+                opts.debug_format = dcc::backend::DebugFormat::Dwarf;
+                ++i;
+                continue;
+            }
+
+            if (arg == "-gpdb")
+            {
+                opts.emit_debug_info = true;
+                opts.debug_format = dcc::backend::DebugFormat::Pdb;
                 ++i;
                 continue;
             }
 
             if (arg.starts_with("-g"))
             {
-                std::println(std::cerr, "dcc: unsupported debug-info level: {} (use -g0, -g3, or -g)", arg);
+                std::println(std::cerr, "dcc: unsupported debug-info option: {} (use -g0, -gnone, -g, -g3, -gdwarf, or -gpdb)", arg);
                 std::exit(1);
             }
 
@@ -329,10 +348,11 @@ namespace
 
     void print_usage()
     {
-        std::println("usage: dcc [-I<dir>] [-flibdcext] [-fbounds-check] [-fdump-ast] [-fdump-ir] [-fdump-llvm] [-fdump-asm] [-c] [-g|-g0|-g3] "
-                     "[-fno-red-zone] [-fno-simd] [-fno-x87] [-fPIC|-fPIE] [-mcmodel <model>] "
-                     "[-target <triple>] [-h] [-o "
-                     "<file>] <input-file>");
+        std::println(
+            "usage: dcc [-I<dir>] [-flibdcext] [-fbounds-check] [-fdump-ast] [-fdump-ir] [-fdump-llvm] [-fdump-asm] [-c] [-g|-g0|-g3|-gdwarf|-gpdb|-gnone] "
+            "[-fno-red-zone] [-fno-simd] [-fno-x87] [-fPIC|-fPIE] [-mcmodel <model>] "
+            "[-target <triple>] [-h] [-o "
+            "<file>] <input-file>");
     }
 
 #if DCC_ENABLE_LLVM
@@ -666,6 +686,7 @@ auto main(int argc, char** argv) -> int
             backend_opts.target = target;
             backend_opts.requested_artifacts = kinds;
             backend_opts.emit_debug_info = opts.emit_debug_info;
+            backend_opts.debug_format = opts.debug_format;
 
             if (opts.libdcext && kinds.contains(dcc::backend::ArtifactKind::ExecutableBytes))
             {

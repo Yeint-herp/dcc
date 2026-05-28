@@ -7,7 +7,7 @@ public i32 add(i32 a, i32 b) { return a + b; }
 === EXPECT-LLVM FLAGS: -target x86_64-coff -verify ===
 ; ModuleID = 'test'
 source_filename = "test"
-target triple = "x86_64-coff"
+target triple = "x86_64-pc-windows-msvc"
 
 define i32 @add(i32 %a, i32 %b) {
 entry:

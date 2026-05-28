@@ -57,19 +57,52 @@ namespace dcc::backend
             }
         };
 
-        [[nodiscard]] std::string llvm_codegen_triple(TargetConfig const& cfg)
+        [[nodiscard]] std::string llvm_codegen_triple(TargetConfig const& cfg, DebugFormat debug_format = DebugFormat::Auto)
         {
             auto const& t = cfg.triple;
             if (t == "x86_64-elf")
                 return "x86_64-unknown-linux-gnu";
+
             if (t == "x86-elf")
                 return "i386-unknown-linux-gnu";
+
             if (t == "x86_64-coff")
+            {
+                if (debug_format == DebugFormat::Dwarf)
+                    return "x86_64-w64-windows-gnu";
+
                 return "x86_64-pc-windows-msvc";
+            }
+
             if (t == "x86-coff")
+            {
+                if (debug_format == DebugFormat::Dwarf)
+                    return "i686-w64-windows-gnu";
+
                 return "i386-pc-windows-msvc";
+            }
 
             return t;
+        }
+
+        [[nodiscard]] DebugFormat resolve_debug_format(BackendOptions const& opts)
+        {
+            if (!opts.emit_debug_info || opts.debug_format == DebugFormat::None)
+                return DebugFormat::None;
+
+            if (opts.debug_format != DebugFormat::Auto)
+                return opts.debug_format;
+
+            if (opts.target.object_format == ObjectFormat::Coff)
+                return DebugFormat::Pdb;
+            if (opts.target.object_format == ObjectFormat::Elf)
+                return DebugFormat::Dwarf;
+
+            auto const& t = opts.target.triple;
+            if (t.contains("coff") || t.contains("windows") || t.contains("msvc"))
+                return DebugFormat::Pdb;
+
+            return DebugFormat::Dwarf;
         }
 
         [[nodiscard]] std::string llvm_target_features(TargetConfig const& target)
@@ -533,11 +566,23 @@ namespace dcc::backend
                 std::string mod_name = module.name.empty() ? "dcc_module" : std::string{module.name};
                 auto* llvm_mod = LLVMModuleCreateWithNameInContext(mod_name.c_str(), ctx);
 
-                LLVMSetTarget(llvm_mod, opts.target.triple.c_str());
+                auto resolved_debug_format = resolve_debug_format(opts);
+                auto cg_triple = llvm_codegen_triple(opts.target, resolved_debug_format);
+
+                if (opts.emit_debug_info && opts.debug_format == DebugFormat::Pdb && opts.target.object_format != ObjectFormat::Coff &&
+                    !opts.target.triple.contains("coff") && !opts.target.triple.contains("windows") && !opts.target.triple.contains("msvc"))
+                {
+                    add_diag(diags, {}, "PDB/CodeView debug info is only supported for COFF/Windows targets");
+                    LLVMDisposeModule(llvm_mod);
+                    return artifact;
+                }
+
+                LLVMSetTarget(llvm_mod, cg_triple.c_str());
 
                 DebugEmitContext debug;
+                bool const wants_debug = resolved_debug_format != DebugFormat::None;
 
-                if (opts.emit_debug_info)
+                if (wants_debug)
                 {
                     debug.dibuilder = LLVMCreateDIBuilder(llvm_mod);
 
@@ -551,25 +596,15 @@ namespace dcc::backend
 
                     {
                         auto* ver_md = LLVMValueAsMetadata(LLVMConstInt(LLVMInt32TypeInContext(ctx), static_cast<unsigned long long>(3), false));
-
                         LLVMAddModuleFlag(llvm_mod, LLVMModuleFlagBehaviorWarning, "Debug Info Version", 19, ver_md);
                     }
 
-                    bool is_elf = opts.target.object_format == ObjectFormat::Elf;
-                    bool is_coff = opts.target.object_format == ObjectFormat::Coff;
-                    if (!is_elf && !is_coff)
-                    {
-                        std::string const& t = opts.target.triple;
-                        is_elf = t.contains("elf") || t.contains("linux");
-                        is_coff = t.contains("windows") || t.contains("msvc") || t.contains("coff");
-                    }
-
-                    if (is_elf)
+                    if (resolved_debug_format == DebugFormat::Dwarf)
                     {
                         auto* dwarf_ver_md = LLVMValueAsMetadata(LLVMConstInt(LLVMInt32TypeInContext(ctx), 5, false));
-                        LLVMAddModuleFlag(llvm_mod, static_cast<LLVMModuleFlagBehavior>(7), "Dwarf Version", 13, dwarf_ver_md);
+                        LLVMAddModuleFlag(llvm_mod, LLVMModuleFlagBehaviorWarning, "Dwarf Version", 13, dwarf_ver_md);
                     }
-                    else if (is_coff)
+                    else if (resolved_debug_format == DebugFormat::Pdb)
                     {
                         auto* cv_md = LLVMValueAsMetadata(LLVMConstInt(LLVMInt32TypeInContext(ctx), 1, false));
                         LLVMAddModuleFlag(llvm_mod, LLVMModuleFlagBehaviorWarning, "CodeView", 8, cv_md);
@@ -589,7 +624,7 @@ namespace dcc::backend
                         val_map[g] = gv;
                 }
 
-                auto* debug_ptr = opts.emit_debug_info ? &debug : nullptr;
+                auto* debug_ptr = wants_debug ? &debug : nullptr;
 
                 for (auto* func : module.functions)
                 {
@@ -622,11 +657,31 @@ namespace dcc::backend
                 bool want_obj = opts.requested_artifacts.contains(ArtifactKind::ObjectBytes);
                 bool want_exe = opts.requested_artifacts.contains(ArtifactKind::ExecutableBytes);
 
-                if (want_exe && opts.target.triple != "x86_64-elf")
+                if (want_exe)
                 {
-                    add_diag(diags, {}, "executable emission is currently only supported for x86_64-elf");
-                    LLVMDisposeModule(llvm_mod);
-                    return artifact;
+                    bool is_elf_target = opts.target.object_format == ObjectFormat::Elf || opts.target.triple.contains("elf");
+                    bool is_coff_target = opts.target.object_format == ObjectFormat::Coff || opts.target.triple.contains("coff");
+
+                    if (is_elf_target && opts.target.triple != "x86_64-elf")
+                    {
+                        add_diag(diags, {}, std::format("executable linking is currently only supported for x86_64-elf (target: '{}')", opts.target.triple));
+                        LLVMDisposeModule(llvm_mod);
+                        return artifact;
+                    }
+
+                    if (is_coff_target)
+                    {
+                        add_diag(diags, {}, "COFF/PE executable emission is not yet supported");
+                        LLVMDisposeModule(llvm_mod);
+                        return artifact;
+                    }
+
+                    if (!is_elf_target && !is_coff_target)
+                    {
+                        add_diag(diags, {}, std::format("executable emission is not supported for target '{}'", opts.target.triple));
+                        LLVMDisposeModule(llvm_mod);
+                        return artifact;
+                    }
                 }
 
                 if (want_ir)
@@ -641,7 +696,6 @@ namespace dcc::backend
 
                 if (need_codegen)
                 {
-                    auto cg_triple = llvm_codegen_triple(opts.target);
                     LLVMTargetRef target_ref = nullptr;
                     char* err_msg = nullptr;
 

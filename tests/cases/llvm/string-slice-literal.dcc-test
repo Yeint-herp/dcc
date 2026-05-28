@@ -8,7 +8,7 @@ public void test() {
 === EXPECT-LLVM FLAGS: -verify ===
 ; ModuleID = 'test'
 source_filename = "test"
-target triple = "x86_64-elf"
+target triple = "x86_64-unknown-linux-gnu"
 
 @.str.0 = internal constant [5 x i8] c"hello"
 

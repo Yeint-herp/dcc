@@ -393,3 +393,227 @@ TEST_CASE("llvm-codegen-flags-default-no-flags-preserved")
     CHECK(ir.find("noredzone") == std::string::npos);
     CHECK(artifact.diagnostics.empty());
 }
+
+TEST_CASE("debug-elf-auto-has-dwarf-version")
+{
+    IrContext ir_ctx;
+    auto* mod = build_add_module(ir_ctx);
+
+    TargetConfig target;
+    target.triple = "x86_64-elf";
+    target.arch = Arch::X86_64;
+    target.os = Os::Linux;
+    target.object_format = ObjectFormat::Elf;
+    target.pointer_bits = 64;
+    target.pointer_align = 8;
+    target.little_endian = true;
+
+    BackendOptions opts;
+    opts.target = target;
+    opts.requested_artifacts = {ArtifactKind::LlvmIrText};
+    opts.emit_debug_info = true;
+    opts.debug_format = DebugFormat::Auto;
+
+    auto backend = make_llvm_backend();
+    auto artifact = backend->emit(*mod, opts);
+
+    REQUIRE(artifact.llvm_ir_text.has_value());
+    auto const& ir = *artifact.llvm_ir_text;
+    CHECK(artifact.diagnostics.empty());
+
+    CHECK(ir.find("Dwarf Version") != std::string::npos);
+    CHECK(ir.find("CodeView") == std::string::npos);
+    CHECK(ir.find("Debug Info Version") != std::string::npos);
+    CHECK(ir.find("!llvm.module.flags") != std::string::npos);
+}
+
+TEST_CASE("debug-coff-auto-has-codeview")
+{
+    IrContext ir_ctx;
+    auto* mod = build_add_module(ir_ctx);
+
+    TargetConfig target;
+    target.triple = "x86_64-coff";
+    target.arch = Arch::X86_64;
+    target.os = Os::Windows;
+    target.object_format = ObjectFormat::Coff;
+    target.pointer_bits = 64;
+    target.pointer_align = 8;
+    target.little_endian = true;
+
+    BackendOptions opts;
+    opts.target = target;
+    opts.requested_artifacts = {ArtifactKind::LlvmIrText};
+    opts.emit_debug_info = true;
+    opts.debug_format = DebugFormat::Auto;
+
+    auto backend = make_llvm_backend();
+    auto artifact = backend->emit(*mod, opts);
+
+    REQUIRE(artifact.llvm_ir_text.has_value());
+    auto const& ir = *artifact.llvm_ir_text;
+    CHECK(artifact.diagnostics.empty());
+
+    CHECK(ir.find("CodeView") != std::string::npos);
+    CHECK(ir.find("Dwarf Version") == std::string::npos);
+    CHECK(ir.find("Debug Info Version") != std::string::npos);
+}
+
+TEST_CASE("debug-coff-explicit-dwarf")
+{
+    IrContext ir_ctx;
+    auto* mod = build_add_module(ir_ctx);
+
+    TargetConfig target;
+    target.triple = "x86_64-coff";
+    target.arch = Arch::X86_64;
+    target.os = Os::Windows;
+    target.object_format = ObjectFormat::Coff;
+    target.pointer_bits = 64;
+    target.pointer_align = 8;
+    target.little_endian = true;
+
+    BackendOptions opts;
+    opts.target = target;
+    opts.requested_artifacts = {ArtifactKind::LlvmIrText};
+    opts.emit_debug_info = true;
+    opts.debug_format = DebugFormat::Dwarf;
+
+    auto backend = make_llvm_backend();
+    auto artifact = backend->emit(*mod, opts);
+
+    REQUIRE(artifact.llvm_ir_text.has_value());
+    auto const& ir = *artifact.llvm_ir_text;
+    CHECK(artifact.diagnostics.empty());
+
+    CHECK(ir.find("Dwarf Version") != std::string::npos);
+    CHECK(ir.find("CodeView") == std::string::npos);
+    CHECK(ir.find("Debug Info Version") != std::string::npos);
+}
+
+TEST_CASE("debug-coff-explicit-pdb")
+{
+    IrContext ir_ctx;
+    auto* mod = build_add_module(ir_ctx);
+
+    TargetConfig target;
+    target.triple = "x86_64-coff";
+    target.arch = Arch::X86_64;
+    target.os = Os::Windows;
+    target.object_format = ObjectFormat::Coff;
+    target.pointer_bits = 64;
+    target.pointer_align = 8;
+    target.little_endian = true;
+
+    BackendOptions opts;
+    opts.target = target;
+    opts.requested_artifacts = {ArtifactKind::LlvmIrText};
+    opts.emit_debug_info = true;
+    opts.debug_format = DebugFormat::Pdb;
+
+    auto backend = make_llvm_backend();
+    auto artifact = backend->emit(*mod, opts);
+
+    REQUIRE(artifact.llvm_ir_text.has_value());
+    auto const& ir = *artifact.llvm_ir_text;
+    CHECK(artifact.diagnostics.empty());
+
+    CHECK(ir.find("CodeView") != std::string::npos);
+    CHECK(ir.find("Dwarf Version") == std::string::npos);
+    CHECK(ir.find("Debug Info Version") != std::string::npos);
+}
+
+TEST_CASE("debug-none-no-flags")
+{
+    IrContext ir_ctx;
+    auto* mod = build_add_module(ir_ctx);
+
+    TargetConfig target = TargetConfig::host_default();
+
+    BackendOptions opts;
+    opts.target = target;
+    opts.requested_artifacts = {ArtifactKind::LlvmIrText};
+    opts.emit_debug_info = false;
+    opts.debug_format = DebugFormat::None;
+
+    auto backend = make_llvm_backend();
+    auto artifact = backend->emit(*mod, opts);
+
+    REQUIRE(artifact.llvm_ir_text.has_value());
+    auto const& ir = *artifact.llvm_ir_text;
+    CHECK(artifact.diagnostics.empty());
+
+    CHECK(ir.find("Debug Info Version") == std::string::npos);
+    CHECK(ir.find("Dwarf Version") == std::string::npos);
+    CHECK(ir.find("CodeView") == std::string::npos);
+}
+
+TEST_CASE("debug-pdb-on-elf-rejected")
+{
+    IrContext ir_ctx;
+    auto* mod = build_add_module(ir_ctx);
+
+    TargetConfig target;
+    target.triple = "x86_64-elf";
+    target.arch = Arch::X86_64;
+    target.os = Os::Linux;
+    target.object_format = ObjectFormat::Elf;
+    target.pointer_bits = 64;
+    target.pointer_align = 8;
+    target.little_endian = true;
+
+    BackendOptions opts;
+    opts.target = target;
+    opts.requested_artifacts = {ArtifactKind::LlvmIrText};
+    opts.emit_debug_info = true;
+    opts.debug_format = DebugFormat::Pdb;
+
+    auto backend = make_llvm_backend();
+    auto artifact = backend->emit(*mod, opts);
+
+    CHECK(!artifact.diagnostics.empty());
+    CHECK(!artifact.llvm_ir_text.has_value());
+}
+
+TEST_CASE("debug-coff-exe-rejected-with-clear-diagnostic")
+{
+    IrContext ir_ctx;
+    auto* mod = ir_ctx.module("test_exe");
+    auto* void_t = ir_ctx.void_t();
+    auto* func_ty = ir_ctx.func_t(void_t, {});
+    auto* func_ft = ir_type_cast<IrFuncType>(func_ty);
+    auto* start_fn = ir_ctx.function("_start", func_ft);
+
+    auto* entry_bb = ir_ctx.basic_block("entry", 0);
+    start_fn->blocks.push_back(entry_bb);
+    start_fn->entry_block = entry_bb;
+    entry_bb->terminator = ir_ctx.unreachable();
+
+    mod->functions.push_back(start_fn);
+
+    TargetConfig target;
+    target.triple = "x86_64-coff";
+    target.arch = Arch::X86_64;
+    target.os = Os::Windows;
+    target.object_format = ObjectFormat::Coff;
+    target.pointer_bits = 64;
+    target.pointer_align = 8;
+    target.little_endian = true;
+
+    BackendOptions opts;
+    opts.target = target;
+    opts.requested_artifacts = {ArtifactKind::ExecutableBytes};
+
+    auto backend = make_llvm_backend();
+    auto artifact = backend->emit(*mod, opts);
+
+    CHECK(!artifact.diagnostics.empty());
+    CHECK(!artifact.executable_bytes.has_value());
+
+    bool has_helpful_msg = false;
+    for (auto const& d : artifact.diagnostics)
+        if (d.message.contains("COFF") || d.message.contains("lld-link") || d.message.contains("PE"))
+            has_helpful_msg = true;
+
+    CHECK(has_helpful_msg);
+}

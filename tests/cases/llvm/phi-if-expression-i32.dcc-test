@@ -9,7 +9,7 @@ public i32 if_expr_i32(bool cond) {
 === EXPECT-LLVM FLAGS: -verify ===
 ; ModuleID = 'test'
 source_filename = "test"
-target triple = "x86_64-elf"
+target triple = "x86_64-unknown-linux-gnu"
 
 define i32 @if_expr_i32(i1 %cond) {
 entry:
