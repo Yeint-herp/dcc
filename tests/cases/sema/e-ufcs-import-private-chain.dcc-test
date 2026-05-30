@@ -24,4 +24,4 @@ void try_ufcs(Local loc) {
 === ENTRY: entry.dc ===
 
 === EXPECT-ERRORS ===
-entry.dc:7: no matching UFCS function for `clear`
+entry.dc:7: no visible UFCS function named `clear` in scope

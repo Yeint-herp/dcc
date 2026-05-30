@@ -4778,14 +4778,91 @@ export namespace dcc::ir::lower
 
             auto* ir_ty = lower_type(target_type);
 
+            auto* st = types::type_cast<types::StructType>(target_type);
+            auto* ut = types::type_cast<types::UnionType>(target_type);
+            auto* arrt = types::type_cast<types::ArrayType>(target_type);
+            auto* slicet = types::type_cast<types::SliceType>(target_type);
+
+            auto lower_field_value = [&](ast::Expr const* value_expr) -> IrValue* {
+                if (!value_expr)
+                    return nullptr;
+
+                auto* val = lower_expr(value_expr);
+
+                if (value_expr->sema.construction_kind == ast::ExprSema::ConstructionKind::Enum && value_expr->sema.constructed_variant)
+                {
+                    auto* enum_type = get_sema_resolved_type(value_expr);
+                    if (enum_type)
+                    {
+                        auto* et = types::type_cast<types::EnumType>(enum_type);
+                        if (et && et->is_tagged && value_expr->sema.constructed_variant->payload.size() == 1)
+                        {
+                            std::vector<IrValue*> payload_args{val};
+                            return lower_tagged_enum_construction(value_expr->sema.constructed_variant, enum_type, payload_args);
+                        }
+                    }
+                }
+
+                return val;
+            };
+
+            if (slicet)
+            {
+                std::uint32_t field_count = static_cast<std::uint32_t>(sl->fields.size());
+                auto* elem_sema_type = slicet->element;
+                auto* ir_elem_type = lower_type(elem_sema_type);
+                auto* ir_arr_type = m_ctx.array_t(ir_elem_type, field_count);
+                auto* ir_arr_ptr_type = m_ctx.pointer_to(ir_arr_type);
+
+                auto* alloca = m_ctx.alloca(ir_arr_ptr_type, ir_arr_type);
+                auto alloca_name = ident_name();
+                alloca->name = m_name_pool.back();
+                append_inst(alloca);
+
+                for (auto const& f : sl->fields)
+                {
+                    std::uint32_t idx = f.resolved_field_index;
+                    if (idx >= field_count)
+                        lower_panic(sl, "field index out of range");
+
+                    if (!f.value)
+                        continue;
+
+                    auto* elem_val = lower_field_value(f.value);
+                    if (!elem_val)
+                        continue;
+
+                    auto* gep = m_ctx.gep(m_ctx.pointer_to(ir_elem_type), alloca);
+                    gep->indices.push_back({IrGepInst::IndexKind::Array, m_ctx.int_const(m_ctx.int_t(64, false), 0), 0});
+                    gep->indices.push_back({IrGepInst::IndexKind::Array, m_ctx.int_const(m_ctx.int_t(64, false), static_cast<std::int64_t>(idx)), 0});
+                    auto gep_name = ident_name();
+                    gep->name = m_name_pool.back();
+                    append_inst(gep);
+                    append_inst(m_ctx.store(elem_val, gep));
+                }
+
+                auto* ptr_to_first = m_ctx.gep(m_ctx.pointer_to(ir_elem_type), alloca);
+                ptr_to_first->indices.push_back({IrGepInst::IndexKind::Array, m_ctx.int_const(m_ctx.int_t(64, false), 0), 0});
+                ptr_to_first->indices.push_back({IrGepInst::IndexKind::Array, m_ctx.int_const(m_ctx.int_t(64, false), 0), 0});
+                auto ptr_name = ident_name();
+                ptr_to_first->name = m_name_pool.back();
+                append_inst(ptr_to_first);
+
+                auto* len_val = m_ctx.int_const(m_ctx.int_t(64, false), static_cast<std::int64_t>(field_count));
+
+                auto* slice_agg = m_ctx.aggregate(ir_ty);
+                slice_agg->values.push_back(ptr_to_first);
+                slice_agg->values.push_back(len_val);
+                auto slice_name = ident_name();
+                slice_agg->name = m_name_pool.back();
+                append_inst(slice_agg);
+                return slice_agg;
+            }
+
             auto* agg = m_ctx.aggregate(ir_ty);
 
             std::uint32_t field_count = 0;
             std::vector<dcc::types::TypePtr> field_types;
-
-            auto* st = types::type_cast<types::StructType>(target_type);
-            auto* ut = types::type_cast<types::UnionType>(target_type);
-            auto* arrt = types::type_cast<types::ArrayType>(target_type);
 
             if (st)
             {
@@ -4821,7 +4898,7 @@ export namespace dcc::ir::lower
                 if (!f.value)
                     continue;
 
-                auto* val = lower_expr(f.value);
+                auto* val = lower_field_value(f.value);
                 agg->values[idx] = val;
             }
 

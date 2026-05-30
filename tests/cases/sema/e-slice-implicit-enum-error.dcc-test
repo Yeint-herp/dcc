@@ -1,0 +1,27 @@
+=== FILE: main.dc ===
+module m;
+
+enum FormatArg {
+    @implicit_construction Str([]const char),
+    @implicit_construction Int(i32),
+}
+
+void print([]const char fmt, []const FormatArg args) {
+}
+
+void test_no_variant_match() {
+    print("fmt", { true });
+}
+
+void test_string_element() {
+    print("fmt", { "world" });
+}
+
+void test_mixed() {
+    print("fmt", { "hello", 42 });
+}
+
+=== ENTRY: main.dc ===
+
+=== EXPECT-ERRORS ===
+main.dc:12: slice element type mismatch

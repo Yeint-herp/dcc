@@ -1,0 +1,15 @@
+=== FILE: main.dc ===
+module main;
+
+struct S { i32 x; }
+
+i32 test_missing_ufcs() {
+    S s;
+    s.nonexistent();
+    return 0;
+}
+
+=== ENTRY: main.dc ===
+
+=== EXPECT-ERRORS ===
+main.dc:7: no visible UFCS function named `nonexistent` in scope

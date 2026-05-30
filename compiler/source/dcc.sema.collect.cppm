@@ -73,6 +73,7 @@ export namespace dcc::sema
             s.name = name;
             s.kind = kind;
             s.decl = d;
+            s.module = &m_mod;
             s.is_exported = d->is_public;
             s.definition_range = d->range;
 
@@ -149,6 +150,7 @@ export namespace dcc::sema
                 vs.name = v.name;
                 vs.kind = SymbolKind::EnumVariant;
                 vs.decl = d;
+                vs.module = &m_mod;
                 vs.is_exported = d->is_public;
                 vs.definition_range = v.range;
 

@@ -13,6 +13,6 @@ void test_non_int_const() {
 === ENTRY: main.dc ===
 
 === EXPECT-ERRORS ===
-main.dc:5: array size must be non-negative
-main.dc:10: array size must be an integer constant
-main.dc:11: array size must be an integer constant
+main.dc:4: array size must be non-negative
+main.dc:8: array size must be an integer constant
+main.dc:9: array size must be an integer constant

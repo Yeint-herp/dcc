@@ -30,4 +30,4 @@ void use_private_ufcs() {
 === ENTRY: main.dc ===
 
 === EXPECT-ERRORS ===
-main.dc:11: no matching UFCS function for `private_op`
+main.dc:11: no visible UFCS function named `private_op` in scope
