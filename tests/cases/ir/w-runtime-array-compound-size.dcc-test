@@ -1,0 +1,37 @@
+=== FILE: test.dc ===
+module test;
+
+public void dyn_alloca_offset(u64 len) {
+    u16[len + 1] buf;
+    buf[0] = 42;
+}
+
+public void dyn_alloca_scaled(u64 str_len) {
+    const u64 max_len = str_len * 2;
+    u16[max_len + 1] buf;
+    buf[0] = 42;
+}
+
+=== EXPECT-IR ===
+module "test"
+void@_DC0F1.4.test17.dyn_alloca_offset1i64uv(u64) {
+%entry(u64 %len):
+  %0 = add u64 %len, u64 #1
+  %1 = alloca u16, u64 %0
+  %2 = gep ptr<u16> %1, #0
+  store u16 #42, ptr<u16> %2
+  ret void
+}
+
+void@_DC0F1.4.test17.dyn_alloca_scaled1i64uv(u64) {
+%entry(u64 %str_len):
+  %0 = alloca u64
+  %1 = mul u64 %str_len, u64 #2
+  store u64 %1, ptr<u64> %0
+  %2 = load u64, ptr<u64> %0
+  %3 = add u64 %2, u64 #1
+  %4 = alloca u16, u64 %3
+  %5 = gep ptr<u16> %4, #0
+  store u16 #42, ptr<u16> %5
+  ret void
+}

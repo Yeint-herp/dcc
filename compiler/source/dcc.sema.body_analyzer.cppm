@@ -8604,7 +8604,7 @@ export namespace dcc::sema
                 v->sema.storage = fn ? ast::StorageClass::Local : ast::StorageClass::ModuleGlobal;
                 if (v->type && !v->type->sema.canonical)
                 {
-                    auto resolved = resolve_type_node(mod, scope, v->type);
+                    auto resolved = resolve_type_node(mod, scope, v->type, fn, &next_off, const_env);
                     set_canonical(v->type->sema, resolved);
                 }
                 if (v->type && v->type->sema.canonical)
@@ -9109,7 +9109,8 @@ export namespace dcc::sema
             }
         }
 
-        ResolvedType resolve_type_node_resolved(ModuleInfo& mod, Scope const& scope, ast::TypeExpr const* t)
+        ResolvedType resolve_type_node_resolved(ModuleInfo& mod, Scope const& scope, ast::TypeExpr const* t, ast::FuncDecl* fn = nullptr,
+                                                std::uint32_t* next_off_ptr = nullptr, ConstEnv const* const_env = nullptr)
         {
             if (!t)
                 return {.type = m_types.m_errort()};
@@ -9170,7 +9171,7 @@ export namespace dcc::sema
                             if (!arg.type)
                                 return m_types.m_errort();
 
-                            resolved_args.push_back(resolve_type_node(mod, scope, arg.type));
+                            resolved_args.push_back(resolve_type_node(mod, scope, arg.type, fn, next_off_ptr, const_env));
                         }
 
                         if (auto const* sd = ast::node_cast<ast::StructDecl>(decl))
@@ -9200,11 +9201,11 @@ export namespace dcc::sema
                     return {.type = m_types.m_errort()};
                 }
                 case ast::TypeKind::Pointer: {
-                    auto inner = resolve_type_node_resolved(mod, scope, static_cast<ast::PointerType const*>(t)->pointee);
+                    auto inner = resolve_type_node_resolved(mod, scope, static_cast<ast::PointerType const*>(t)->pointee, fn, next_off_ptr, const_env);
                     return {.type = m_types.pointer_to(materialize_type(inner), inner.quals)};
                 }
                 case ast::TypeKind::Array: {
-                    auto inner = resolve_type_node_resolved(mod, scope, static_cast<ast::ArrayType const*>(t)->element);
+                    auto inner = resolve_type_node_resolved(mod, scope, static_cast<ast::ArrayType const*>(t)->element, fn, next_off_ptr, const_env);
                     auto const* arr = static_cast<ast::ArrayType const*>(t);
 
                     auto result = try_eval_const_size_expr(mod, scope, arr->size);
@@ -9224,7 +9225,15 @@ export namespace dcc::sema
                             return {.type = m_types.m_errort()};
                         }
                         case ConstSizeResult::Tag::NotConstant: {
-                            if (arr->size && arr->size->kind == ast::ExprKind::Ident)
+                            if (arr->size && fn)
+                            {
+                                auto* size_expr = const_cast<ast::Expr*>(arr->size);
+                                auto& scope_ref = const_cast<Scope&>(scope);
+                                std::uint32_t& off_ref = next_off_ptr ? *next_off_ptr : dummy_offset();
+                                auto* expected_ty = m_types.int_t(64, false);
+                                std::ignore = analyze_expr(mod, fn, scope_ref, *size_expr, 0, off_ref, expected_ty, const_env);
+                            }
+                            else if (arr->size && arr->size->kind == ast::ExprKind::Ident)
                             {
                                 auto const* id = static_cast<ast::IdentExpr const*>(arr->size);
                                 if (auto const* sym = lookup_name(mod, scope, id->name))
@@ -9236,23 +9245,23 @@ export namespace dcc::sema
                     return {.type = m_types.m_errort()};
                 }
                 case ast::TypeKind::Slice: {
-                    auto inner = resolve_type_node_resolved(mod, scope, static_cast<ast::SliceType const*>(t)->element);
+                    auto inner = resolve_type_node_resolved(mod, scope, static_cast<ast::SliceType const*>(t)->element, fn, next_off_ptr, const_env);
                     return {.type = m_types.slice_t(materialize_type(inner), inner.quals)};
                 }
                 case ast::TypeKind::Fam: {
-                    auto inner = resolve_type_node_resolved(mod, scope, static_cast<ast::FamType const*>(t)->element);
+                    auto inner = resolve_type_node_resolved(mod, scope, static_cast<ast::FamType const*>(t)->element, fn, next_off_ptr, const_env);
                     return {.type = m_types.fam_t(materialize_type(inner))};
                 }
                 case ast::TypeKind::FuncPtr: {
                     auto const* fp = static_cast<ast::FuncPtrType const*>(t);
                     std::vector<types::TypePtr> params;
                     for (auto* p : fp->params)
-                        params.push_back(resolve_type_node(mod, scope, p));
+                        params.push_back(resolve_type_node(mod, scope, p, fn, next_off_ptr, const_env));
 
-                    return {.type = m_types.funcptr_t(resolve_type_node(mod, scope, fp->return_type), params)};
+                    return {.type = m_types.funcptr_t(resolve_type_node(mod, scope, fp->return_type, fn, next_off_ptr, const_env), params)};
                 }
                 case ast::TypeKind::Qualified: {
-                    auto inner = resolve_type_node_resolved(mod, scope, static_cast<ast::QualifiedType const*>(t)->inner);
+                    auto inner = resolve_type_node_resolved(mod, scope, static_cast<ast::QualifiedType const*>(t)->inner, fn, next_off_ptr, const_env);
                     inner.quals = qual_or(inner.quals, ast_to_type_qual(static_cast<ast::QualifiedType const*>(t)->quals));
                     return inner;
                 }
@@ -9260,9 +9269,10 @@ export namespace dcc::sema
             return {.type = m_types.m_errort()};
         }
 
-        [[nodiscard]] types::TypePtr resolve_type_node(ModuleInfo& mod, Scope const& scope, ast::TypeExpr const* t)
+        [[nodiscard]] types::TypePtr resolve_type_node(ModuleInfo& mod, Scope const& scope, ast::TypeExpr const* t, ast::FuncDecl* fn = nullptr,
+                                                       std::uint32_t* next_off_ptr = nullptr, ConstEnv const* const_env = nullptr)
         {
-            return materialize_type(resolve_type_node_resolved(mod, scope, t));
+            return materialize_type(resolve_type_node_resolved(mod, scope, t, fn, next_off_ptr, const_env));
         }
     };
 

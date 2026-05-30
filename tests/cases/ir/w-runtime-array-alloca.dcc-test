@@ -1,7 +1,6 @@
 === FILE: test.dc ===
 module test;
 
-// Runtime-sized local array lowered to dynamic alloca with count
 public void dyn_alloca(u64 len) {
     u16[len] buf;
     buf[0] = 42;
