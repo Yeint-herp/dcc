@@ -1362,8 +1362,10 @@ export namespace dcc::ir::lower
             auto* synthetic_fd = m_ctx.make<ast::FuncDecl>(sm::SourceRange{}, std::string_view{"__assert"}, sm::SourceRange{});
 
             std::vector<dcc::types::TypePtr> param_sema_types = {ptr_u8_sema, i32_sema, ptr_u8_sema, ptr_u8_sema};
-            m_name_pool.push_back(
-                dcc::ir::mangle::mangle_function(std::span<std::string_view const>{}, *synthetic_fd, param_sema_types, void_sema, {}, m_nominal_resolver));
+            std::array<std::string_view, 1> assert_module_path = {"assert"};
+
+            m_name_pool.push_back(dcc::ir::mangle::mangle_function(std::span<std::string_view const>{assert_module_path}, *synthetic_fd, param_sema_types,
+                                                                   void_sema, {}, m_nominal_resolver));
 
             std::string_view mangled_name = m_name_pool.back();
 
