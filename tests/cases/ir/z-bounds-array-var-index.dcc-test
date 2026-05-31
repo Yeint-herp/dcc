@@ -29,9 +29,9 @@ i64@_DC0F1.4.test4.test1i64si64s(i64) {
   %5 = load i64, ptr<i64> %4
   ret i64 %5
 %bounds.fail2:
-  call fn(@_DC0F0.8.__assert4Pqi8ui32sPqi8uPqi8uv)(ptr<u8> @.str.0, i32 #5, ptr<u8> @.str.1, ptr<u8> @.str.2)
+  call fn(@_DC0F1.6.assert8.__assert4Pqi8ui32sPqi8uPqi8uv)(ptr<u8> @.str.0, i32 #5, ptr<u8> @.str.1, ptr<u8> @.str.2)
   unreachable
 }
 
-import void@_DC0F0.8.__assert4Pqi8ui32sPqi8uPqi8uv(ptr<u8>, i32, ptr<u8>, ptr<u8>) {
+import void@_DC0F1.6.assert8.__assert4Pqi8ui32sPqi8uPqi8uv(ptr<u8>, i32, ptr<u8>, ptr<u8>) {
 }

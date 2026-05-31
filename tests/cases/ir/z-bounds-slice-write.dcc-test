@@ -29,9 +29,9 @@ void@_DC0F1.4.test4.test2Sqi64si64sv([]i64, i64) {
   store i64 #42, ptr<i64> %6
   ret void
 %bounds.fail2:
-  call fn(@_DC0F0.8.__assert4Pqi8ui32sPqi8uPqi8uv)(ptr<u8> @.str.0, i32 #4, ptr<u8> @.str.1, ptr<u8> @.str.2)
+  call fn(@_DC0F1.6.assert8.__assert4Pqi8ui32sPqi8uPqi8uv)(ptr<u8> @.str.0, i32 #4, ptr<u8> @.str.1, ptr<u8> @.str.2)
   unreachable
 }
 
-import void@_DC0F0.8.__assert4Pqi8ui32sPqi8uPqi8uv(ptr<u8>, i32, ptr<u8>, ptr<u8>) {
+import void@_DC0F1.6.assert8.__assert4Pqi8ui32sPqi8uPqi8uv(ptr<u8>, i32, ptr<u8>, ptr<u8>) {
 }

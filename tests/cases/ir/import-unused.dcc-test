@@ -1,0 +1,19 @@
+=== FILE: math.dc ===
+module math;
+
+public i32 bar() { return 7; }
+
+=== FILE: main.dc ===
+module main;
+import math;
+
+public i32 test() { return 0; }
+
+=== ENTRY: main.dc ===
+
+=== EXPECT-IR ===
+module "main"
+i32@_DC0F1.4.main4.test0i32s() {
+%entry:
+  ret i32 #0
+}

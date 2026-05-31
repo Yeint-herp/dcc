@@ -13,7 +13,7 @@ i32@_DC0F1.4.test12.use_template0i32s() {
   ret i32 %0
 }
 
-i32@_DC0S1.4.test8.identity1i32si32sX1ti32s(i32) {
+linkonce_odr i32@_DC0S1.4.test8.identity1i32si32sX1ti32s(i32) {
 %entry(i32 %x):
   ret i32 %x
 }

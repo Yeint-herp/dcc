@@ -1002,7 +1002,7 @@ namespace dcc::backend
                     return nullptr;
 
                 auto* gv = LLVMAddGlobal(mod, mem_ty, std::string{g->name}.c_str());
-                LLVMSetLinkage(gv, LLVMInternalLinkage);
+                LLVMSetLinkage(gv, llvm_linkage(g->linkage));
 
                 LLVMValueRef init_val = nullptr;
                 if (g->init)
@@ -1015,7 +1015,7 @@ namespace dcc::backend
                     }
                     LLVMSetInitializer(gv, init_val);
                 }
-                else
+                else if (g->linkage != Linkage::External)
                     LLVMSetInitializer(gv, LLVMConstNull(mem_ty));
 
                 if (g->is_constant)
@@ -1025,6 +1025,22 @@ namespace dcc::backend
                     LLVMSetAlignment(gv, g->alignment);
 
                 return gv;
+            }
+
+            [[nodiscard]] static LLVMLinkage llvm_linkage(Linkage l)
+            {
+                switch (l)
+                {
+                    case Linkage::Internal:
+                        return LLVMInternalLinkage;
+                    case Linkage::External:
+                        return LLVMExternalLinkage;
+                    case Linkage::LinkOnceODR:
+                        return LLVMLinkOnceODRLinkage;
+                    case Linkage::WeakODR:
+                        return LLVMWeakODRLinkage;
+                }
+                return LLVMInternalLinkage;
             }
 
             [[nodiscard]] static std::optional<unsigned> map_calling_conv_to_llvm(IrFunction const* func, TargetConfig const& target,
@@ -1147,6 +1163,7 @@ namespace dcc::backend
 
                 auto* func_ty = LLVMFunctionType(ret_ty, param_tys.data(), static_cast<unsigned>(param_tys.size()), 0);
                 auto* llvm_func = LLVMAddFunction(mod, std::string{func->name}.c_str(), func_ty);
+                LLVMSetLinkage(llvm_func, llvm_linkage(func->linkage));
                 val_map[func] = llvm_func;
 
                 if (debug && debug->dibuilder && debug->difile)

@@ -26,6 +26,8 @@ export namespace dcc::ir::lower
 
         IrModule* lower_module(sema::ModuleInfo const& mod)
         {
+            m_entry_module = &mod;
+
             auto segs = mod.canonical_path.segments();
             m_module_path.clear();
             m_module_path.reserve(segs.size());
@@ -119,21 +121,42 @@ export namespace dcc::ir::lower
 
         static bool is_template_func(ast::FuncDecl const* fd) { return fd && !fd->template_params.empty(); }
 
+        [[nodiscard]] sema::ModuleInfo const* owning_module_of(ast::Decl const* decl) const
+        {
+            if (!decl || !m_module_graph)
+                return m_entry_module;
+
+            auto fid = decl->range.begin.fileId;
+            if (fid == sm::FileId::Invalid)
+                return m_entry_module;
+
+            for (auto const& mod_ptr : m_module_graph->all())
+                if (mod_ptr && mod_ptr->file_id == fid)
+                    return mod_ptr.get();
+
+            return m_entry_module;
+        }
+
+        [[nodiscard]] std::span<std::string_view const> module_path_for_decl(ast::Decl const* decl)
+        {
+            auto* owning = owning_module_of(decl);
+            if (!owning || owning == m_entry_module)
+                return m_module_path;
+
+            m_module_path_cache.clear();
+            auto segs = owning->canonical_path.segments();
+            for (auto const& s : segs)
+                m_module_path_cache.push_back(std::string_view{s});
+            return m_module_path_cache;
+        }
+
         void build_all_function_shells(sema::ModuleInfo const& mod)
         {
             if (mod.tu)
                 for (auto* d : mod.tu->decls)
                     if (auto* fd = ast::node_cast<ast::FuncDecl>(d))
                         if (!is_template_func(fd))
-                            create_func_shell(fd);
-
-            if (m_module_graph)
-                for (auto const& mod_ptr : m_module_graph->all())
-                    if (mod_ptr->tu)
-                        for (auto* d : mod_ptr->tu->decls)
-                            if (auto* fd = ast::node_cast<ast::FuncDecl>(d))
-                                if (!is_template_func(fd) && m_func_map.find(fd) == m_func_map.end())
-                                    create_func_shell(fd);
+                            create_func_shell(fd, true);
 
             if (m_spec_reg)
             {
@@ -176,12 +199,26 @@ export namespace dcc::ir::lower
 
         void lower_all_function_bodies()
         {
+            std::vector<ast::FuncDecl const*> to_lower;
+            to_lower.reserve(m_func_map.size());
             for (auto& [fd, ir_func] : m_func_map)
-                if (fd->body && !is_template_func(fd))
-                    lower_func_body(fd, ir_func);
+            {
+                if (!fd->body || is_template_func(fd))
+                    continue;
+                if (ir_func->linkage == Linkage::External && !m_definition_functions.contains(fd))
+                    continue;
+                to_lower.push_back(fd);
+            }
+            for (auto* fd : to_lower)
+            {
+                auto it = m_func_map.find(fd);
+                if (it == m_func_map.end())
+                    lower_panic(std::format("function `{}` missing from func_map during body lowering", fd->name));
+                lower_func_body(fd, it->second);
+            }
         }
 
-        void create_func_shell(ast::FuncDecl const* decl)
+        void create_func_shell(ast::FuncDecl const* decl, bool is_definition_here)
         {
             if (m_func_map.find(decl) != m_func_map.end())
                 return;
@@ -189,13 +226,15 @@ export namespace dcc::ir::lower
             if (is_template_func(decl))
                 return;
 
+            auto module_path = is_definition_here ? std::span<std::string_view const>{m_module_path} : module_path_for_decl(decl);
+
             auto* ret_canonical = get_canonical_type(decl->return_type);
             std::vector<dcc::types::TypePtr> param_canonical;
             param_canonical.reserve(decl->params.size());
             for (auto const& p : decl->params)
                 param_canonical.push_back(get_canonical_type(p.type));
 
-            m_name_pool.push_back(dcc::ir::mangle::mangle_function(m_module_path, *decl, param_canonical, ret_canonical, {}, m_nominal_resolver));
+            m_name_pool.push_back(dcc::ir::mangle::mangle_function(module_path, *decl, param_canonical, ret_canonical, {}, m_nominal_resolver));
             std::string_view mangled_name = m_name_pool.back();
 
             auto* ir_ret_type = lower_type(ret_canonical);
@@ -206,6 +245,11 @@ export namespace dcc::ir::lower
 
             auto* func_type = dcc::ir::ir_type_cast<dcc::ir::IrFuncType>(m_ctx.func_t(ir_ret_type, ir_param_types));
             auto* ir_func = m_ctx.function(mangled_name, func_type);
+
+            ir_func->linkage = Linkage::External;
+
+            if (is_definition_here)
+                m_definition_functions.insert(decl);
 
             propagate_attrs(decl, ir_func);
 
@@ -222,6 +266,10 @@ export namespace dcc::ir::lower
             if (m_func_map.find(fd) != m_func_map.end())
                 return;
 
+            auto module_path = module_path_for_decl(spec.template_decl ? static_cast<ast::Decl const*>(spec.template_decl) : nullptr);
+            if (module_path.empty())
+                module_path = std::span<std::string_view const>{m_module_path};
+
             auto* ret_canonical = get_canonical_type(fd->return_type);
             std::vector<dcc::types::TypePtr> param_canonical;
             param_canonical.reserve(fd->params.size());
@@ -235,7 +283,7 @@ export namespace dcc::ir::lower
 
             auto templ_name = spec.template_decl ? spec.template_decl->name : std::string_view{};
             m_name_pool.push_back(
-                dcc::ir::mangle::mangle_specialization(m_module_path, templ_name, param_canonical, ret_canonical, template_args, m_nominal_resolver));
+                dcc::ir::mangle::mangle_specialization(module_path, templ_name, param_canonical, ret_canonical, template_args, m_nominal_resolver));
             std::string_view mangled_name = m_name_pool.back();
 
             auto* ir_ret_type = lower_type(ret_canonical);
@@ -247,10 +295,84 @@ export namespace dcc::ir::lower
             auto* func_type = dcc::ir::ir_type_cast<dcc::ir::IrFuncType>(m_ctx.func_t(ir_ret_type, ir_param_types));
             auto* ir_func = m_ctx.function(mangled_name, func_type);
 
+            ir_func->linkage = Linkage::LinkOnceODR;
+
+            m_definition_functions.insert(fd);
+
             propagate_attrs(fd, ir_func);
 
             m_func_map[fd] = ir_func;
             m_module->functions.push_back(ir_func);
+        }
+
+        [[nodiscard]] IrFunction* get_or_create_func_ref(ast::FuncDecl const* fd)
+        {
+            if (!fd)
+                lower_panic("get_or_create_func_ref on null FuncDecl");
+
+            if (is_template_func(fd))
+            {
+                auto it = m_func_map.find(fd);
+                if (it != m_func_map.end())
+                    return it->second;
+                lower_panic(std::format("template function `{}` not found in function map (specialization not instantiated?)", fd->name));
+            }
+
+            auto it = m_func_map.find(fd);
+            if (it != m_func_map.end())
+                return it->second;
+
+            auto* owning = owning_module_of(fd);
+            if (owning == m_entry_module || !owning)
+            {
+                if (owning == m_entry_module)
+                    create_func_shell(fd, true);
+                else
+                    return nullptr;
+            }
+            else
+                create_func_shell(fd, false);
+
+            it = m_func_map.find(fd);
+            if (it != m_func_map.end())
+                return it->second;
+
+            lower_panic(std::format("failed to create function shell for `{}`", fd->name));
+        }
+
+        [[nodiscard]] IrGlobal* get_or_create_global_ref(ast::VarDecl const* vd)
+        {
+            if (!vd)
+                return nullptr;
+
+            auto it = m_global_map.find(vd);
+            if (it != m_global_map.end())
+                return it->second;
+
+            auto storage = vd->sema.storage;
+            if (storage != ast::StorageClass::ModuleGlobal && storage != ast::StorageClass::Static && storage != ast::StorageClass::Extern)
+                return nullptr;
+
+            auto* owning = owning_module_of(vd);
+            if (!owning || owning == m_entry_module)
+                return nullptr;
+
+            auto module_path = module_path_for_decl(vd);
+            auto* ir_type = lower_type(get_canonical_type(vd->type));
+            auto mangled = dcc::ir::mangle::mangle_global(module_path, *vd, get_canonical_type(vd->type), {}, m_nominal_resolver);
+            m_name_pool.push_back(std::move(mangled));
+            auto name_sv = std::string_view{m_name_pool.back()};
+            auto* ir_global = m_ctx.global(name_sv, ir_type, nullptr, false);
+            ir_global->linkage = Linkage::External;
+            ir_global->is_dll_import = vd->sema.is_dll_import;
+            ir_global->is_dll_export = vd->sema.is_dll_export;
+            ir_global->alignment = vd->sema.alignment;
+            if (!vd->sema.section.empty())
+                ir_global->section = vd->sema.section;
+
+            m_global_map[vd] = ir_global;
+            m_module->globals.push_back(ir_global);
+            return ir_global;
         }
 
         static dcc::ir::mangle::TemplateArg canonical_to_template_arg(sema::CanonicalArg const& ca)
@@ -1738,11 +1860,9 @@ export namespace dcc::ir::lower
 
             if (direct_target)
             {
-                auto func_it = m_func_map.find(direct_target);
-                if (func_it == m_func_map.end())
+                auto* ir_func = get_or_create_func_ref(const_cast<ast::FuncDecl*>(direct_target));
+                if (!ir_func)
                     lower_panic(call, std::format("call target function `{}` not in function map", direct_target->name));
-
-                auto* ir_func = func_it->second;
                 callee_value = m_ctx.func_ref(ir_func);
             }
             else
@@ -1842,10 +1962,9 @@ export namespace dcc::ir::lower
 
                 if (auto* vd = ast::node_cast<ast::VarDecl>(resolved))
                 {
-                    auto g_it = m_global_map.find(vd);
-                    if (g_it != m_global_map.end())
+                    auto* global = get_or_create_global_ref(const_cast<ast::VarDecl*>(vd));
+                    if (global)
                     {
-                        auto* global = g_it->second;
                         auto* ptr_type = m_ctx.pointer_to(global->type);
                         auto* global_ref = m_ctx.global_ref(global, ptr_type);
 
@@ -1859,12 +1978,9 @@ export namespace dcc::ir::lower
 
                 if (auto* fd = ast::node_cast<ast::FuncDecl>(resolved))
                 {
-                    auto func_it = m_func_map.find(fd);
-                    if (func_it != m_func_map.end())
-                    {
-                        auto* ir_func = func_it->second;
+                    auto* ir_func = get_or_create_func_ref(const_cast<ast::FuncDecl*>(fd));
+                    if (ir_func)
                         return m_ctx.func_ref(ir_func);
-                    }
 
                     lower_panic(id, std::format("function `{}` referenced but not in function map", id->name));
                 }
@@ -1898,10 +2014,9 @@ export namespace dcc::ir::lower
 
             if (auto* vd = ast::node_cast<ast::VarDecl>(resolved))
             {
-                auto g_it = m_global_map.find(vd);
-                if (g_it != m_global_map.end())
+                auto* global = get_or_create_global_ref(const_cast<ast::VarDecl*>(vd));
+                if (global)
                 {
-                    auto* global = g_it->second;
                     auto* ptr_type = m_ctx.pointer_to(global->type);
                     auto* global_ref = m_ctx.global_ref(global, ptr_type);
                     auto* loaded = m_ctx.load(global->type, global_ref);
@@ -1914,9 +2029,9 @@ export namespace dcc::ir::lower
 
             if (auto* fd = ast::node_cast<ast::FuncDecl>(resolved))
             {
-                auto func_it = m_func_map.find(fd);
-                if (func_it != m_func_map.end())
-                    return m_ctx.func_ref(func_it->second);
+                auto* ir_func = get_or_create_func_ref(const_cast<ast::FuncDecl*>(fd));
+                if (ir_func)
+                    return m_ctx.func_ref(ir_func);
             }
 
             lower_panic(pe, "PathExpr cannot be lowered");
@@ -1993,12 +2108,9 @@ export namespace dcc::ir::lower
                 {
                     if (auto* fd = ast::node_cast<ast::FuncDecl>(resolved))
                     {
-                        auto func_it = m_func_map.find(fd);
-                        if (func_it != m_func_map.end())
-                        {
-                            auto* ir_func = func_it->second;
+                        auto* ir_func = get_or_create_func_ref(const_cast<ast::FuncDecl*>(fd));
+                        if (ir_func)
                             return m_ctx.func_ref(ir_func);
-                        }
                         lower_panic(id, std::format("function `{}` not in function map for address-of", id->name));
                     }
 
@@ -2025,10 +2137,9 @@ export namespace dcc::ir::lower
 
                     if (auto* vd = ast::node_cast<ast::VarDecl>(resolved))
                     {
-                        auto g_it = m_global_map.find(vd);
-                        if (g_it != m_global_map.end())
+                        auto* global = get_or_create_global_ref(const_cast<ast::VarDecl*>(vd));
+                        if (global)
                         {
-                            auto* global = g_it->second;
                             auto* ptr_type = m_ctx.pointer_to(global->type);
                             return m_ctx.global_ref(global, ptr_type);
                         }
@@ -2043,12 +2154,9 @@ export namespace dcc::ir::lower
                 auto* res_spec = operand->sema.resolved_specialization;
                 if (res_spec)
                 {
-                    auto func_it = m_func_map.find(res_spec);
-                    if (func_it != m_func_map.end())
-                    {
-                        auto* ir_func = func_it->second;
+                    auto* ir_func = get_or_create_func_ref(const_cast<ast::FuncDecl*>(res_spec));
+                    if (ir_func)
                         return m_ctx.func_ref(ir_func);
-                    }
                     lower_panic(std::format("specialization `{}` not in function map for address-of", res_spec->name));
                 }
                 lower_panic("TemplateInst has no resolved specialization for address-of");
@@ -2356,10 +2464,9 @@ export namespace dcc::ir::lower
 
                 if (auto* vd = ast::node_cast<ast::VarDecl>(resolved))
                 {
-                    auto g_it = m_global_map.find(vd);
-                    if (g_it != m_global_map.end())
+                    auto* global = get_or_create_global_ref(const_cast<ast::VarDecl*>(vd));
+                    if (global)
                     {
-                        auto* global = g_it->second;
                         auto* ptr_type = m_ctx.pointer_to(global->type);
                         auto* global_ref = m_ctx.global_ref(global, ptr_type);
                         return {nullptr, global_ref};
@@ -3971,10 +4078,13 @@ export namespace dcc::ir::lower
         sema::ModuleGraph const* m_module_graph{};
         dcc::types::TypeContext* m_type_ctx{};
         IrModule* m_module{};
+        sema::ModuleInfo const* m_entry_module{};
         std::vector<std::string_view> m_module_path;
+        std::vector<std::string_view> m_module_path_cache;
         dcc::ir::mangle::NominalResolver m_nominal_resolver;
 
         std::unordered_map<ast::FuncDecl const*, IrFunction*> m_func_map;
+        std::unordered_set<ast::FuncDecl const*> m_definition_functions;
 
         IrFunction* m_current_func{};
         ast::FuncDecl const* m_current_func_decl{};
@@ -4017,13 +4127,28 @@ export namespace dcc::ir::lower
                 auto name_sv = std::string_view{m_name_pool.back()};
 
                 auto* ir_global = m_ctx.global(name_sv, ir_type, nullptr, is_const);
+
+                auto storage = vd->sema.storage;
+                if (storage == ast::StorageClass::Static)
+                {
+                    ir_global->linkage = Linkage::Internal;
+                }
+                else if (storage == ast::StorageClass::Extern)
+                {
+                    ir_global->linkage = Linkage::External;
+                }
+                else
+                {
+                    ir_global->linkage = vd->is_public ? Linkage::External : Linkage::Internal;
+                }
+
                 ir_global->is_dll_import = vd->sema.is_dll_import;
                 ir_global->is_dll_export = vd->sema.is_dll_export;
                 ir_global->alignment = vd->sema.alignment;
                 if (!vd->sema.section.empty())
                     ir_global->section = vd->sema.section;
 
-                if (vd->init)
+                if (vd->init && storage != ast::StorageClass::Extern)
                 {
                     auto* init_val = lower_constant_expr(vd->init, get_canonical_type(vd->type));
                     ir_global->init = init_val;
@@ -4036,6 +4161,7 @@ export namespace dcc::ir::lower
 
         void collect_globals(sema::ModuleInfo const& mod)
         {
+            m_global_order.clear();
             std::unordered_set<ast::VarDecl const*> seen;
 
             auto add_from_tu = [&](sema::ModuleInfo const& m) {
@@ -4056,20 +4182,6 @@ export namespace dcc::ir::lower
             };
 
             add_from_tu(mod);
-
-            if (m_module_graph)
-            {
-                for (auto const& mod_ptr : m_module_graph->all())
-                {
-                    if (mod_ptr->tu)
-                    {
-                        if (mod_ptr.get() == &mod)
-                            continue;
-
-                        add_from_tu(*mod_ptr);
-                    }
-                }
-            }
         }
 
         static bool has_const_qual(ast::TypeExpr const* type)
@@ -4214,19 +4326,19 @@ export namespace dcc::ir::lower
 
                     if (auto* vd = ast::node_cast<ast::VarDecl>(resolved))
                     {
-                        auto g_it = m_global_map.find(vd);
-                        if (g_it != m_global_map.end())
+                        auto* global = get_or_create_global_ref(const_cast<ast::VarDecl*>(vd));
+                        if (global)
                         {
-                            auto* ptr_type = m_ctx.pointer_to(g_it->second->type);
-                            return m_ctx.global_ref(g_it->second, ptr_type);
+                            auto* ptr_type = m_ctx.pointer_to(global->type);
+                            return m_ctx.global_ref(global, ptr_type);
                         }
                     }
 
                     if (auto* fd = ast::node_cast<ast::FuncDecl>(resolved))
                     {
-                        auto f_it = m_func_map.find(fd);
-                        if (f_it != m_func_map.end())
-                            return m_ctx.func_ref(f_it->second);
+                        auto* ir_func = get_or_create_func_ref(const_cast<ast::FuncDecl*>(fd));
+                        if (ir_func)
+                            return m_ctx.func_ref(ir_func);
                     }
 
                     lower_panic(expr, "identifier cannot be lowered as constant");
@@ -4236,19 +4348,19 @@ export namespace dcc::ir::lower
                     auto* resolved = pe->sema.resolved_decl;
                     if (auto* vd = ast::node_cast<ast::VarDecl>(resolved))
                     {
-                        auto g_it = m_global_map.find(vd);
-                        if (g_it != m_global_map.end())
+                        auto* global = get_or_create_global_ref(const_cast<ast::VarDecl*>(vd));
+                        if (global)
                         {
-                            auto* ptr_type = m_ctx.pointer_to(g_it->second->type);
-                            return m_ctx.global_ref(g_it->second, ptr_type);
+                            auto* ptr_type = m_ctx.pointer_to(global->type);
+                            return m_ctx.global_ref(global, ptr_type);
                         }
                     }
 
                     if (auto* fd = ast::node_cast<ast::FuncDecl>(resolved))
                     {
-                        auto f_it = m_func_map.find(fd);
-                        if (f_it != m_func_map.end())
-                            return m_ctx.func_ref(f_it->second);
+                        auto* ir_func = get_or_create_func_ref(const_cast<ast::FuncDecl*>(fd));
+                        if (ir_func)
+                            return m_ctx.func_ref(ir_func);
                     }
                     lower_panic(expr, "path expr cannot be lowered as constant");
                 }
@@ -5071,10 +5183,9 @@ export namespace dcc::ir::lower
 
                     if (auto* vd = ast::node_cast<ast::VarDecl>(resolved_obj))
                     {
-                        auto g_it = m_global_map.find(vd);
-                        if (g_it != m_global_map.end())
+                        auto* global = get_or_create_global_ref(vd);
+                        if (global)
                         {
-                            auto* global = g_it->second;
                             auto* global_ptr = m_ctx.global_ref(global, m_ctx.pointer_to(global->type));
                             auto* elem_ptr_type = m_ctx.pointer_to(ir_resolved_type);
                             auto* gep = m_ctx.gep(elem_ptr_type, global_ptr);
@@ -5138,10 +5249,9 @@ export namespace dcc::ir::lower
 
                 if (auto* vd = ast::node_cast<ast::VarDecl>(resolved_obj))
                 {
-                    auto g_it = m_global_map.find(vd);
-                    if (g_it != m_global_map.end())
+                    auto* global = get_or_create_global_ref(const_cast<ast::VarDecl*>(vd));
+                    if (global)
                     {
-                        auto* global = g_it->second;
                         auto* global_ptr = m_ctx.global_ref(global, m_ctx.pointer_to(global->type));
                         auto* field_decl = find_decl_field(fa);
                         if (!field_decl)
@@ -5744,10 +5854,9 @@ export namespace dcc::ir::lower
 
                     if (auto* vd = ast::node_cast<ast::VarDecl>(resolved))
                     {
-                        auto g_it = m_global_map.find(vd);
-                        if (g_it != m_global_map.end())
+                        auto* global = get_or_create_global_ref(vd);
+                        if (global)
                         {
-                            auto* global = g_it->second;
                             auto* ptr_type = m_ctx.pointer_to(global->type);
                             auto* global_ref = m_ctx.global_ref(global, ptr_type);
                             auto* elem_ptr_type = m_ctx.pointer_to(ir_resolved_type);
@@ -5796,10 +5905,9 @@ export namespace dcc::ir::lower
 
                 if (auto* vd = ast::node_cast<ast::VarDecl>(resolved))
                 {
-                    auto g_it = m_global_map.find(vd);
-                    if (g_it != m_global_map.end())
+                    auto* global = get_or_create_global_ref(const_cast<ast::VarDecl*>(vd));
+                    if (global)
                     {
-                        auto* global = g_it->second;
                         auto* ptr_type = m_ctx.pointer_to(global->type);
                         auto* global_ref = m_ctx.global_ref(global, ptr_type);
                         auto* elem_ptr_type = m_ctx.pointer_to(lower_type(field_sema_ty));
@@ -5943,8 +6051,8 @@ export namespace dcc::ir::lower
 
                 if (auto* vd = ast::node_cast<ast::VarDecl>(resolved))
                 {
-                    auto g_it = m_global_map.find(vd);
-                    if (g_it != m_global_map.end())
+                    auto* global = get_or_create_global_ref(vd);
+                    if (global)
                     {
                         if (m_bounds_check && obj_sema_type && obj_sema_type->kind == types::TypeKind::Array)
                         {
@@ -5964,7 +6072,6 @@ export namespace dcc::ir::lower
                             }
                         }
 
-                        auto* global = g_it->second;
                         auto* ptr_type = m_ctx.pointer_to(global->type);
                         auto* global_ref = m_ctx.global_ref(global, ptr_type);
                         auto* elem_ptr_type = m_ctx.pointer_to(ir_resolved_type);

@@ -19,12 +19,12 @@ void@_DC0F1.4.test9.multi_ref0v() {
   ret void
 }
 
-f64@_DC0S1.4.test8.identity1f64.f64.X1tf64.(f64) {
+linkonce_odr f64@_DC0S1.4.test8.identity1f64.f64.X1tf64.(f64) {
 %entry(f64 %x):
   ret f64 %x
 }
 
-i32@_DC0S1.4.test8.identity1i32si32sX1ti32s(i32) {
+linkonce_odr i32@_DC0S1.4.test8.identity1i32si32sX1ti32s(i32) {
 %entry(i32 %x):
   ret i32 %x
 }

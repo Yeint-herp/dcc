@@ -30,7 +30,7 @@ const global @.str.2 : [26 x u8] = aggregate [26 x u8], #115, #108, #105, #99, #
   %7 = cmp.ule u64 #3, %3
   br.cond %7, label %slice.okb3, label %slice.failb4
 %slice.faila2:
-  call fn(@_DC0F0.8.__assert4Pqi8ui32sPqi8uPqi8uv)(ptr<u8> @.str.0, i32 #4, ptr<u8> @.str.1, ptr<u8> @.str.2)
+  call fn(@_DC0F1.6.assert8.__assert4Pqi8ui32sPqi8uPqi8uv)(ptr<u8> @.str.0, i32 #4, ptr<u8> @.str.1, ptr<u8> @.str.2)
   unreachable
 %slice.okb3:
   %8 = sub u64 #3, u64 %5
@@ -38,9 +38,9 @@ const global @.str.2 : [26 x u8] = aggregate [26 x u8], #115, #108, #105, #99, #
   %10 = aggregate []i64, %9, %8
   ret []i64 %10
 %slice.failb4:
-  call fn(@_DC0F0.8.__assert4Pqi8ui32sPqi8uPqi8uv)(ptr<u8> @.str.0, i32 #4, ptr<u8> @.str.1, ptr<u8> @.str.2)
+  call fn(@_DC0F1.6.assert8.__assert4Pqi8ui32sPqi8uPqi8uv)(ptr<u8> @.str.0, i32 #4, ptr<u8> @.str.1, ptr<u8> @.str.2)
   unreachable
 }
 
-import void@_DC0F0.8.__assert4Pqi8ui32sPqi8uPqi8uv(ptr<u8>, i32, ptr<u8>, ptr<u8>) {
+import void@_DC0F1.6.assert8.__assert4Pqi8ui32sPqi8uPqi8uv(ptr<u8>, i32, ptr<u8>, ptr<u8>) {
 }

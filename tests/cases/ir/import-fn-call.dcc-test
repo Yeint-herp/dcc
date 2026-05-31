@@ -1,0 +1,23 @@
+=== FILE: math.dc ===
+module math;
+
+public i32 bar() { return 7; }
+
+=== FILE: main.dc ===
+module main;
+import math;
+
+public i32 test() { return math::bar(); }
+
+=== ENTRY: main.dc ===
+
+=== EXPECT-IR ===
+module "main"
+i32@_DC0F1.4.main4.test0i32s() {
+%entry:
+  %0 = call fn(@_DC0F1.4.math3.bar0i32s)() -> i32
+  ret i32 %0
+}
+
+i32@_DC0F1.4.math3.bar0i32s() {
+}

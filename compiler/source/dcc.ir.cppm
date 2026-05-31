@@ -947,6 +947,14 @@ export namespace dcc::ir
         }
     };
 
+    enum class Linkage : std::uint8_t
+    {
+        Internal,
+        External,
+        LinkOnceODR,
+        WeakODR,
+    };
+
     enum class IrFuncAttr : std::uint8_t
     {
         Inline,
@@ -1005,6 +1013,7 @@ export namespace dcc::ir
 
         bool is_dll_import{};
         bool is_dll_export{};
+        Linkage linkage{Linkage::Internal};
         std::uint32_t alignment{};
 
         IrFunction(std::string_view n, IrFuncType const* ft, std::pmr::polymorphic_allocator<> a)
@@ -1023,6 +1032,7 @@ export namespace dcc::ir
         bool is_constant{false};
         bool is_dll_import{};
         bool is_dll_export{};
+        Linkage linkage{Linkage::Internal};
         std::uint32_t alignment{};
         std::string_view section{};
 
@@ -2229,9 +2239,29 @@ export namespace dcc::ir
             m_out += '\n';
         }
 
+        static std::string linkage_str(Linkage l)
+        {
+            switch (l)
+            {
+                case Linkage::Internal:
+                    return "internal";
+                case Linkage::External:
+                    return "external";
+                case Linkage::LinkOnceODR:
+                    return "linkonce_odr";
+                case Linkage::WeakODR:
+                    return "weak_odr";
+            }
+            return "internal";
+        }
+
         void print_global(IrGlobal const* g)
         {
             pad();
+            if (g->linkage == Linkage::LinkOnceODR)
+                write("linkonce_odr ");
+            else if (g->linkage == Linkage::WeakODR)
+                write("weak_odr ");
             if (g->is_dll_import)
                 write("import ");
             if (g->is_dll_export)
@@ -2268,6 +2298,10 @@ export namespace dcc::ir
             }
 
             pad();
+            if (f->linkage == Linkage::LinkOnceODR)
+                write("linkonce_odr ");
+            else if (f->linkage == Linkage::WeakODR)
+                write("weak_odr ");
             if (f->is_dll_import)
                 write("import ");
             if (f->is_dll_export)

@@ -1,0 +1,24 @@
+=== FILE: math.dc ===
+module math;
+
+public i32 val = 42;
+
+=== FILE: main.dc ===
+module main;
+import math;
+
+public i32 get_val() { return math::val; }
+
+=== ENTRY: main.dc ===
+
+=== EXPECT-IR ===
+module "main"
+
+global @_DC0G1.4.math3.vali32s : i32
+
+
+i32@_DC0F1.4.main7.get_val0i32s() {
+%entry:
+  %0 = load i32, ptr<i32> @_DC0G1.4.math3.vali32s
+  ret i32 %0
+}
