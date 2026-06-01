@@ -1061,7 +1061,7 @@ export namespace dcc::ir::lower
         {
             IrValue* val = nullptr;
             if (rs->value)
-                val = lower_expr(rs->value);
+                val = lower_implicit_enum_construction(rs->value, [&]() { return lower_expr(rs->value); });
 
             if (val && m_current_func_decl)
             {
@@ -1668,7 +1668,7 @@ export namespace dcc::ir::lower
 
                     if (vd->init)
                     {
-                        auto* val = lower_expr(vd->init);
+                        auto* val = lower_implicit_enum_construction(vd->init, [&]() { return lower_expr(vd->init); });
                         auto* init_sema_type = get_sema_resolved_type(vd->init);
                         if (canon && canon->kind == types::TypeKind::Slice && init_sema_type && init_sema_type->kind == types::TypeKind::Array)
                             val = coerce_array_to_slice(val, init_sema_type, canon);
@@ -1810,12 +1810,44 @@ export namespace dcc::ir::lower
 
                 case ast::ExprKind::StringLiteral: {
                     auto* sl = static_cast<ast::StringLiteralExpr const*>(expr);
+                    if (expr->sema.construction_kind == ast::ExprSema::ConstructionKind::Enum && expr->sema.constructed_variant)
+                    {
+                        auto* variant = expr->sema.constructed_variant;
+                        auto* enum_type = get_sema_resolved_type(expr);
+                        auto* et = types::type_cast<types::EnumType>(enum_type);
+                        if (et && et->is_tagged && !variant->payload.empty())
+                        {
+                            auto* payload_canon = get_canonical_type(variant->payload[0]);
+                            if (payload_canon)
+                            {
+                                auto* payload_val = lower_string_literal_value(sl, payload_canon);
+                                std::vector<IrValue*> payload_args{payload_val};
+                                return lower_tagged_enum_construction(variant, enum_type, payload_args);
+                            }
+                        }
+                    }
                     auto* target_type = get_sema_resolved_type(expr);
                     return lower_string_literal_value(sl, target_type);
                 }
 
                 case ast::ExprKind::U16StringLiteral: {
                     auto* sl = static_cast<ast::U16StringLiteralExpr const*>(expr);
+                    if (expr->sema.construction_kind == ast::ExprSema::ConstructionKind::Enum && expr->sema.constructed_variant)
+                    {
+                        auto* variant = expr->sema.constructed_variant;
+                        auto* enum_type = get_sema_resolved_type(expr);
+                        auto* et = types::type_cast<types::EnumType>(enum_type);
+                        if (et && et->is_tagged && !variant->payload.empty())
+                        {
+                            auto* payload_canon = get_canonical_type(variant->payload[0]);
+                            if (payload_canon)
+                            {
+                                auto* payload_val = lower_u16_string_literal_value(sl, payload_canon);
+                                std::vector<IrValue*> payload_args{payload_val};
+                                return lower_tagged_enum_construction(variant, enum_type, payload_args);
+                            }
+                        }
+                    }
                     auto* target_type = get_sema_resolved_type(expr);
                     return lower_u16_string_literal_value(sl, target_type);
                 }
@@ -1931,7 +1963,9 @@ export namespace dcc::ir::lower
             for (std::size_t i = 0; i < call->args.size(); ++i)
             {
                 auto* arg_expr = call->args[i];
-                auto* arg_val = lower_expr(arg_expr);
+
+                auto* arg_val = lower_implicit_enum_construction(arg_expr, [&]() { return lower_expr(arg_expr); });
+
                 auto* arg_sema_type = get_sema_resolved_type(arg_expr);
 
                 if (callee_decl && i < callee_decl->params.size())
@@ -2402,7 +2436,7 @@ export namespace dcc::ir::lower
         IrValue* lower_assign(ast::BinaryExpr const* bin, dcc::types::TypePtr sema_ty, IrType const* ir_ty)
         {
             std::ignore = ir_ty;
-            auto* rhs_val = lower_expr(bin->rhs);
+            auto* rhs_val = lower_implicit_enum_construction(bin->rhs, [&]() { return lower_expr(bin->rhs); });
 
             auto* rhs_sema_type = get_sema_resolved_type(bin->rhs);
             auto* lhs_sema_type = get_sema_resolved_type(bin->lhs);
@@ -4153,7 +4187,69 @@ export namespace dcc::ir::lower
             return cmp;
         }
 
-        IrValue* lower_block_expr(ast::BlockExpr const* be) { return lower_block_body(be->body); }
+        IrValue* lower_block_expr(ast::BlockExpr const* be)
+        {
+            auto* tail_val = lower_block_body(be->body);
+
+            auto* block_type = get_sema_resolved_type(be);
+            if (block_type && tail_val)
+            {
+                auto* tail_sema_type = be->body.tail ? get_sema_resolved_type(be->body.tail) : nullptr;
+
+                if (auto* arrt = types::type_cast<types::ArrayType>(block_type))
+                {
+                    if (tail_sema_type && tail_sema_type == arrt->element)
+                    {
+                        auto* ir_arr_type = lower_type(block_type);
+                        auto* agg = m_ctx.aggregate(ir_arr_type);
+                        agg->values.push_back(tail_val);
+                        auto name = ident_name();
+                        agg->name = m_name_pool.back();
+                        append_inst(agg);
+                        return agg;
+                    }
+                }
+                else if (auto* slicet = types::type_cast<types::SliceType>(block_type))
+                {
+                    if (tail_sema_type && tail_sema_type == slicet->element)
+                    {
+                        auto* ir_elem_type = lower_type(slicet->element);
+                        auto* ir_arr_type = m_ctx.array_t(ir_elem_type, 1);
+                        auto* ir_arr_ptr_type = m_ctx.pointer_to(ir_arr_type);
+
+                        auto* alloca = m_ctx.alloca(ir_arr_ptr_type, ir_arr_type);
+                        auto alloca_name = ident_name();
+                        alloca->name = m_name_pool.back();
+                        append_inst(alloca);
+
+                        auto* gep_elem = m_ctx.gep(m_ctx.pointer_to(ir_elem_type), alloca);
+                        gep_elem->indices.push_back({IrGepInst::IndexKind::Array, m_ctx.int_const(m_ctx.int_t(64, false), 0), 0});
+                        auto gep_name = ident_name();
+                        gep_elem->name = m_name_pool.back();
+                        append_inst(gep_elem);
+                        append_inst(m_ctx.store(tail_val, gep_elem));
+
+                        auto* ptr_to_first = m_ctx.gep(m_ctx.pointer_to(ir_elem_type), alloca);
+                        ptr_to_first->indices.push_back({IrGepInst::IndexKind::Array, m_ctx.int_const(m_ctx.int_t(64, false), 0), 0});
+                        auto ptr_name = ident_name();
+                        ptr_to_first->name = m_name_pool.back();
+                        append_inst(ptr_to_first);
+
+                        auto* len_val = m_ctx.int_const(m_ctx.int_t(64, false), 1);
+                        auto* ir_slice_type = lower_type(block_type);
+                        auto* slice_agg = m_ctx.aggregate(ir_slice_type);
+                        slice_agg->values.push_back(ptr_to_first);
+                        slice_agg->values.push_back(len_val);
+                        auto slice_name = ident_name();
+                        slice_agg->name = m_name_pool.back();
+                        append_inst(slice_agg);
+                        return slice_agg;
+                    }
+                }
+            }
+
+            return tail_val;
+        }
 
         IrValue* lower_short_circuit_and(ast::BinaryExpr const* bin, dcc::types::TypePtr sema_ty, IrType const* ir_ty)
         {
@@ -5027,27 +5123,7 @@ export namespace dcc::ir::lower
                 if (!value_expr)
                     return nullptr;
 
-                auto* val = lower_expr(value_expr);
-
-                if (value_expr->sema.construction_kind == ast::ExprSema::ConstructionKind::Enum && value_expr->sema.constructed_variant)
-                {
-                    auto* enum_type = get_sema_resolved_type(value_expr);
-                    if (enum_type)
-                    {
-                        auto* et = types::type_cast<types::EnumType>(enum_type);
-                        if (et && et->is_tagged && value_expr->sema.constructed_variant->payload.size() == 1)
-                        {
-                            auto* ir_ty = lower_type(enum_type);
-                            if (val && val->type == ir_ty && val->kind == IrNodeKind::Aggregate)
-                                return val;
-
-                            std::vector<IrValue*> payload_args{val};
-                            return lower_tagged_enum_construction(value_expr->sema.constructed_variant, enum_type, payload_args);
-                        }
-                    }
-                }
-
-                return val;
+                return lower_implicit_enum_construction(value_expr, [&]() { return lower_expr(value_expr); });
             };
 
             if (slicet)
@@ -5159,6 +5235,100 @@ export namespace dcc::ir::lower
             agg->name = m_name_pool.back();
             append_inst(agg);
             return agg;
+        }
+
+        IrValue* lower_implicit_enum_construction(ast::Expr const* expr, std::function<IrValue*()> fallback_lower)
+        {
+            if (expr->sema.construction_kind == ast::ExprSema::ConstructionKind::Enum && expr->sema.constructed_variant)
+            {
+                auto* enum_type = get_sema_resolved_type(expr);
+                if (!enum_type)
+                    return fallback_lower();
+
+                auto* et = types::type_cast<types::EnumType>(enum_type);
+                if (!et || !et->is_tagged)
+                    return fallback_lower();
+
+                auto* variant = expr->sema.constructed_variant;
+                auto* ir_enum_ty = lower_type(enum_type);
+
+                bool needs_payload_lowering =
+                    ast::node_cast<ast::StringLiteralExpr>(expr) || ast::node_cast<ast::U16StringLiteralExpr>(expr) || expr->sema.const_value;
+
+                if (!needs_payload_lowering)
+                {
+                    auto* fallback_val = fallback_lower();
+                    if (fallback_val && fallback_val->type == ir_enum_ty && fallback_val->kind == IrNodeKind::Aggregate)
+                        return fallback_val;
+                }
+
+                std::vector<IrValue*> payload_args;
+
+                for (std::size_t pi = 0; pi < variant->payload.size(); ++pi)
+                {
+                    auto* payload_canon = get_canonical_type(variant->payload[pi]);
+                    if (!payload_canon)
+                    {
+                        if (!needs_payload_lowering)
+                            payload_args.push_back(fallback_lower());
+                        else
+                            payload_args.push_back(nullptr);
+
+                        continue;
+                    }
+
+                    IrValue* payload_val = nullptr;
+
+                    if (auto* sl = ast::node_cast<ast::StringLiteralExpr>(expr))
+                        payload_val = lower_string_literal_value(sl, payload_canon);
+                    else if (auto* u16sl = ast::node_cast<ast::U16StringLiteralExpr>(expr))
+                        payload_val = lower_u16_string_literal_value(u16sl, payload_canon);
+                    else if (expr->sema.const_value)
+                        payload_val = materialize_comptime(*expr->sema.const_value, payload_canon);
+
+                    if (!payload_val && !needs_payload_lowering)
+                        payload_val = fallback_lower();
+
+                    if (payload_val)
+                    {
+                        auto* payload_ir_type = lower_type(payload_canon);
+                        if (payload_val->type && payload_ir_type && payload_val->type != payload_ir_type)
+                            payload_val = coerce_value(payload_val, payload_ir_type);
+                    }
+
+                    payload_args.push_back(payload_val);
+                }
+
+                return lower_tagged_enum_construction(variant, enum_type, payload_args);
+            }
+
+            return fallback_lower();
+        }
+
+        IrValue* coerce_value(IrValue* val, IrType const* target_ir_type)
+        {
+            if (!val || !target_ir_type || val->type == target_ir_type)
+                return val;
+
+            if (val->type->kind == IrTypeKind::Pointer && target_ir_type->kind == IrTypeKind::Pointer)
+            {
+                auto* bc = m_ctx.bitcast(target_ir_type, val);
+                auto name = ident_name();
+                bc->name = m_name_pool.back();
+                append_inst(bc);
+                return bc;
+            }
+
+            if (target_ir_type->kind == IrTypeKind::Aggregate)
+            {
+                auto* bc = m_ctx.bitcast(target_ir_type, val);
+                auto name = ident_name();
+                bc->name = m_name_pool.back();
+                append_inst(bc);
+                return bc;
+            }
+
+            return val;
         }
 
         IrValue* lower_tagged_enum_construction(ast::EnumVariant const* variant, dcc::types::TypePtr enum_type, std::span<IrValue*> payload_args)

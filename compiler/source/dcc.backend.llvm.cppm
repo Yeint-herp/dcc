@@ -2269,6 +2269,44 @@ namespace dcc::backend
                             args.push_back(av);
                         }
 
+                        if (auto* gref = ir_cast<IrGlobalRef>(c->callee))
+                        {
+                            if (gref->function)
+                            {
+                                auto* llvm_func_val = lookup(gref->function);
+                                if (llvm_func_val)
+                                {
+                                    auto* declared_func_ty = LLVMGlobalGetValueType(llvm_func_val);
+                                    if (declared_func_ty && LLVMGetTypeKind(declared_func_ty) == LLVMFunctionTypeKind)
+                                    {
+                                        auto declared_param_count = LLVMCountParamTypes(declared_func_ty);
+                                        if (declared_param_count != static_cast<unsigned>(args.size()))
+                                        {
+                                            add_diag(diags, inst->range,
+                                                     std::format("LLVM backend: call to '{}' has {} args but function declares {} params", gref->function->name,
+                                                                 args.size(), declared_param_count));
+                                            return false;
+                                        }
+
+                                        std::vector<LLVMTypeRef> declared_params(declared_param_count);
+                                        LLVMGetParamTypes(declared_func_ty, declared_params.data());
+
+                                        for (unsigned pi = 0; pi < declared_param_count; ++pi)
+                                        {
+                                            auto* actual_type = LLVMTypeOf(args[pi]);
+                                            if (actual_type != declared_params[pi])
+                                            {
+                                                add_diag(diags, inst->range,
+                                                         std::format("LLVM backend: call to '{}' arg {} type mismatch: actual type != declared param type",
+                                                                     gref->function->name, pi));
+                                                return false;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
                         std::vector<LLVMTypeRef> param_tys;
                         for (auto* a : c->args)
                         {
@@ -2311,6 +2349,43 @@ namespace dcc::backend
                                 return false;
 
                             args.push_back(av);
+                        }
+
+                        if (auto* gref = ir_cast<IrGlobalRef>(c->callee))
+                        {
+                            if (gref->function)
+                            {
+                                auto* llvm_func_val = lookup(gref->function);
+                                if (llvm_func_val)
+                                {
+                                    auto* declared_func_ty = LLVMGlobalGetValueType(llvm_func_val);
+                                    if (declared_func_ty && LLVMGetTypeKind(declared_func_ty) == LLVMFunctionTypeKind)
+                                    {
+                                        auto declared_param_count = LLVMCountParamTypes(declared_func_ty);
+                                        if (declared_param_count != static_cast<unsigned>(args.size()))
+                                        {
+                                            add_diag(diags, inst->range,
+                                                     std::format("LLVM backend: tail call to '{}' has {} args but function declares {} params",
+                                                                 gref->function->name, args.size(), declared_param_count));
+                                            return false;
+                                        }
+
+                                        std::vector<LLVMTypeRef> declared_params(declared_param_count);
+                                        LLVMGetParamTypes(declared_func_ty, declared_params.data());
+
+                                        for (unsigned pi = 0; pi < declared_param_count; ++pi)
+                                        {
+                                            auto* actual_type = LLVMTypeOf(args[pi]);
+                                            if (actual_type != declared_params[pi])
+                                            {
+                                                add_diag(diags, inst->range,
+                                                         std::format("LLVM backend: tail call to '{}' arg {} type mismatch", gref->function->name, pi));
+                                                return false;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
                         }
 
                         std::vector<LLVMTypeRef> param_tys;
