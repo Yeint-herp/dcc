@@ -2,6 +2,7 @@ module;
 
 #include <array>
 #include <cstdio>
+#include <llvm-c/Comdat.h>
 #include <llvm-c/Core.h>
 #include <llvm-c/DebugInfo.h>
 #include <llvm-c/Target.h>
@@ -1002,7 +1003,7 @@ namespace dcc::backend
                     return nullptr;
 
                 auto* gv = LLVMAddGlobal(mod, mem_ty, std::string{g->name}.c_str());
-                LLVMSetLinkage(gv, llvm_linkage(g->linkage));
+                apply_linkage_and_comdat(gv, g->linkage, mod, g->name);
 
                 LLVMValueRef init_val = nullptr;
                 if (g->init)
@@ -1041,6 +1042,17 @@ namespace dcc::backend
                         return LLVMWeakODRLinkage;
                 }
                 return LLVMInternalLinkage;
+            }
+
+            static void apply_linkage_and_comdat(LLVMValueRef gv, Linkage l, LLVMModuleRef mod, std::string_view name)
+            {
+                LLVMSetLinkage(gv, llvm_linkage(l));
+                if (l == Linkage::LinkOnceODR || l == Linkage::WeakODR)
+                {
+                    LLVMComdatRef comdat = LLVMGetOrInsertComdat(mod, std::string{name}.c_str());
+                    LLVMSetComdatSelectionKind(comdat, LLVMAnyComdatSelectionKind);
+                    LLVMSetComdat(gv, comdat);
+                }
             }
 
             [[nodiscard]] static std::optional<unsigned> map_calling_conv_to_llvm(IrFunction const* func, TargetConfig const& target,
@@ -1163,7 +1175,7 @@ namespace dcc::backend
 
                 auto* func_ty = LLVMFunctionType(ret_ty, param_tys.data(), static_cast<unsigned>(param_tys.size()), 0);
                 auto* llvm_func = LLVMAddFunction(mod, std::string{func->name}.c_str(), func_ty);
-                LLVMSetLinkage(llvm_func, llvm_linkage(func->linkage));
+                apply_linkage_and_comdat(llvm_func, func->linkage, mod, func->name);
                 val_map[func] = llvm_func;
 
                 if (debug && debug->dibuilder && debug->difile)
@@ -1595,14 +1607,6 @@ namespace dcc::backend
 
                         std::vector<LLVMValueRef> llvm_indices;
                         IrType const* current_type = source_elem;
-
-                        bool const first_is_field = !g->indices.empty() && g->indices[0].kind == IrGepInst::IndexKind::Field;
-                        bool const need_leading_zero =
-                            (current_type && current_type->kind == IrTypeKind::Array) ||
-                            (current_type && (current_type->kind == IrTypeKind::Aggregate || current_type->kind == IrTypeKind::Slice) && first_is_field);
-
-                        if (need_leading_zero)
-                            llvm_indices.push_back(LLVMConstInt(LLVMInt32TypeInContext(ctx), 0, 0));
 
                         for (auto const& ir_idx : g->indices)
                         {

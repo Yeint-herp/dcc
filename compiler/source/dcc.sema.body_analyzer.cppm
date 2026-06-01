@@ -3905,6 +3905,20 @@ export namespace dcc::sema
             if (expected->kind == types::TypeKind::Pointer && got->kind == types::TypeKind::NullT)
                 return true;
 
+            if (expected->kind == types::TypeKind::Pointer && got->kind == types::TypeKind::Pointer)
+            {
+                auto const* ep = static_cast<types::PointerType const*>(expected);
+                auto const* gp = static_cast<types::PointerType const*>(got);
+                return ep->pointee == gp->pointee && ep->pointee_quals == gp->pointee_quals;
+            }
+
+            if (expected->kind == types::TypeKind::Slice && got->kind == types::TypeKind::Slice)
+            {
+                auto const* es = static_cast<types::SliceType const*>(expected);
+                auto const* gs = static_cast<types::SliceType const*>(got);
+                return es->element == gs->element && es->element_quals == gs->element_quals;
+            }
+
             if (expected->kind == types::TypeKind::Slice && got->kind == types::TypeKind::Array)
             {
                 auto const* es = static_cast<types::SliceType const*>(expected);
@@ -6663,7 +6677,6 @@ export namespace dcc::sema
 
                 std::optional<detail::ExprResult> chosen;
                 ast::EnumVariant const* chosen_variant = nullptr;
-                bool ambiguous = false;
                 {
                     [[maybe_unused]] ErrorSuppressionGuard suppress{m_suppress_errors, m_suppressed_error_count};
                     for (auto const& variant : enum_decl->variants)
@@ -6683,12 +6696,6 @@ export namespace dcc::sema
                         if (val.type != payload_ty && !can_assign_return(payload_ty, val.type))
                             continue;
 
-                        if (chosen)
-                        {
-                            ambiguous = true;
-                            break;
-                        }
-
                         detail::ExprResult result{};
                         result.type = target_enum_type;
                         result.construction_kind = ConstructionKind::Enum;
@@ -6697,10 +6704,11 @@ export namespace dcc::sema
                         result.is_constant = val.is_constant;
                         chosen = result;
                         chosen_variant = &variant;
+                        break;
                     }
                 }
 
-                if (ambiguous || !chosen)
+                if (!chosen)
                     return std::nullopt;
 
                 auto payload_ty = resolve_payload_type(*enum_decl, chosen_variant->payload[0], target_enum_type, mod, scope);
@@ -6713,9 +6721,17 @@ export namespace dcc::sema
                 return chosen;
             };
 
+            auto is_shorthand_ident = [](ast::StructLiteralField const& f) -> bool {
+                if (f.name.empty())
+                    return false;
+
+                auto* ident = ast::node_cast<ast::IdentExpr>(f.value);
+                return ident && ident->name == f.name;
+            };
+
             auto analyze_array = [&](types::ArrayType const* arr) -> std::optional<detail::ExprResult> {
                 for (auto const& f : s.fields)
-                    if (!f.name.empty())
+                    if (!f.name.empty() && !is_shorthand_ident(f))
                     {
                         error(f.range, "array literal does not accept field names");
                         return std::nullopt;
@@ -6740,13 +6756,10 @@ export namespace dcc::sema
                     auto val = analyze_expr(mod, fn, scope, *f.value, loop_depth, next_off, arr->element, const_env);
                     if (arr->element && val.type && val.type != arr->element && val.type->kind != types::TypeKind::Error)
                     {
-                        if (!try_implicit_enum_conversion(arr->element, val.type, mod, scope))
+                        if (!try_implicit_enum_element(*f.value, arr->element))
                         {
-                            if (!try_implicit_enum_element(*f.value, arr->element))
-                            {
-                                error(f.range, "array element type mismatch");
-                                return std::nullopt;
-                            }
+                            error(f.range, "array element type mismatch");
+                            return std::nullopt;
                         }
                     }
                 }
@@ -6755,7 +6768,7 @@ export namespace dcc::sema
 
             auto analyze_slice = [&](types::SliceType const* slice) -> std::optional<detail::ExprResult> {
                 for (auto const& f : s.fields)
-                    if (!f.name.empty())
+                    if (!f.name.empty() && !is_shorthand_ident(f))
                     {
                         error(f.range, "slice literal does not accept field names");
                         return std::nullopt;
@@ -6774,13 +6787,10 @@ export namespace dcc::sema
                     auto val = analyze_expr(mod, fn, scope, *f.value, loop_depth, next_off, slice->element, const_env);
                     if (slice->element && val.type && val.type != slice->element && val.type->kind != types::TypeKind::Error)
                     {
-                        if (!try_implicit_enum_conversion(slice->element, val.type, mod, scope))
+                        if (!try_implicit_enum_element(*f.value, slice->element))
                         {
-                            if (!try_implicit_enum_element(*f.value, slice->element))
-                            {
-                                error(f.range, "slice element type mismatch");
-                                return std::nullopt;
-                            }
+                            error(f.range, "slice element type mismatch");
+                            return std::nullopt;
                         }
                     }
                 }
@@ -6820,11 +6830,6 @@ export namespace dcc::sema
                         for (std::size_t i = 0; i < s.fields.size(); ++i)
                         {
                             auto const& f = s.fields[i];
-                            if (!f.name.empty())
-                            {
-                                ok = false;
-                                break;
-                            }
 
                             auto payload_ty = variant.payload[i] ? resolve_type_node(mod, scope, variant.payload[i]) : m_types.m_errort();
                             payload_ty = substitute_in_nominal_context(payload_ty, target);

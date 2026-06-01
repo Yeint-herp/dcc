@@ -2612,6 +2612,92 @@ export namespace dcc::ir::lower
 
         IrValue* lower_cast_expr(ast::CastExpr const* c)
         {
+            if (c->sema.construction_kind == ast::ExprSema::ConstructionKind::Enum && c->sema.constructed_variant)
+            {
+                auto* enum_type = get_sema_resolved_type(c);
+                auto* variant = c->sema.constructed_variant;
+
+                auto* operand = lower_expr(c->operand);
+
+                if (variant->payload.size() == 1)
+                {
+                    auto* payload_sema_type = variant->payload[0] ? get_canonical_type(variant->payload[0]) : nullptr;
+                    if (payload_sema_type)
+                    {
+                        auto* src_sema_ty = get_sema_resolved_type(c->operand);
+                        auto* dst_ir_ty = lower_type(payload_sema_type);
+                        auto* src_ir_ty = lower_type(src_sema_ty);
+
+                        if (src_ir_ty != dst_ir_ty)
+                        {
+                            if (src_ir_ty->kind == IrTypeKind::Int && dst_ir_ty->kind == IrTypeKind::Int)
+                            {
+                                auto* src_int = static_cast<IrIntType const*>(src_ir_ty);
+                                auto* dst_int = static_cast<IrIntType const*>(dst_ir_ty);
+                                if (src_int->bits < dst_int->bits)
+                                {
+                                    IrValue* inst = src_int->is_signed ? (IrValue*)m_ctx.sext(dst_ir_ty, operand) : (IrValue*)m_ctx.zext(dst_ir_ty, operand);
+                                    auto name = ident_name();
+                                    inst->name = m_name_pool.back();
+                                    append_inst(inst);
+                                    operand = inst;
+                                }
+                                else if (src_int->bits > dst_int->bits)
+                                {
+                                    auto* inst = m_ctx.trunc(dst_ir_ty, operand);
+                                    auto name = ident_name();
+                                    inst->name = m_name_pool.back();
+                                    append_inst(inst);
+                                    operand = inst;
+                                }
+                            }
+                            else if (src_ir_ty->kind == IrTypeKind::Float && dst_ir_ty->kind == IrTypeKind::Float)
+                            {
+                                auto* src_ft = static_cast<IrFloatType const*>(src_ir_ty);
+                                auto* dst_ft = static_cast<IrFloatType const*>(dst_ir_ty);
+                                if (src_ft->bits < dst_ft->bits)
+                                {
+                                    auto* inst = m_ctx.fpext(dst_ir_ty, operand);
+                                    auto name = ident_name();
+                                    inst->name = m_name_pool.back();
+                                    append_inst(inst);
+                                    operand = inst;
+                                }
+                                else
+                                {
+                                    auto* inst = m_ctx.fptrunc(dst_ir_ty, operand);
+                                    auto name = ident_name();
+                                    inst->name = m_name_pool.back();
+                                    append_inst(inst);
+                                    operand = inst;
+                                }
+                            }
+                            else if (src_ir_ty->kind == IrTypeKind::Float && dst_ir_ty->kind == IrTypeKind::Int)
+                            {
+                                auto* inst = m_ctx.fptoi(dst_ir_ty, operand);
+                                auto name = ident_name();
+                                inst->name = m_name_pool.back();
+                                append_inst(inst);
+                                operand = inst;
+                            }
+                            else if (src_ir_ty->kind == IrTypeKind::Int && dst_ir_ty->kind == IrTypeKind::Float)
+                            {
+                                auto* inst = m_ctx.itofp(dst_ir_ty, operand);
+                                auto name = ident_name();
+                                inst->name = m_name_pool.back();
+                                append_inst(inst);
+                                operand = inst;
+                            }
+                        }
+
+                        std::vector<IrValue*> payload_args{operand};
+                        return lower_tagged_enum_construction(variant, enum_type, payload_args);
+                    }
+                }
+
+                return lower_tagged_enum_construction(variant, enum_type, std::span<IrValue*>{});
+            }
+
             auto* dst_sema_ty = get_sema_resolved_type(c);
             auto* src_sema_ty = get_sema_resolved_type(c->operand);
             auto* dst_ir_ty = lower_type(dst_sema_ty);
@@ -3341,19 +3427,17 @@ export namespace dcc::ir::lower
                                 else
                                     payload_arr = operand_val;
 
-                                auto* alloca = m_ctx.alloca(m_ctx.pointer_to(ir_payload_type), ir_payload_type);
-                                auto alloca_name = ident_name();
-                                alloca->name = m_name_pool.back();
-                                append_inst(alloca);
+                                auto* payload_buf = m_ctx.alloca(m_ctx.pointer_to(ir_payload_arr_ty), ir_payload_arr_ty);
+                                auto buf_name = ident_name();
+                                payload_buf->name = m_name_pool.back();
+                                append_inst(payload_buf);
+                                append_inst(m_ctx.store(payload_arr, payload_buf));
 
-                                auto* bc = m_ctx.bitcast(m_ctx.pointer_to(ir_payload_arr_ty), alloca);
-                                auto bc_name = ident_name();
-                                bc->name = m_name_pool.back();
-                                append_inst(bc);
-
-                                append_inst(m_ctx.store(payload_arr, bc));
-
-                                auto* payload_val = m_ctx.load(ir_payload_type, alloca);
+                                auto* typed_ptr = m_ctx.bitcast(m_ctx.pointer_to(ir_payload_type), payload_buf);
+                                auto ptr_name = ident_name();
+                                typed_ptr->name = m_name_pool.back();
+                                append_inst(typed_ptr);
+                                auto* payload_val = m_ctx.load(ir_payload_type, typed_ptr);
                                 auto load_name = ident_name();
                                 payload_val->name = m_name_pool.back();
                                 append_inst(payload_val);
@@ -3381,7 +3465,7 @@ export namespace dcc::ir::lower
                                         else
                                         {
                                             auto* ptr_sema_ty = make_ptr_sema_type(payload_sema_type, dcc::types::Qual::None);
-                                            m_named_values[bp.name] = MapEntry{alloca, false, ptr_sema_ty, false};
+                                            m_named_values[bp.name] = MapEntry{payload_buf, false, ptr_sema_ty, false};
                                         }
                                     }
                                     else if (operand_ir_is_aggregate(ir_payload_type))
@@ -3723,24 +3807,22 @@ export namespace dcc::ir::lower
                                 else
                                     payload_arr = value;
 
-                                auto* alloca = m_ctx.alloca(m_ctx.pointer_to(ir_payload_type), ir_payload_type);
-                                auto alloca_name = ident_name();
-                                alloca->name = m_name_pool.back();
-                                append_inst(alloca);
+                                auto* payload_buf = m_ctx.alloca(m_ctx.pointer_to(ir_payload_arr_ty), ir_payload_arr_ty);
+                                auto buf_name = ident_name();
+                                payload_buf->name = m_name_pool.back();
+                                append_inst(payload_buf);
+                                append_inst(m_ctx.store(payload_arr, payload_buf));
 
-                                auto* bc = m_ctx.bitcast(m_ctx.pointer_to(ir_payload_arr_ty), alloca);
-                                auto bc_name = ident_name();
-                                bc->name = m_name_pool.back();
-                                append_inst(bc);
-
-                                append_inst(m_ctx.store(payload_arr, bc));
-
-                                auto* payload_val = m_ctx.load(ir_payload_type, alloca);
+                                auto* typed_ptr = m_ctx.bitcast(m_ctx.pointer_to(ir_payload_type), payload_buf);
+                                auto ptr_name = ident_name();
+                                typed_ptr->name = m_name_pool.back();
+                                append_inst(typed_ptr);
+                                auto* payload_val = m_ctx.load(ir_payload_type, typed_ptr);
                                 auto load_name = ident_name();
                                 payload_val->name = m_name_pool.back();
                                 append_inst(payload_val);
 
-                                return {payload_val, ir_payload_type, payload_sema_type, alloca};
+                                return {payload_val, ir_payload_type, payload_sema_type, payload_buf};
                             };
 
                             for (std::size_t pi = 0; pi < ep.payload.size(); ++pi)
@@ -4911,6 +4993,10 @@ export namespace dcc::ir::lower
                         auto* et = types::type_cast<types::EnumType>(enum_type);
                         if (et && et->is_tagged && value_expr->sema.constructed_variant->payload.size() == 1)
                         {
+                            auto* ir_ty = lower_type(enum_type);
+                            if (val && val->type == ir_ty && val->kind == IrNodeKind::Aggregate)
+                                return val;
+
                             std::vector<IrValue*> payload_args{val};
                             return lower_tagged_enum_construction(value_expr->sema.constructed_variant, enum_type, payload_args);
                         }
@@ -5067,19 +5153,21 @@ export namespace dcc::ir::lower
 
                 auto* ir_payload_sema_ty = lower_type(payload_sema_canon);
 
-                auto* alloca = m_ctx.alloca(m_ctx.pointer_to(ir_payload_sema_ty), ir_payload_sema_ty);
-                auto alloca_name = ident_name();
-                alloca->name = m_name_pool.back();
-                append_inst(alloca);
+                auto* payload_buf = m_ctx.alloca(ir_payload_ptr_ty, ir_payload_arr_ty);
+                auto buf_name = ident_name();
+                payload_buf->name = m_name_pool.back();
+                append_inst(payload_buf);
 
-                append_inst(m_ctx.store(payload_args[0], alloca));
+                auto* zero_arr = zero_value(ir_payload_arr_ty);
+                append_inst(m_ctx.store(zero_arr, payload_buf));
 
-                auto* bitcast = m_ctx.bitcast(ir_payload_ptr_ty, alloca);
-                auto bc_name = ident_name();
-                bitcast->name = m_name_pool.back();
-                append_inst(bitcast);
+                auto* typed_ptr = m_ctx.bitcast(m_ctx.pointer_to(ir_payload_sema_ty), payload_buf);
+                auto ptr_name = ident_name();
+                typed_ptr->name = m_name_pool.back();
+                append_inst(typed_ptr);
+                append_inst(m_ctx.store(payload_args[0], typed_ptr));
 
-                auto* payload_bytes = m_ctx.load(ir_payload_arr_ty, bitcast);
+                auto* payload_bytes = m_ctx.load(ir_payload_arr_ty, payload_buf);
                 auto load_name = ident_name();
                 payload_bytes->name = m_name_pool.back();
                 append_inst(payload_bytes);
