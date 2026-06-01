@@ -5370,7 +5370,17 @@ export namespace dcc::ir::lower
                     std::uint32_t field_idx = field_decl->index;
                     auto* field_sema_ty = get_canonical_type(field_decl->type);
 
-                    auto* gep = m_ctx.gep(m_ctx.pointer_to(lower_type(field_sema_ty)), it->second.value);
+                    IrValue* base_ptr = it->second.value;
+                    if (obj_sema_type && obj_sema_type->kind == types::TypeKind::Pointer)
+                    {
+                        auto* ptr_ir_type = lower_type(it->second.sema_type);
+                        base_ptr = m_ctx.load(ptr_ir_type, base_ptr);
+                        auto load_name = ident_name();
+                        base_ptr->name = m_name_pool.back();
+                        append_inst(base_ptr);
+                    }
+
+                    auto* gep = m_ctx.gep(m_ctx.pointer_to(lower_type(field_sema_ty)), base_ptr);
                     gep->indices.push_back({IrGepInst::IndexKind::Field, nullptr, field_idx});
                     auto gep_name = ident_name();
                     gep->name = m_name_pool.back();
@@ -5392,7 +5402,16 @@ export namespace dcc::ir::lower
                         std::uint32_t field_idx = field_decl->index;
                         auto* field_sema_ty = get_canonical_type(field_decl->type);
 
-                        auto* gep = m_ctx.gep(m_ctx.pointer_to(lower_type(field_sema_ty)), global_ptr);
+                        IrValue* base_ptr = global_ptr;
+                        if (obj_sema_type && obj_sema_type->kind == types::TypeKind::Pointer)
+                        {
+                            base_ptr = m_ctx.load(global->type, global_ptr);
+                            auto load_name = ident_name();
+                            base_ptr->name = m_name_pool.back();
+                            append_inst(base_ptr);
+                        }
+
+                        auto* gep = m_ctx.gep(m_ctx.pointer_to(lower_type(field_sema_ty)), base_ptr);
                         gep->indices.push_back({IrGepInst::IndexKind::Field, nullptr, field_idx});
                         auto gep_name = ident_name();
                         gep->name = m_name_pool.back();
@@ -6026,8 +6045,18 @@ export namespace dcc::ir::lower
                 auto it = m_value_map.find(resolved);
                 if (it != m_value_map.end() && it->second.is_storage)
                 {
+                    IrValue* base_ptr = it->second.value;
+                    if (obj_sema_type && obj_sema_type->kind == types::TypeKind::Pointer)
+                    {
+                        auto* ptr_ir_type = lower_type(it->second.sema_type);
+                        base_ptr = m_ctx.load(ptr_ir_type, base_ptr);
+                        auto load_name = ident_name();
+                        base_ptr->name = m_name_pool.back();
+                        append_inst(base_ptr);
+                    }
+
                     auto* elem_ptr_type = m_ctx.pointer_to(lower_type(field_sema_ty));
-                    auto* gep = m_ctx.gep(elem_ptr_type, it->second.value);
+                    auto* gep = m_ctx.gep(elem_ptr_type, base_ptr);
                     gep->indices.push_back({IrGepInst::IndexKind::Field, nullptr, field_idx});
                     auto gep_name = ident_name();
                     gep->name = m_name_pool.back();
@@ -6042,8 +6071,17 @@ export namespace dcc::ir::lower
                     {
                         auto* ptr_type = m_ctx.pointer_to(global->type);
                         auto* global_ref = m_ctx.global_ref(global, ptr_type);
+                        IrValue* base_ptr = global_ref;
+                        if (obj_sema_type && obj_sema_type->kind == types::TypeKind::Pointer)
+                        {
+                            base_ptr = m_ctx.load(global->type, global_ref);
+                            auto load_name = ident_name();
+                            base_ptr->name = m_name_pool.back();
+                            append_inst(base_ptr);
+                        }
+
                         auto* elem_ptr_type = m_ctx.pointer_to(lower_type(field_sema_ty));
-                        auto* gep = m_ctx.gep(elem_ptr_type, global_ref);
+                        auto* gep = m_ctx.gep(elem_ptr_type, base_ptr);
                         gep->indices.push_back({IrGepInst::IndexKind::Field, nullptr, field_idx});
                         auto gep_name = ident_name();
                         gep->name = m_name_pool.back();

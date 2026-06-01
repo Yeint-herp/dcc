@@ -1,0 +1,102 @@
+=== FILE: test.dc ===
+module test;
+
+struct Point {
+    i64 x;
+    i64 y;
+}
+
+using PtrPoint = Point*;
+
+Point gp;
+Point* gpp;
+
+// 1. local struct .field (read + write)
+public i64 local_struct_field(i64 a) {
+    Point p = {x = a, y = 2};
+    p.x = 42;
+    return p.x;
+}
+
+// 2. local pointer-to-struct .field (read + write)
+//    Must load the pointer from the local variable before GEP
+public i64 local_ptr_field(i64 a) {
+    Point p = {x = a, y = 2};
+    PtrPoint pp = &p;
+    pp.x = 42;
+    return pp.x;
+}
+
+// 3. global struct .field (read)
+//    GEP directly on global storage, no spurious load
+public i64 global_struct_read() {
+    return gp.x;
+}
+
+// 4. global pointer-to-struct .field (read + write)
+//    Must load the pointer from the global before GEP
+public i64 global_ptr_read() {
+    return gpp.x;
+}
+public void global_ptr_write() {
+    gpp.x = 42;
+}
+
+=== EXPECT-IR ===
+module "test"
+
+global @_DC0G1.4.test2.gpD1.4.test5.Point0. : {@0 i64, @8 i64}
+
+global @_DC0G1.4.test3.gppPqD1.4.test5.Point0. : ptr<{@0 i64, @8 i64}>
+
+
+i64@_DC0F1.4.test18.local_struct_field1i64si64s(i64) {
+%entry(i64 %a):
+  %0 = alloca {@0 i64, @8 i64}
+  %1 = aggregate {@0 i64, @8 i64}, %a, #2
+  store {@0 i64, @8 i64} %1, ptr<{@0 i64, @8 i64}> %0
+  %2 = gep ptr<{@0 i64, @8 i64}> %0, field #0
+  store i64 #42, ptr<i64> %2
+  %3 = gep ptr<{@0 i64, @8 i64}> %0, field #0
+  %4 = load i64, ptr<i64> %3
+  ret i64 %4
+}
+
+i64@_DC0F1.4.test15.local_ptr_field1i64si64s(i64) {
+%entry(i64 %a):
+  %0 = alloca {@0 i64, @8 i64}
+  %1 = aggregate {@0 i64, @8 i64}, %a, #2
+  store {@0 i64, @8 i64} %1, ptr<{@0 i64, @8 i64}> %0
+  %2 = alloca ptr<{@0 i64, @8 i64}>
+  store ptr<{@0 i64, @8 i64}> %0, ptr<ptr<{@0 i64, @8 i64}>> %2
+  %3 = load ptr<{@0 i64, @8 i64}>, ptr<ptr<{@0 i64, @8 i64}>> %2
+  %4 = gep ptr<{@0 i64, @8 i64}> %3, field #0
+  store i64 #42, ptr<i64> %4
+  %5 = load ptr<{@0 i64, @8 i64}>, ptr<ptr<{@0 i64, @8 i64}>> %2
+  %6 = gep ptr<{@0 i64, @8 i64}> %5, field #0
+  %7 = load i64, ptr<i64> %6
+  ret i64 %7
+}
+
+i64@_DC0F1.4.test18.global_struct_read0i64s() {
+%entry:
+  %0 = gep ptr<{@0 i64, @8 i64}> @_DC0G1.4.test2.gpD1.4.test5.Point0., field #0
+  %1 = load i64, ptr<i64> %0
+  ret i64 %1
+}
+
+i64@_DC0F1.4.test15.global_ptr_read0i64s() {
+%entry:
+  %0 = load ptr<{@0 i64, @8 i64}>, ptr<ptr<{@0 i64, @8 i64}>> @_DC0G1.4.test3.gppPqD1.4.test5.Point0.
+  %1 = gep ptr<{@0 i64, @8 i64}> %0, field #0
+  %2 = load i64, ptr<i64> %1
+  ret i64 %2
+}
+
+void@_DC0F1.4.test16.global_ptr_write0v() {
+%entry:
+  %0 = load ptr<{@0 i64, @8 i64}>, ptr<ptr<{@0 i64, @8 i64}>> @_DC0G1.4.test3.gppPqD1.4.test5.Point0.
+  %1 = gep ptr<{@0 i64, @8 i64}> %0, field #0
+  store i64 #42, ptr<i64> %1
+  ret void
+}

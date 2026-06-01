@@ -1,0 +1,30 @@
+=== FILE: test.dc ===
+module test;
+
+public struct Point {
+    i64 x;
+    i64 y;
+}
+
+@nomangle
+Point* gpp;
+
+@nomangle
+i64 read_gpp() { return gpp.x; }
+
+=== EXPECT-LLVM FLAGS: -verify ===
+; ModuleID = 'test'
+source_filename = "test"
+target triple = "x86_64-unknown-linux-gnu"
+
+%0 = type { i64, i64 }
+
+@gpp = internal global ptr null
+
+define i64 @read_gpp() {
+entry:
+  %"0" = load ptr, ptr @gpp, align 8
+  %"1" = getelementptr %0, ptr %"0", i32 0
+  %"2" = load i64, ptr %"1", align 4
+  ret i64 %"2"
+}
