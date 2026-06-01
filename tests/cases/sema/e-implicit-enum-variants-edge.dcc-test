@@ -23,15 +23,15 @@ MixedVisibility test_float() {
 Module m
   Func test_int diverging=true
     Body
-      Var mv type=enum MixedVisibility storage=local offset=0
-        StructLiteral [type=enum MixedVisibility const=agg(0, 42) constant]
+      Var mv type=MixedVisibility storage=local offset=0
+        StructLiteral [type=MixedVisibility const=agg(0, 42) constant]
           IntLiteral 42 [type=i32 const=42 constant]
       Return
-        Ident mv [type=enum MixedVisibility const=agg(0, 42) lvalue constant decl=mv]
+        Ident mv [type=MixedVisibility const=agg(0, 42) lvalue constant decl=mv]
   Func test_float diverging=true
     Body
-      Var mv type=enum MixedVisibility storage=local offset=0
-        StructLiteral [type=enum MixedVisibility const=agg(2, 3.14) constant]
+      Var mv type=MixedVisibility storage=local offset=0
+        StructLiteral [type=MixedVisibility const=agg(2, 3.14) constant]
           FloatLiteral 3.14 [type=f32 const=3.14 constant]
       Return
-        Ident mv [type=enum MixedVisibility const=agg(2, 3.14) lvalue constant decl=mv]
+        Ident mv [type=MixedVisibility const=agg(2, 3.14) lvalue constant decl=mv]

@@ -15,9 +15,9 @@ public Shadow(u8) shadow_u8;
 Module m
   Struct Shadow
     TemplateParams T
-    Field value: T#0
-    Field ptr: ptr(T#0)
+    Field value: T
+    Field ptr: T*
   Using T
     Alias: u32
   Var outer: u32
-  Var shadow_u8: struct Shadow<u8>
+  Var shadow_u8: Shadow(u8)

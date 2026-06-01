@@ -14,8 +14,8 @@ Module m
   Func a diverging=true
     Body
       Return
-        NullLiteral [type=ptr(u8) const=null constant]
+        NullLiteral [type=u8* const=null constant]
   Func b diverging=false
     Body
-      Var p type=ptr(u8) storage=local offset=0
-        NullLiteral [type=ptr(u8) const=null constant]
+      Var p type=u8* storage=local offset=0
+        NullLiteral [type=u8* const=null constant]

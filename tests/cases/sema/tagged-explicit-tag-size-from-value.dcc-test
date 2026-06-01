@@ -17,6 +17,6 @@ Module m
     Variant A(i32)
     Variant B(i32)
     Variant C(i32)
-  Var t1: enum LargeTag
-  Var t2: enum LargeTag
-  Var t3: enum LargeTag
+  Var t1: LargeTag
+  Var t2: LargeTag
+  Var t3: LargeTag

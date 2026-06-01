@@ -47,22 +47,22 @@ i32 test_array_dispatch() {
 === EXPECT-BODY ===
 Module m
   Func consume diverging=true
-    Param ts type=enum TriState storage=param offset=0 index=0
+    Param ts type=TriState storage=param offset=0 index=0
     Body
       Return
         IntLiteral 40 [type=i32 const=40 constant]
   Func consume diverging=true
-    Param v type=struct Vec3 storage=param offset=0 index=0
+    Param v type=Vec3 storage=param offset=0 index=0
     Body
       Return
         IntLiteral 10 [type=i32 const=10 constant]
   Func consume diverging=true
-    Param arr type=[i32; 3] storage=param offset=0 index=0
+    Param arr type=i32[3] storage=param offset=0 index=0
     Body
       Return
         IntLiteral 20 [type=i32 const=20 constant]
   Func consume diverging=true
-    Param sl type=slice(i32) storage=param offset=0 index=0
+    Param sl type=[]i32 storage=param offset=0 index=0
     Body
       Return
         IntLiteral 30 [type=i32 const=30 constant]
@@ -71,25 +71,25 @@ Module m
       Return
         Call [type=i32 const=<none> decl=consume]
           Ident consume [type=<unresolved> const=<none>]
-          StructLiteral [type=enum TriState const=agg(1, false) constant]
+          StructLiteral [type=TriState const=agg(1, false) constant]
             BoolLiteral false [type=bool const=false constant]
   Func test_struct_dispatch diverging=true
     Body
       Return
         Call [type=i32 const=<none> decl=consume]
           Ident consume [type=<unresolved> const=<none>]
-          StructLiteral [type=struct Vec3 const=agg(1, 2, 3) constant]
+          StructLiteral [type=Vec3 const=agg(1, 2, 3) constant]
             IntLiteral 1 [type=i32 const=1 constant]
             IntLiteral 2 [type=i32 const=2 constant]
             IntLiteral 3 [type=i32 const=3 constant]
   Func test_array_dispatch diverging=true
     Body
-      Var arr type=[i32; 3] storage=local offset=0
-        StructLiteral [type=[i32; 3] const=agg(4, 5, 6) constant]
+      Var arr type=i32[3] storage=local offset=0
+        StructLiteral [type=i32[3] const=agg(4, 5, 6) constant]
           IntLiteral 4 [type=i32 const=4 constant]
           IntLiteral 5 [type=i32 const=5 constant]
           IntLiteral 6 [type=i32 const=6 constant]
       Return
         Call [type=i32 const=<none> decl=consume]
           Ident consume [type=<unresolved> const=<none>]
-          Ident arr [type=[i32; 3] const=agg(4, 5, 6) lvalue constant decl=arr]
+          Ident arr [type=i32[3] const=agg(4, 5, 6) lvalue constant decl=arr]

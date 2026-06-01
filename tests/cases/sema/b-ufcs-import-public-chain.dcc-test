@@ -28,11 +28,11 @@ void use_console() {
 Module entry
   Func use_console diverging=false
     Body
-      Var co type=struct ConOut storage=local offset=0
+      Var co type=ConOut storage=local offset=0
       Call [type=void const=<none> decl=clear ufcs=clear]
         FieldAccess clear [type=<unresolved> const=<none> decl=clear ufcs=clear]
-          Ident co [type=struct ConOut const=<none> lvalue addr_of decl=co]
+          Ident co [type=ConOut const=<none> lvalue addr_of decl=co]
       Call [type=void const=<none> decl=write ufcs=write]
         FieldAccess write [type=<unresolved> const=<none> decl=write ufcs=write]
-          Ident co [type=struct ConOut const=<none> lvalue addr_of decl=co]
+          Ident co [type=ConOut const=<none> lvalue addr_of decl=co]
         IntLiteral 65 [type=i32 const=65 constant]

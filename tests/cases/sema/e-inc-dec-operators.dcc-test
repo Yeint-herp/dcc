@@ -50,12 +50,12 @@ Module m
       Unary -- [type=f64 const=<none> lvalue decl=w]
         Ident w [type=f64 const=<none> lvalue decl=w]
   Func test_postfix_ptr diverging=false
-    Param p type=ptr(i32) storage=param offset=0 index=0
+    Param p type=i32* storage=param offset=0 index=0
     Body
-      Postfix ++ [type=ptr(i32) const=<none> decl=p]
-        Ident p [type=ptr(i32) const=<none> lvalue decl=p]
+      Postfix ++ [type=i32* const=<none> decl=p]
+        Ident p [type=i32* const=<none> lvalue decl=p]
   Func test_prefix_ptr diverging=false
-    Param q type=ptr(i32) storage=param offset=0 index=0
+    Param q type=i32* storage=param offset=0 index=0
     Body
-      Unary ++ [type=ptr(i32) const=<none> lvalue decl=q]
-        Ident q [type=ptr(i32) const=<none> lvalue decl=q]
+      Unary ++ [type=i32* const=<none> lvalue decl=q]
+        Ident q [type=i32* const=<none> lvalue decl=q]

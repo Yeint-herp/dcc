@@ -16,12 +16,12 @@ Module m
   Func get_a diverging=true
     Body
       Return
-        Path Bits::A [type=enum Bits const=1 constant decl=Bits]
+        Path Bits::A [type=Bits const=1 constant decl=Bits]
   Func get_b diverging=true
     Body
       Return
-        Path Bits::B [type=enum Bits const=2 constant decl=Bits]
+        Path Bits::B [type=Bits const=2 constant decl=Bits]
   Func get_c diverging=true
     Body
       Return
-        Path Bits::C [type=enum Bits const=4 constant decl=Bits]
+        Path Bits::C [type=Bits const=4 constant decl=Bits]

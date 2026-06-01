@@ -25,8 +25,8 @@ u8 test_assign() {
 === EXPECT-BODY ===
 Module m
   Func max diverging=false
-    Param a type=T#0 storage=param offset=0 index=0
-    Param b type=T#0 storage=param offset=0 index=1
+    Param a type=T storage=param offset=0 index=0
+    Param b type=T storage=param offset=0 index=1
     Body
       Return
         Ident a [type=<unresolved> const=<none>]
@@ -48,7 +48,7 @@ Module m
           IntLiteral 42 [type=i64 const=42 constant]
           IntLiteral 99 [type=i64 const=99 constant]
   Func identity diverging=false
-    Param x type=T#0 storage=param offset=0 index=0
+    Param x type=T storage=param offset=0 index=0
     Body
       Return
         Ident x [type=<unresolved> const=<none>]

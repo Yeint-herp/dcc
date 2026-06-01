@@ -2237,7 +2237,7 @@ export namespace dccd
                             params += ", ";
                         params += format_dcc_type(f->params[i]);
                     }
-                    return std::format("{} (*)({})", format_dcc_type(f->return_type), params);
+                    return std::format("{}(*)({})", format_dcc_type(f->return_type), params);
                 }
                 case dcc::types::TypeKind::Struct:
                 case dcc::types::TypeKind::Union:
@@ -2274,7 +2274,7 @@ export namespace dccd
                                 args += ", ";
                             args += format_dcc_type(ut->template_args[i]);
                         }
-                        return std::format("{}<{}>", name, args);
+                        return std::format("{}({})", name, args);
                     }
                     return std::string{name};
                 }
@@ -2287,7 +2287,7 @@ export namespace dccd
                 case dcc::types::TypeKind::Error:
                     return "<error>";
             }
-            return dcc::sema::format_type_str(ty);
+            return dcc::sema::format_dcc_type(ty);
         }
 
         [[nodiscard]] static std::string uri_decode(std::string_view s)

@@ -21,4 +21,4 @@ public struct B {
 === EXPECT-TYPES FOR: a ===
 Module a
   Struct A
-    Field next: ptr(struct B)
+    Field next: B*

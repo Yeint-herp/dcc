@@ -16,12 +16,12 @@ Module m
   Func get_a diverging=true
     Body
       Return
-        Path Status::A [type=enum Status const=5 constant decl=Status]
+        Path Status::A [type=Status const=5 constant decl=Status]
   Func get_b diverging=true
     Body
       Return
-        Path Status::B [type=enum Status const=10 constant decl=Status]
+        Path Status::B [type=Status const=10 constant decl=Status]
   Func get_c diverging=true
     Body
       Return
-        Path Status::C [type=enum Status const=15 constant decl=Status]
+        Path Status::C [type=Status const=15 constant decl=Status]

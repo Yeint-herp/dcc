@@ -14,9 +14,9 @@ void foo() {
 Module m
   Func foo diverging=false
     Body
-      Var p type=struct Point storage=local offset=0
-      Binary = [type=struct Point const=<none>]
-        Ident p [type=struct Point const=<none> lvalue decl=p]
-        StructLiteral [type=struct Point const=agg(10, 20) constant]
+      Var p type=Point storage=local offset=0
+      Binary = [type=Point const=<none>]
+        Ident p [type=Point const=<none> lvalue decl=p]
+        StructLiteral [type=Point const=agg(10, 20) constant]
           IntLiteral 10 [type=i32 const=10 constant]
           IntLiteral 20 [type=i32 const=20 constant]

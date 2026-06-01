@@ -33,21 +33,21 @@ public i32 f_c() { return 3; }
 === EXPECT-TYPES FOR: a ===
 Module a
   Struct A
-    Field ptr: ptr(struct B)
+    Field ptr: B*
   Func f_a
     Return: i32
 
 === EXPECT-TYPES FOR: b ===
 Module b
   Struct B
-    Field ptr: ptr(struct C)
+    Field ptr: C*
   Func f_b
     Return: i32
 
 === EXPECT-TYPES FOR: c ===
 Module c
   Struct C
-    Field ptr: ptr(struct A)
+    Field ptr: A*
   Func f_c
     Return: i32
 

@@ -28,11 +28,11 @@ Module main
         Ident v [type=<unresolved> const=<none>]
   Func a diverging=false
     Body
-      TemplateInst [type=fn(i32) -> i32 const=<none> decl=first spec=first]
-        Ident first [type=fn(i32) -> i32 const=<none> decl=first]
+      TemplateInst [type=i32(*)(i32) const=<none> decl=first spec=first]
+        Ident first [type=i32(*)(i32) const=<none> decl=first]
   Func b diverging=false
     Body
       Call [type=i32 const=<none> decl=first spec=first]
-        TemplateInst [type=fn(i32) -> i32 const=<none> decl=first spec=first]
-          Ident first [type=fn(i32) -> i32 const=<none> decl=first]
+        TemplateInst [type=i32(*)(i32) const=<none> decl=first spec=first]
+          Ident first [type=i32(*)(i32) const=<none> decl=first]
         IntLiteral 30 [type=i32 const=30 constant]

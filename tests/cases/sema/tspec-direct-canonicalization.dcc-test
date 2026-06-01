@@ -34,13 +34,13 @@ Module main
             Ident N [type=<unresolved> const=<none>]
   Func a diverging=false
     Body
-      TemplateInst [type=fn(i32) -> i32 const=<none> decl=add_n spec=add_n]
-        Ident add_n [type=fn(i32) -> i32 const=<none> decl=add_n]
+      TemplateInst [type=i32(*)(i32) const=<none> decl=add_n spec=add_n]
+        Ident add_n [type=i32(*)(i32) const=<none> decl=add_n]
   Func b diverging=false
     Body
-      TemplateInst [type=fn(i32) -> i32 const=<none> decl=add_n spec=add_n]
-        Ident add_n [type=fn(i32) -> i32 const=<none> decl=add_n]
+      TemplateInst [type=i32(*)(i32) const=<none> decl=add_n spec=add_n]
+        Ident add_n [type=i32(*)(i32) const=<none> decl=add_n]
   Func c diverging=false
     Body
-      TemplateInst [type=fn(i32) -> i32 const=<none> decl=add_n spec=add_n]
-        Ident add_n [type=fn(i32) -> i32 const=<none> decl=add_n]
+      TemplateInst [type=i32(*)(i32) const=<none> decl=add_n spec=add_n]
+        Ident add_n [type=i32(*)(i32) const=<none> decl=add_n]

@@ -8,4 +8,4 @@ void f() {
 === ENTRY: main.dc ===
 
 === EXPECT-ERRORS ===
-main.dc:4: flexible array member type `fam(u8)` is not allowed in variable type
+main.dc:4: flexible array member type `u8[]` is not allowed in variable type

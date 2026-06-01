@@ -22,15 +22,15 @@ public i32 test_infer_from_context() {
 Module m
   Func test_infer_from_payload diverging=true
     Body
-      Var x type=enum Optional storage=local offset=0
-        Call [type=enum Optional const=agg(0, 42) constant decl=Optional]
-          Path Optional::Some [type=enum Optional const=<none> decl=Optional]
+      Var x type=Optional(i32) storage=local offset=0
+        Call [type=Optional(i32) const=agg(0, 42) constant decl=Optional]
+          Path Optional::Some [type=Optional(i32) const=<none> decl=Optional]
           IntLiteral 42 [type=i32 const=42 constant]
       Return
         IntLiteral 0 [type=i32 const=0 constant]
   Func test_infer_from_context diverging=true
     Body
-      Var x type=enum Optional storage=local offset=0
-        Path Optional::None [type=enum Optional const=agg(1) constant decl=Optional]
+      Var x type=Optional(i32) storage=local offset=0
+        Path Optional::None [type=Optional(i32) const=agg(1) constant decl=Optional]
       Return
         IntLiteral 0 [type=i32 const=0 constant]

@@ -16,6 +16,6 @@ extern Packet* pkt;
 Module m
   Struct Packet
     Field len: u16
-    Field data: fam(u8)
-  Var blob: fam(u8)
-  Var pkt: ptr(struct Packet)
+    Field data: u8[]
+  Var blob: u8[]
+  Var pkt: Packet*

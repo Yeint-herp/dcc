@@ -14,5 +14,5 @@ Module m
   Enum Bad
     Variant First(i32)
     Variant Second(i32)
-  Var g1: enum Bad
-  Var g2: enum Bad
+  Var g1: Bad
+  Var g2: Bad

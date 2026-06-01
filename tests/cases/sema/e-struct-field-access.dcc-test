@@ -13,7 +13,7 @@ void f(Point p) {
 === EXPECT-BODY ===
 Module m
   Func f diverging=false
-    Param p type=struct Point storage=param offset=0 index=0
+    Param p type=Point storage=param offset=0 index=0
     Body
       FieldAccess x [type=f64 const=<none> lvalue decl=Point]
-        Ident p [type=struct Point const=<none> lvalue decl=p]
+        Ident p [type=Point const=<none> lvalue decl=p]

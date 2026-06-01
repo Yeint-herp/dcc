@@ -14,9 +14,9 @@ public using Indexable(T) = compiles([]const T items, T* out) {
 Module m
   Using Addable
     TemplateParams T
-    CompilesParam lhs: T#0
-    CompilesParam rhs: T#0
+    CompilesParam lhs: T
+    CompilesParam rhs: T
   Using Indexable
     TemplateParams T
-    CompilesParam items: slice(const T#0)
-    CompilesParam out: ptr(T#0)
+    CompilesParam items: []const T
+    CompilesParam out: T*

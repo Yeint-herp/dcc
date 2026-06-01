@@ -7,8 +7,8 @@ public void f([]const i64 s) {
 === EXPECT-BODY ===
 Module test
   Func f diverging=false
-    Param s type=slice(const i64) storage=param offset=0 index=0
+    Param s type=[]const i64 storage=param offset=0 index=0
     Body
       ForIn item by_ref=true
-        Ident s [type=slice(const i64) const=<none> lvalue decl=s]
+        Ident s [type=[]const i64 const=<none> lvalue decl=s]
         Body

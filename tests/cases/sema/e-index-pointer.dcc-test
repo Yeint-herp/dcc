@@ -8,8 +8,8 @@ void f(i64* p) {
 === EXPECT-BODY ===
 Module m
   Func f diverging=false
-    Param p type=ptr(i64) storage=param offset=0 index=0
+    Param p type=i64* storage=param offset=0 index=0
     Body
       Index [type=i64 const=<none> lvalue decl=p]
-        Ident p [type=ptr(i64) const=<none> lvalue decl=p]
+        Ident p [type=i64* const=<none> lvalue decl=p]
         IntLiteral 0 [type=i32 const=0 constant]

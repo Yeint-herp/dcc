@@ -26,8 +26,8 @@ public lib::VecAlias current;
 === EXPECT-TYPES FOR: main ===
 Module main
   Using Exposed
-    Alias: struct Vec3
+    Alias: Vec3
   Func make
-    Return: struct Vec3
-    Param v: struct Vec3
-  Var current: struct Vec3
+    Return: Vec3
+    Param v: Vec3
+  Var current: Vec3

@@ -11,6 +11,6 @@ public Node* head;
 === EXPECT-TYPES FOR: m ===
 Module m
   Struct Node
-    Field next: ptr(struct Node)
-    Field prev: ptr(ptr(struct Node))
-  Var head: ptr(struct Node)
+    Field next: Node*
+    Field prev: Node**
+  Var head: Node*

@@ -35,7 +35,7 @@ Module m
         BoolLiteral false [type=bool const=false constant]
       Unary ~ [type=i32 const=-2 constant]
         IntLiteral 1 [type=i32 const=1 constant]
-      Cast [type=ptr(const u8) const=null constant]
+      Cast [type=const u8* const=null constant]
         NullLiteral [type=null_t const=null constant]
       Postfix ++ [type=i64 const=<none> decl=x]
         Ident x [type=i64 const=<none> lvalue decl=x]

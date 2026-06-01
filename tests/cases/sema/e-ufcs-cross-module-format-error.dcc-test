@@ -36,8 +36,8 @@ void test_no_variant_match() {
 === ENTRY: main.dc ===
 
 === EXPECT-ERRORS ===
-main.dc:13: no matching UFCS function for `print` on receiver type `struct MyOut`
-fmt.dc:13: = note: candidate `print(T, slice(const char))`
+main.dc:13: no matching UFCS function for `print` on receiver type `MyOut`
+fmt.dc:13: = note: candidate `print(T, []const char)`
 fmt.dc:13: = note: reason: argument count mismatch: expected 2 (including receiver), got 3
-fmt.dc:16: = note: candidate `print(T, slice(const char), slice(const enum FormatArg))`
-fmt.dc:16: = note: reason: cannot convert argument 2: expected `slice(const enum FormatArg)`
+fmt.dc:16: = note: candidate `print(T, []const char, []const FormatArg)`
+fmt.dc:16: = note: reason: cannot convert argument 2: expected `[]const FormatArg`

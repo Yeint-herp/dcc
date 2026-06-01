@@ -13,7 +13,7 @@ public Result(bool) rbool;
 Module m
   Enum Result
     TemplateParams T
-    Variant Ok(T#0)
+    Variant Ok(T)
     Variant Err(i32)
-  Var ri32: enum Result<i32>
-  Var rbool: enum Result<bool>
+  Var ri32: Result(i32)
+  Var rbool: Result(bool)

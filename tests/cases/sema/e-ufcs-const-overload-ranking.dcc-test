@@ -42,50 +42,50 @@ public i64 mut_call_mut_only(Data d) {
 === EXPECT-BODY ===
 Module m
   Func read diverging=true
-    Param d type=ptr(const struct Data) storage=param offset=0 index=0
+    Param d type=const Data* storage=param offset=0 index=0
     Body
       Return
         IntLiteral 1 [type=i32 const=1 constant]
   Func read diverging=true
-    Param d type=ptr(struct Data) storage=param offset=0 index=0
+    Param d type=Data* storage=param offset=0 index=0
     Body
       Return
         IntLiteral 2 [type=i64 const=2 constant]
   Func const_call_read diverging=true
-    Param d type=ptr(const struct Data) storage=param offset=0 index=0
+    Param d type=const Data* storage=param offset=0 index=0
     Body
       Return
         Call [type=i32 const=<none> decl=read ufcs=read]
           FieldAccess read [type=<unresolved> const=<none> decl=read ufcs=read]
-            Ident d [type=ptr(const struct Data) const=<none> lvalue decl=d]
+            Ident d [type=const Data* const=<none> lvalue decl=d]
   Func mut_call_read diverging=true
-    Param d type=struct Data storage=param offset=0 index=0
+    Param d type=Data storage=param offset=0 index=0
     Body
       Return
         Call [type=i64 const=<none> decl=read ufcs=read]
           FieldAccess read [type=<unresolved> const=<none> decl=read ufcs=read]
-            Ident d [type=struct Data const=<none> lvalue addr_of decl=d]
+            Ident d [type=Data const=<none> lvalue addr_of decl=d]
   Func const_only diverging=true
-    Param d type=ptr(const struct Data) storage=param offset=0 index=0
+    Param d type=const Data* storage=param offset=0 index=0
     Body
       Return
         IntLiteral 3 [type=i32 const=3 constant]
   Func mut_call_const_only diverging=true
-    Param d type=struct Data storage=param offset=0 index=0
+    Param d type=Data storage=param offset=0 index=0
     Body
       Return
         Call [type=i32 const=<none> decl=const_only ufcs=const_only]
           FieldAccess const_only [type=<unresolved> const=<none> decl=const_only ufcs=const_only]
-            Ident d [type=struct Data const=<none> lvalue addr_of decl=d]
+            Ident d [type=Data const=<none> lvalue addr_of decl=d]
   Func mut_only diverging=true
-    Param d type=ptr(struct Data) storage=param offset=0 index=0
+    Param d type=Data* storage=param offset=0 index=0
     Body
       Return
         IntLiteral 4 [type=i64 const=4 constant]
   Func mut_call_mut_only diverging=true
-    Param d type=struct Data storage=param offset=0 index=0
+    Param d type=Data storage=param offset=0 index=0
     Body
       Return
         Call [type=i64 const=<none> decl=mut_only ufcs=mut_only]
           FieldAccess mut_only [type=<unresolved> const=<none> decl=mut_only ufcs=mut_only]
-            Ident d [type=struct Data const=<none> lvalue addr_of decl=d]
+            Ident d [type=Data const=<none> lvalue addr_of decl=d]

@@ -10,5 +10,5 @@ Module m
   Func f diverging=true
     Body
       Return
-        Cast [type=ptr(const u8) const=null constant]
-          NullLiteral [type=ptr(const u8) const=null constant]
+        Cast [type=const u8* const=null constant]
+          NullLiteral [type=const u8* const=null constant]

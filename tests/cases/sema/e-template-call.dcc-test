@@ -13,7 +13,7 @@ void f() {
 === EXPECT-BODY ===
 Module m
   Func id diverging=false
-    Param x type=T#0 storage=param offset=0 index=0
+    Param x type=T storage=param offset=0 index=0
     Body
       Return
         Ident x [type=<unresolved> const=<none>]

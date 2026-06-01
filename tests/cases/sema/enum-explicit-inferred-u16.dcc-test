@@ -14,5 +14,5 @@ Module m
   Enum Codes
     Variant A
     Variant B
-  Var c1: enum Codes
-  Var c2: enum Codes
+  Var c1: Codes
+  Var c2: Codes

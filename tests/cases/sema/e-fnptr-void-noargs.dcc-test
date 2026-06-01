@@ -16,8 +16,8 @@ Module m
     Body
   Func test diverging=false
     Body
-      Var f type=fn() -> void storage=local offset=0
-        Unary & [type=fn() -> void const=<none> decl=target]
-          Ident target [type=fn() -> void const=<none> decl=target]
+      Var f type=void(*)() storage=local offset=0
+        Unary & [type=void(*)() const=<none> decl=target]
+          Ident target [type=void(*)() const=<none> decl=target]
       Call [type=void const=<none>]
-        Ident f [type=fn() -> void const=<none> lvalue decl=f]
+        Ident f [type=void(*)() const=<none> lvalue decl=f]

@@ -16,7 +16,7 @@ i32 use() {
 === EXPECT-BODY ===
 Module m
   Func sum diverging=false
-    Param value type=T#0 storage=param offset=0 index=0
+    Param value type=T storage=param offset=0 index=0
     Body
       Return
         Ident value [type=<unresolved> const=<none>]

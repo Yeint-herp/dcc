@@ -24,12 +24,12 @@ Module m
   Func get_red diverging=true
     Body
       Return
-        Path Color::Red [type=enum Color const=0 constant decl=Color]
+        Path Color::Red [type=Color const=0 constant decl=Color]
   Func get_blue diverging=true
     Body
       Return
-        Path Color::Blue [type=enum Color const=10 constant decl=Color]
+        Path Color::Blue [type=Color const=10 constant decl=Color]
   Func get_green diverging=true
     Body
       Return
-        Path Color::Green [type=enum Color const=11 constant decl=Color]
+        Path Color::Green [type=Color const=11 constant decl=Color]

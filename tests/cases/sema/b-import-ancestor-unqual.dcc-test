@@ -34,7 +34,7 @@ i32 get_deep_pub() {
 
 === EXPECT-TYPES FOR: root::mid::deep ===
 Module root::mid::deep
-  Var local_shared: struct Shared
+  Var local_shared: Shared
   Func get_value
     Return: i32
 

@@ -18,7 +18,7 @@ void f() {
 Module m
   Struct Packet
     Field len: u16
-    Field data: fam(u8)
+    Field data: u8[]
   Func f
     Return: void
 

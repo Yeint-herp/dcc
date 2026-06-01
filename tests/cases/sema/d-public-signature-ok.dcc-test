@@ -19,6 +19,6 @@ public using Alias = lib::Vec3;
 
 === EXPECT-TYPES FOR: main ===
 Module main
-  Var value: struct Vec3
+  Var value: Vec3
   Using Alias
-    Alias: struct Vec3
+    Alias: Vec3

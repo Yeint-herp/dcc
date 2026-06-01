@@ -38,11 +38,11 @@ i64 score(Packet packet) {
 === EXPECT-BODY ===
 Module m
   Func score diverging=true
-    Param packet type=enum Packet storage=param offset=0 index=0
+    Param packet type=Packet storage=param offset=0 index=0
     Body
       Return
         Match [type=i64 const=<none>]
-          Ident packet [type=enum Packet const=<none> lvalue decl=packet]
+          Ident packet [type=Packet const=<none> lvalue decl=packet]
           Arm
             EnumDestructurePattern Pair
             Cast [type=i64 const=<none>]

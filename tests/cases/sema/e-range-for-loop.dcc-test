@@ -65,18 +65,18 @@ Module m
           Var x type=i32 storage=local offset=12
             Ident i [type=i32 const=<none> lvalue decl=i]
   Func test_for_array diverging=false
-    Param arr type=[i32; 3] storage=param offset=0 index=0
+    Param arr type=i32[3] storage=param offset=0 index=0
     Body
       ForIn i
-        Ident arr [type=[i32; 3] const=<none> lvalue decl=arr]
+        Ident arr [type=i32[3] const=<none> lvalue decl=arr]
         Body
           Var x type=i32 storage=local offset=16
             Ident i [type=i32 const=<none> lvalue decl=i]
   Func test_for_slice diverging=false
-    Param sl type=slice(i32) storage=param offset=0 index=0
+    Param sl type=[]i32 storage=param offset=0 index=0
     Body
       ForIn i
-        Ident sl [type=slice(i32) const=<none> lvalue decl=sl]
+        Ident sl [type=[]i32 const=<none> lvalue decl=sl]
         Body
           Var x type=i32 storage=local offset=20
             Ident i [type=i32 const=<none> lvalue decl=i]

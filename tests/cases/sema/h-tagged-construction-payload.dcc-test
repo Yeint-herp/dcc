@@ -17,9 +17,9 @@ public i32 test_construct() {
 Module m
   Func test_construct diverging=true
     Body
-      Var s type=enum Simple storage=local offset=0
-        Call [type=enum Simple const=agg(0, 42) constant decl=Simple]
-          Path Simple::A [type=enum Simple const=<none> decl=Simple]
+      Var s type=Simple storage=local offset=0
+        Call [type=Simple const=agg(0, 42) constant decl=Simple]
+          Path Simple::A [type=Simple const=<none> decl=Simple]
           IntLiteral 42 [type=i32 const=42 constant]
       Return
         IntLiteral 0 [type=i32 const=0 constant]

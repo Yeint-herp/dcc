@@ -100,4 +100,4 @@ Module m
   Func ret_null_ptr diverging=true
     Body
       Return
-        NullLiteral [type=ptr(i32) const=null constant]
+        NullLiteral [type=i32* const=null constant]

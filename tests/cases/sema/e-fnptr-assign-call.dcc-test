@@ -40,35 +40,35 @@ Module m
   Func get_op diverging=true
     Body
       Return
-        Unary & [type=fn(i32, i32) -> i32 const=<none> decl=add]
-          Ident add [type=fn(i32, i32) -> i32 const=<none> decl=add]
+        Unary & [type=i32(*)(i32, i32) const=<none> decl=add]
+          Ident add [type=i32(*)(i32, i32) const=<none> decl=add]
   Func test_assign diverging=false
     Body
-      Var op type=fn(i32, i32) -> i32 storage=local offset=0
-      Binary = [type=fn(i32, i32) -> i32 const=<none>]
-        Ident op [type=fn(i32, i32) -> i32 const=<none> lvalue decl=op]
-        Ident add [type=fn(i32, i32) -> i32 const=<none> decl=add]
-      Binary = [type=fn(i32, i32) -> i32 const=<none>]
-        Ident op [type=fn(i32, i32) -> i32 const=<none> lvalue decl=op]
-        Unary & [type=fn(i32, i32) -> i32 const=<none> decl=add]
-          Ident add [type=fn(i32, i32) -> i32 const=<none> decl=add]
+      Var op type=i32(*)(i32, i32) storage=local offset=0
+      Binary = [type=i32(*)(i32, i32) const=<none>]
+        Ident op [type=i32(*)(i32, i32) const=<none> lvalue decl=op]
+        Ident add [type=i32(*)(i32, i32) const=<none> decl=add]
+      Binary = [type=i32(*)(i32, i32) const=<none>]
+        Ident op [type=i32(*)(i32, i32) const=<none> lvalue decl=op]
+        Unary & [type=i32(*)(i32, i32) const=<none> decl=add]
+          Ident add [type=i32(*)(i32, i32) const=<none> decl=add]
   Func test_copy diverging=false
     Body
-      Var a type=fn(i32, i32) -> i32 storage=local offset=0
-        Ident add [type=fn(i32, i32) -> i32 const=<none> decl=add]
-      Var b type=fn(i32, i32) -> i32 storage=local offset=8
-        Ident a [type=fn(i32, i32) -> i32 const=<none> lvalue decl=a]
+      Var a type=i32(*)(i32, i32) storage=local offset=0
+        Ident add [type=i32(*)(i32, i32) const=<none> decl=add]
+      Var b type=i32(*)(i32, i32) storage=local offset=8
+        Ident a [type=i32(*)(i32, i32) const=<none> lvalue decl=a]
   Func test_get_op diverging=false
     Body
-      Var op type=fn(i32, i32) -> i32 storage=local offset=0
-        Call [type=fn(i32, i32) -> i32 const=<none> decl=get_op]
+      Var op type=i32(*)(i32, i32) storage=local offset=0
+        Call [type=i32(*)(i32, i32) const=<none> decl=get_op]
           Ident get_op [type=<unresolved> const=<none>]
   Func test_call diverging=false
     Body
-      Var op type=fn(i32, i32) -> i32 storage=local offset=0
-        Ident add [type=fn(i32, i32) -> i32 const=<none> decl=add]
+      Var op type=i32(*)(i32, i32) storage=local offset=0
+        Ident add [type=i32(*)(i32, i32) const=<none> decl=add]
       Var r type=i32 storage=local offset=8
         Call [type=i32 const=<none>]
-          Ident op [type=fn(i32, i32) -> i32 const=<none> lvalue decl=op]
+          Ident op [type=i32(*)(i32, i32) const=<none> lvalue decl=op]
           IntLiteral 1 [type=i32 const=1 constant]
           IntLiteral 2 [type=i32 const=2 constant]

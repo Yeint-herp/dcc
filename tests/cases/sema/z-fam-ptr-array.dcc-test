@@ -20,9 +20,9 @@ void f() {
 Module m
   Struct Packet
     Field len: u16
-    Field data: fam(u8)
-  Var ptr_array: [ptr(struct Packet); 4]
-  Var ptrptr_array: [ptr(ptr(struct Packet)); 2]
-  Var ptr_slice: slice(ptr(struct Packet))
+    Field data: u8[]
+  Var ptr_array: Packet*[4]
+  Var ptrptr_array: Packet**[2]
+  Var ptr_slice: []Packet*
   Func f
     Return: void

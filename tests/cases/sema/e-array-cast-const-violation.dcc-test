@@ -19,4 +19,4 @@ void test_array_to_const_ptr() {
 === ENTRY: main.dc ===
 
 === EXPECT-ERRORS ===
-main.dc:5: invalid cast from `ptr(const u16)` to `ptr(u16)`: cannot drop const qualifier
+main.dc:5: invalid cast from `const u16*` to `u16*`: cannot drop const qualifier

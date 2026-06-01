@@ -30,11 +30,11 @@ i64 g(Point p) {
 === EXPECT-BODY ===
 Module m
   Func f diverging=true
-    Param res type=enum Result storage=param offset=0 index=0
+    Param res type=Result storage=param offset=0 index=0
     Body
       Return
         Match [type=i64 const=<none>]
-          Ident res [type=enum Result const=<none> lvalue decl=res]
+          Ident res [type=Result const=<none> lvalue decl=res]
           Arm
             EnumDestructurePattern Ok
             Cast [type=i64 const=<none> lvalue decl=inner]
@@ -47,11 +47,11 @@ Module m
             EnumDestructurePattern Cancelled
             IntLiteral 3 [type=i64 const=3 constant]
   Func g diverging=true
-    Param p type=struct Point storage=param offset=0 index=0
+    Param p type=Point storage=param offset=0 index=0
     Body
       Return
         Match [type=i64 const=<none>]
-          Ident p [type=struct Point const=<none> lvalue decl=p]
+          Ident p [type=Point const=<none> lvalue decl=p]
           Arm
             StructDestructurePattern Point
             Cast [type=i64 const=<none>]

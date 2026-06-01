@@ -16,11 +16,11 @@ public extern u8[] fam;
 === EXPECT-TYPES FOR: m ===
 Module m
   Struct Node
-    Field matrix: [[u8; 3]; 2]
-    Field ptrs: [ptr(u8); 4]
-    Field payload: fam(u8)
-  Var grid: [[u8; 3]; 2]
-  Var ptrs: [ptr(u8); 4]
-  Var node: ptr(u8)
-  Var names: slice(const char)
-  Var fam: fam(u8)
+    Field matrix: u8[3][2]
+    Field ptrs: u8*[4]
+    Field payload: u8[]
+  Var grid: u8[3][2]
+  Var ptrs: u8*[4]
+  Var node: u8*
+  Var names: []const char
+  Var fam: u8[]

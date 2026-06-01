@@ -40,11 +40,11 @@ i64 score(Node node) {
 === EXPECT-BODY ===
 Module m
   Func score diverging=true
-    Param node type=enum Node storage=param offset=0 index=0
+    Param node type=Node storage=param offset=0 index=0
     Body
       Return
         Match [type=i64 const=<none>]
-          Ident node [type=enum Node const=<none> lvalue decl=node]
+          Ident node [type=Node const=<none> lvalue decl=node]
           Arm
             EnumDestructurePattern Leaf
             IntLiteral 10 [type=i64 const=10 constant]

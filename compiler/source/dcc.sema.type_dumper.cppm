@@ -4,6 +4,7 @@ import std;
 import dcc.ast;
 import dcc.types;
 import dcc.sema.scope;
+import dcc.sema.type_helpers;
 
 export namespace dcc::sema
 {
@@ -182,120 +183,8 @@ export namespace dcc::sema
 
         [[nodiscard]] std::string type_str(void const* t) const
         {
-            if (!t)
-                return "<unresolved>";
-
-            auto const* ty = reinterpret_cast<types::Type const*>(t);
-
-            switch (ty->kind)
-            {
-                case types::TypeKind::Void:
-                    return "void";
-                case types::TypeKind::Bool:
-                    return "bool";
-                case types::TypeKind::Int:
-                    return int_str(*static_cast<types::IntType const*>(ty));
-                case types::TypeKind::Float:
-                    return float_str(*static_cast<types::FloatType const*>(ty));
-                case types::TypeKind::Char:
-                    return "char";
-                case types::TypeKind::NullT:
-                    return "null_t";
-                case types::TypeKind::Pointer:
-                    return pointer_str(*static_cast<types::PointerType const*>(ty));
-                case types::TypeKind::Array:
-                    return array_str(*static_cast<types::ArrayType const*>(ty));
-                case types::TypeKind::Slice:
-                    return slice_str(*static_cast<types::SliceType const*>(ty));
-                case types::TypeKind::Range:
-                    return std::format("range({})", type_str(static_cast<types::RangeType const*>(ty)->element));
-                case types::TypeKind::RangeInclusive:
-                    return std::format("range_inclusive({})", type_str(static_cast<types::RangeInclusiveType const*>(ty)->element));
-                case types::TypeKind::Fam:
-                    return fam_str(*static_cast<types::FamType const*>(ty));
-                case types::TypeKind::RuntimeArray:
-                    return runtime_array_str(*static_cast<types::RuntimeArrayType const*>(ty));
-                case types::TypeKind::FuncPtr:
-                    return funcptr_str(*static_cast<types::FuncPtrType const*>(ty));
-                case types::TypeKind::Struct:
-                    return nominal_str("struct", *static_cast<types::StructType const*>(ty));
-                case types::TypeKind::Union:
-                    return nominal_str("union", *static_cast<types::UnionType const*>(ty));
-                case types::TypeKind::Enum:
-                    return nominal_str("enum", *static_cast<types::EnumType const*>(ty));
-                case types::TypeKind::TemplateParam:
-                    return template_param_str(*static_cast<types::TemplateParamType const*>(ty));
-                case types::TypeKind::Error:
-                    return "<error>";
-            }
-            return "<type>";
+            return format_dcc_type(reinterpret_cast<types::TypePtr>(t));
         }
-
-        [[nodiscard]] static std::string qual_str(types::Qual q)
-        {
-            std::string s;
-            if (types::has_qual(q, types::Qual::Const))
-                s += "const ";
-            if (types::has_qual(q, types::Qual::Volatile))
-                s += "volatile ";
-            if (types::has_qual(q, types::Qual::Restrict))
-                s += "restrict ";
-            return s;
-        }
-
-        [[nodiscard]] static std::string int_str(types::IntType const& t) { return std::format("{}{}", t.is_signed ? 'i' : 'u', unsigned(t.bits)); }
-
-        [[nodiscard]] static std::string float_str(types::FloatType const& t) { return std::format("f{}", unsigned(t.bits)); }
-
-        [[nodiscard]] std::string pointer_str(types::PointerType const& t) const
-        {
-            return std::format("ptr({}{})", qual_str(t.pointee_quals), type_str(t.pointee));
-        }
-
-        [[nodiscard]] std::string array_str(types::ArrayType const& t) const { return std::format("[{}; {}]", type_str(t.element), t.count); }
-
-        [[nodiscard]] std::string slice_str(types::SliceType const& t) const
-        {
-            return std::format("slice({}{})", qual_str(t.element_quals), type_str(t.element));
-        }
-
-        [[nodiscard]] std::string fam_str(types::FamType const& t) const { return std::format("fam({})", type_str(t.element)); }
-        [[nodiscard]] std::string runtime_array_str(types::RuntimeArrayType const& t) const { return std::format("runtime[{}]", type_str(t.element)); }
-
-        [[nodiscard]] std::string funcptr_str(types::FuncPtrType const& t) const
-        {
-            std::string params;
-            for (std::size_t i = 0; i < t.params.size(); ++i)
-            {
-                if (i > 0)
-                    params += ", ";
-
-                params += type_str(t.params[i]);
-            }
-
-            return std::format("fn({}) -> {}", params, type_str(t.return_type));
-        }
-
-        template <typename T> [[nodiscard]] std::string nominal_str(std::string_view kind, T const& t) const
-        {
-            std::string s = std::format("{} {}", kind, decl_name(t.decl));
-            if (!t.template_args.empty())
-            {
-                s += "<";
-                for (std::size_t i = 0; i < t.template_args.size(); ++i)
-                {
-                    if (i > 0)
-                        s += ", ";
-
-                    s += type_str(t.template_args[i]);
-                }
-
-                s += ">";
-            }
-            return s;
-        }
-
-        [[nodiscard]] static std::string template_param_str(types::TemplateParamType const& t) { return std::format("{}#{}", t.name, t.index); }
 
         [[nodiscard]] static std::string decl_name(void const* d)
         {

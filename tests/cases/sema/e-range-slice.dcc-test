@@ -43,77 +43,77 @@ void test_normal_index_still_works(i32[10] arr, i32 idx) {
 === EXPECT-BODY ===
 Module m
   Func test_basic_range_slice diverging=false
-    Param arr type=[i32; 10] storage=param offset=0 index=0
+    Param arr type=i32[10] storage=param offset=0 index=0
     Body
-      Index [type=slice(i32) const=<none>]
-        Ident arr [type=[i32; 10] const=<none> lvalue decl=arr]
+      Index [type=[]i32 const=<none>]
+        Ident arr [type=i32[10] const=<none> lvalue decl=arr]
         Range [type=range(i32) const=<none>]
           IntLiteral 1 [type=i32 const=1 constant]
           IntLiteral 3 [type=i32 const=3 constant]
   Func test_omitted_start diverging=false
-    Param arr type=[i32; 10] storage=param offset=0 index=0
+    Param arr type=i32[10] storage=param offset=0 index=0
     Body
-      Index [type=slice(i32) const=<none>]
-        Ident arr [type=[i32; 10] const=<none> lvalue decl=arr]
+      Index [type=[]i32 const=<none>]
+        Ident arr [type=i32[10] const=<none> lvalue decl=arr]
         Range [type=range(i32) const=<none>]
           IntLiteral 5 [type=i32 const=5 constant]
   Func test_omitted_end diverging=false
-    Param arr type=[i32; 10] storage=param offset=0 index=0
+    Param arr type=i32[10] storage=param offset=0 index=0
     Body
-      Index [type=slice(i32) const=<none>]
-        Ident arr [type=[i32; 10] const=<none> lvalue decl=arr]
+      Index [type=[]i32 const=<none>]
+        Ident arr [type=i32[10] const=<none> lvalue decl=arr]
         Range [type=range(i32) const=<none>]
           IntLiteral 2 [type=i32 const=2 constant]
   Func test_omitted_both diverging=false
-    Param arr type=[i32; 10] storage=param offset=0 index=0
+    Param arr type=i32[10] storage=param offset=0 index=0
     Body
-      Index [type=slice(i32) const=<none>]
-        Ident arr [type=[i32; 10] const=<none> lvalue decl=arr]
+      Index [type=[]i32 const=<none>]
+        Ident arr [type=i32[10] const=<none> lvalue decl=arr]
         Range [type=<unresolved> const=<none>]
   Func test_inclusive diverging=false
-    Param arr type=[i32; 10] storage=param offset=0 index=0
+    Param arr type=i32[10] storage=param offset=0 index=0
     Body
-      Index [type=slice(i32) const=<none>]
-        Ident arr [type=[i32; 10] const=<none> lvalue decl=arr]
+      Index [type=[]i32 const=<none>]
+        Ident arr [type=i32[10] const=<none> lvalue decl=arr]
         Range [type=range_inclusive(i32) const=<none>]
           IntLiteral 1 [type=i32 const=1 constant]
           IntLiteral 3 [type=i32 const=3 constant]
   Func test_inclusive_omitted_start diverging=false
-    Param arr type=[i32; 10] storage=param offset=0 index=0
+    Param arr type=i32[10] storage=param offset=0 index=0
     Body
-      Index [type=slice(i32) const=<none>]
-        Ident arr [type=[i32; 10] const=<none> lvalue decl=arr]
+      Index [type=[]i32 const=<none>]
+        Ident arr [type=i32[10] const=<none> lvalue decl=arr]
         Range [type=range_inclusive(i32) const=<none>]
           IntLiteral 5 [type=i32 const=5 constant]
   Func test_variable_bounds diverging=false
-    Param arr type=[i32; 10] storage=param offset=0 index=0
+    Param arr type=i32[10] storage=param offset=0 index=0
     Param start type=i32 storage=param offset=40 index=1
     Param end type=i32 storage=param offset=44 index=2
     Body
-      Index [type=slice(i32) const=<none>]
-        Ident arr [type=[i32; 10] const=<none> lvalue decl=arr]
+      Index [type=[]i32 const=<none>]
+        Ident arr [type=i32[10] const=<none> lvalue decl=arr]
         Range [type=range(i32) const=<none>]
           Ident start [type=i32 const=<none> lvalue decl=start]
           Ident end [type=i32 const=<none> lvalue decl=end]
   Func test_slice_slice diverging=false
-    Param sl type=slice(i32) storage=param offset=0 index=0
+    Param sl type=[]i32 storage=param offset=0 index=0
     Param a type=i32 storage=param offset=16 index=1
     Param b type=i32 storage=param offset=20 index=2
     Body
-      Index [type=slice(i32) const=<none>]
-        Ident sl [type=slice(i32) const=<none> lvalue decl=sl]
+      Index [type=[]i32 const=<none>]
+        Ident sl [type=[]i32 const=<none> lvalue decl=sl]
         Range [type=range(i32) const=<none>]
           Ident a [type=i32 const=<none> lvalue decl=a]
           Ident b [type=i32 const=<none> lvalue decl=b]
   Func test_normal_index_still_works diverging=false
-    Param arr type=[i32; 10] storage=param offset=0 index=0
+    Param arr type=i32[10] storage=param offset=0 index=0
     Param idx type=i32 storage=param offset=40 index=1
     Body
       Index [type=i32 const=<none> lvalue decl=arr]
-        Ident arr [type=[i32; 10] const=<none> lvalue decl=arr]
+        Ident arr [type=i32[10] const=<none> lvalue decl=arr]
         Ident idx [type=i32 const=<none> lvalue decl=idx]
       Index [type=i32 const=<none> lvalue decl=arr]
-        Ident arr [type=[i32; 10] const=<none> lvalue decl=arr]
+        Ident arr [type=i32[10] const=<none> lvalue decl=arr]
         IntLiteral 0 [type=i32 const=0 constant]
 
 === EXPECT-ERRORS ===

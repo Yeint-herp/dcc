@@ -12,4 +12,4 @@ u64 get_store(core::atomic::AtomicStore store) {
 Module main
   Func get_store
     Return: u64
-    Param store: struct AtomicStore
+    Param store: AtomicStore

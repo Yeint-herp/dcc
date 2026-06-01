@@ -25,10 +25,10 @@ Module m
           Ident b [type=i32 const=<none> lvalue decl=b]
   Func test_alias_addr diverging=false
     Body
-      Var op type=fn(i32, i32) -> i32 storage=local offset=0
-        Unary & [type=fn(i32, i32) -> i32 const=<none> decl=add]
-          Ident add [type=fn(i32, i32) -> i32 const=<none> decl=add]
+      Var op type=i32(*)(i32, i32) storage=local offset=0
+        Unary & [type=i32(*)(i32, i32) const=<none> decl=add]
+          Ident add [type=i32(*)(i32, i32) const=<none> decl=add]
   Func test_alias_implicit diverging=false
     Body
-      Var op type=fn(i32, i32) -> i32 storage=local offset=0
-        Ident add [type=fn(i32, i32) -> i32 const=<none> decl=add]
+      Var op type=i32(*)(i32, i32) storage=local offset=0
+        Ident add [type=i32(*)(i32, i32) const=<none> decl=add]

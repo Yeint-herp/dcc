@@ -17,9 +17,9 @@ Module m
   Struct Empty
   Union EmptyUnion
   Enum EmptyEnum
-  Var empty_structs: [struct Empty; 0]
-  Var empty_unions: [union EmptyUnion; 0]
-  Var empty_enums: [enum EmptyEnum; 0]
-  Var empty_ptr: ptr(struct Empty)
-  Var empty_slice: slice(struct Empty)
-  Var empty_fam: fam(struct Empty)
+  Var empty_structs: Empty[0]
+  Var empty_unions: EmptyUnion[0]
+  Var empty_enums: EmptyEnum[0]
+  Var empty_ptr: Empty*
+  Var empty_slice: []Empty
+  Var empty_fam: Empty[]

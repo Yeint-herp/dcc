@@ -22,9 +22,9 @@ public i32 test_explicit_annotation_payloadless() {
 Module m
   Func test_explicit_annotation diverging=true
     Body
-      Var x type=enum Optional storage=local offset=0
-        Call [type=enum Optional const=agg(0, 42) constant decl=Optional]
-          Path Optional::Some [type=enum Optional const=<none> decl=Optional]
+      Var x type=Optional(i32) storage=local offset=0
+        Call [type=Optional(i32) const=agg(0, 42) constant decl=Optional]
+          Path Optional::Some [type=Optional(i32) const=<none> decl=Optional]
             TemplateArgs
               Arg
                 Primitive i32
@@ -33,8 +33,8 @@ Module m
         IntLiteral 0 [type=i32 const=0 constant]
   Func test_explicit_annotation_payloadless diverging=true
     Body
-      Var x type=enum Optional storage=local offset=0
-        Path Optional::None [type=enum Optional const=agg(1) constant decl=Optional]
+      Var x type=Optional(bool) storage=local offset=0
+        Path Optional::None [type=Optional(bool) const=agg(1) constant decl=Optional]
           TemplateArgs
             Arg
               Primitive bool

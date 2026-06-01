@@ -33,12 +33,12 @@ i32 test_union() {
 === EXPECT-BODY ===
 Module m
   Func handle diverging=true
-    Param s type=enum Status storage=param offset=0 index=0
+    Param s type=Status storage=param offset=0 index=0
     Body
       Return
         IntLiteral 1 [type=i32 const=1 constant]
   Func handle diverging=true
-    Param s type=enum Status storage=param offset=0 index=0
+    Param s type=Status storage=param offset=0 index=0
     Param extra type=i32 storage=param offset=24 index=1
     Body
       Return
@@ -48,19 +48,19 @@ Module m
       Return
         Call [type=i32 const=<none> decl=handle]
           Ident handle [type=<unresolved> const=<none>]
-          StructLiteral [type=enum Status const=agg(0, 42) constant]
+          StructLiteral [type=Status const=agg(0, 42) constant]
             IntLiteral 42 [type=i32 const=42 constant]
   Func test_err_dispatch diverging=true
     Body
       Return
         Call [type=i32 const=<none> decl=handle]
           Ident handle [type=<unresolved> const=<none>]
-          StructLiteral [type=enum Status const=agg(1, false) constant]
+          StructLiteral [type=Status const=agg(1, false) constant]
             BoolLiteral false [type=bool const=false constant]
   Func test_union diverging=true
     Body
-      Var s type=enum Status storage=local offset=0
-        StructLiteral [type=enum Status const=agg(0, 99) constant]
+      Var s type=Status storage=local offset=0
+        StructLiteral [type=Status const=agg(0, 99) constant]
           IntLiteral 99 [type=i32 const=99 constant]
       Return
         IntLiteral 1 [type=i32 const=1 constant]

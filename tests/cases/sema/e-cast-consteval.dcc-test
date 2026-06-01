@@ -24,5 +24,5 @@ Module m
         IntLiteral 1 [type=i32 const=1 constant]
       Cast [type=i64 const=3 constant]
         FloatLiteral 3.5 [type=f64 const=3.5 constant]
-      Cast [type=ptr(const u8) const=null constant]
+      Cast [type=const u8* const=null constant]
         NullLiteral [type=null_t const=null constant]

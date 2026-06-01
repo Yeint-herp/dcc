@@ -46,18 +46,18 @@ Module m
     Variant B
   Struct SomePayload
     Field a: u8
-    Field b: struct Empty
-    Field c: [u8; 0]
+    Field b: Empty
+    Field c: u8[0]
   Struct PairPayload
-    Field a: ptr(union Nothing)
-    Field b: enum Backed
+    Field a: Nothing*
+    Field b: Backed
   Enum Tagged
     Backing: u16
     Variant None
-    Variant Some(struct SomePayload)
-    Variant Pair(struct PairPayload)
-  Var empty: struct Empty
-  Var nothing: union Nothing
-  Var plain: enum Plain
-  Var backed: enum Backed
-  Var tagged: enum Tagged
+    Variant Some(SomePayload)
+    Variant Pair(PairPayload)
+  Var empty: Empty
+  Var nothing: Nothing
+  Var plain: Plain
+  Var backed: Backed
+  Var tagged: Tagged

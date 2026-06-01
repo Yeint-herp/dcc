@@ -10,7 +10,7 @@ public struct A {
 
 public using BPtr = b::B*;
 public BPtr head;
-public using Link = b::B* (*)(BPtr, b::B**);
+public using Link = b::B*(*)(BPtr, b::B**);
 
 === FILE: b.dc ===
 module b;
@@ -30,10 +30,10 @@ public APtr tail;
 === EXPECT-TYPES FOR: a ===
 Module a
   Struct A
-    Field next: ptr(struct B)
-    Field chain: ptr(ptr(struct B))
+    Field next: B*
+    Field chain: B**
   Using BPtr
-    Alias: ptr(struct B)
-  Var head: ptr(struct B)
+    Alias: B*
+  Var head: B*
   Using Link
-    Alias: fn(ptr(struct B), ptr(ptr(struct B))) -> ptr(struct B)
+    Alias: B*(*)(B*, B**)

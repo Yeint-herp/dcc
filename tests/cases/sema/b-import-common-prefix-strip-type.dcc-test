@@ -18,7 +18,7 @@ public struct B {
 === EXPECT-TYPES FOR: root::x::a ===
 Module root::x::a
   Struct A
-    Field ptr: ptr(struct B)
+    Field ptr: B*
 
 === EXPECT-TYPES FOR: root::x::y::b ===
 Module root::x::y::b

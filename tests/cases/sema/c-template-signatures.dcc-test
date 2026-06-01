@@ -18,12 +18,12 @@ public i32 take(i32 N)(i32 value) {
 Module m
   Struct Box
     TemplateParams T
-    Field value: T#0
+    Field value: T
   Enum Maybe
     TemplateParams T
     Backing: u8
     Variant None
-    Variant Some(T#0)
+    Variant Some(T)
   Func take
     TemplateParams N: i32
     Return: i32

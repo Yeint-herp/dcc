@@ -17,6 +17,6 @@ Module m
     Variant Neg
     Variant Zero
     Variant Pos
-  Var v1: enum Signed
-  Var v2: enum Signed
-  Var v3: enum Signed
+  Var v1: Signed
+  Var v2: Signed
+  Var v3: Signed

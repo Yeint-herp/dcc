@@ -31,14 +31,14 @@ public MainWrap wrap;
 === EXPECT-TYPES FOR: main ===
 Module main
   Using MainBox
-    Alias: struct Box<i32>
+    Alias: Box(i32)
   Using MainWrap
-    Alias: enum Wrap<i32>
+    Alias: Wrap(i32)
   Using BoxAlias
-    Alias: struct Box<i32>
+    Alias: Box(i32)
   Using WrapAlias
-    Alias: enum Wrap<i32>
-  Var direct: struct Box<i32>
-  Var alias_box: struct Box<i32>
-  Var via_alias: struct Box<i32>
-  Var wrap: enum Wrap<i32>
+    Alias: Wrap(i32)
+  Var direct: Box(i32)
+  Var alias_box: Box(i32)
+  Var via_alias: Box(i32)
+  Var wrap: Wrap(i32)

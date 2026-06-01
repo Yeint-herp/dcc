@@ -26,7 +26,7 @@ void f(Holder h) {
 === EXPECT-BODY ===
 Module m
   Func f diverging=false
-    Param h type=struct Holder storage=param offset=0 index=0
+    Param h type=Holder storage=param offset=0 index=0
     Body
       Sizeof [type=u64 const=16 constant]
       Sizeof [type=u64 const=56 constant]
@@ -37,7 +37,7 @@ Module m
       Offsetof [type=u64 const=0 constant]
       Offsetof [type=u64 const=48 constant]
       FieldAccess x [type=f64 const=<none> lvalue decl=Point]
-        Index [type=struct Point const=<none> lvalue decl=Holder]
-          FieldAccess points [type=[struct Point; 3] const=<none> lvalue decl=Holder]
-            Ident h [type=struct Holder const=<none> lvalue decl=h]
+        Index [type=Point const=<none> lvalue decl=Holder]
+          FieldAccess points [type=Point[3] const=<none> lvalue decl=Holder]
+            Ident h [type=Holder const=<none> lvalue decl=h]
           IntLiteral 0 [type=i32 const=0 constant]

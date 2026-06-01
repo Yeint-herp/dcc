@@ -17,7 +17,7 @@ public i32 test_payloadless() {
 Module m
   Func test_payloadless diverging=true
     Body
-      Var s type=enum Simple storage=local offset=0
-        Path Simple::B [type=enum Simple const=agg(1) constant decl=Simple]
+      Var s type=Simple storage=local offset=0
+        Path Simple::B [type=Simple const=agg(1) constant decl=Simple]
       Return
         IntLiteral 0 [type=i32 const=0 constant]

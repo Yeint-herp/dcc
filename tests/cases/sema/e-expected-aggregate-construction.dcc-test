@@ -72,72 +72,72 @@ bool rank_slice() {
 === EXPECT-BODY ===
 Module m
   Func choose diverging=true
-    Param p type=struct Point storage=param offset=0 index=0
+    Param p type=Point storage=param offset=0 index=0
     Body
       Return
         IntLiteral 1 [type=i32 const=1 constant]
   Func choose diverging=true
-    Param p type=[i32; 2] storage=param offset=0 index=0
+    Param p type=i32[2] storage=param offset=0 index=0
     Body
       Return
         IntLiteral 2 [type=i64 const=2 constant]
   Func choose diverging=true
-    Param p type=slice(i32) storage=param offset=0 index=0
+    Param p type=[]i32 storage=param offset=0 index=0
     Body
       Return
         BoolLiteral false [type=bool const=false constant]
   Func choose_seq diverging=true
-    Param p type=[i32; 2] storage=param offset=0 index=0
+    Param p type=i32[2] storage=param offset=0 index=0
     Body
       Return
         IntLiteral 2 [type=i64 const=2 constant]
   Func choose_seq diverging=true
-    Param p type=slice(i32) storage=param offset=0 index=0
+    Param p type=[]i32 storage=param offset=0 index=0
     Body
       Return
         BoolLiteral false [type=bool const=false constant]
   Func choose_slice diverging=true
-    Param p type=slice(i32) storage=param offset=0 index=0
+    Param p type=[]i32 storage=param offset=0 index=0
     Body
       Return
         BoolLiteral false [type=bool const=false constant]
   Func use_struct diverging=true
     Body
-      Var p type=struct Point storage=local offset=0
-        StructLiteral [type=struct Point const=agg(1, 2) constant]
+      Var p type=Point storage=local offset=0
+        StructLiteral [type=Point const=agg(1, 2) constant]
           IntLiteral 1 [type=i32 const=1 constant]
           IntLiteral 2 [type=i32 const=2 constant]
       Return
         IntLiteral 1 [type=i32 const=1 constant]
   Func use_array diverging=true
     Body
-      Var values type=[i32; 2] storage=local offset=0
-        StructLiteral [type=[i32; 2] const=agg(3, 4) constant]
+      Var values type=i32[2] storage=local offset=0
+        StructLiteral [type=i32[2] const=agg(3, 4) constant]
           IntLiteral 3 [type=i32 const=3 constant]
           IntLiteral 4 [type=i32 const=4 constant]
       Return
         IntLiteral 2 [type=i64 const=2 constant]
   Func use_slice diverging=true
     Body
-      Var values type=slice(i32) storage=local offset=0
-        StructLiteral [type=slice(i32) const=slice(5, 6) constant]
+      Var values type=[]i32 storage=local offset=0
+        StructLiteral [type=[]i32 const=slice(5, 6) constant]
           IntLiteral 5 [type=i32 const=5 constant]
           IntLiteral 6 [type=i32 const=6 constant]
       Return
         BoolLiteral false [type=bool const=false constant]
   Func use_enum diverging=true
     Body
-      Var c type=enum Choice storage=local offset=0
-        StructLiteral [type=enum Choice const=agg(0, 7) constant]
+      Var c type=Choice storage=local offset=0
+        StructLiteral [type=Choice const=agg(0, 7) constant]
           IntLiteral 7 [type=i32 const=7 constant]
       Return
-        Ident c [type=enum Choice const=agg(0, 7) lvalue constant decl=c]
+        Ident c [type=Choice const=agg(0, 7) lvalue constant decl=c]
   Func rank_struct diverging=true
     Body
       Return
         Call [type=i32 const=<none> decl=choose]
           Ident choose [type=<unresolved> const=<none>]
-          StructLiteral [type=struct Point const=agg(1, 2) constant]
+          StructLiteral [type=Point const=agg(1, 2) constant]
             IntLiteral 1 [type=i32 const=1 constant]
             IntLiteral 2 [type=i32 const=2 constant]
   Func rank_array diverging=true
@@ -145,7 +145,7 @@ Module m
       Return
         Call [type=i64 const=<none> decl=choose_seq]
           Ident choose_seq [type=<unresolved> const=<none>]
-          StructLiteral [type=[i32; 2] const=agg(1, 2) constant]
+          StructLiteral [type=i32[2] const=agg(1, 2) constant]
             IntLiteral 1 [type=i32 const=1 constant]
             IntLiteral 2 [type=i32 const=2 constant]
   Func rank_slice diverging=true
@@ -153,6 +153,6 @@ Module m
       Return
         Call [type=bool const=<none> decl=choose_slice]
           Ident choose_slice [type=<unresolved> const=<none>]
-          StructLiteral [type=slice(i32) const=slice(1, 2) constant]
+          StructLiteral [type=[]i32 const=slice(1, 2) constant]
             IntLiteral 1 [type=i32 const=1 constant]
             IntLiteral 2 [type=i32 const=2 constant]

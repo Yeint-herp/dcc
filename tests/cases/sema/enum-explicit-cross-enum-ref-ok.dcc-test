@@ -19,8 +19,8 @@ Module m
   Func get_a diverging=true
     Body
       Return
-        Path Second::A [type=enum Second const=10 constant decl=Second]
+        Path Second::A [type=Second const=10 constant decl=Second]
   Func get_b diverging=true
     Body
       Return
-        Path Second::B [type=enum Second const=20 constant decl=Second]
+        Path Second::B [type=Second const=20 constant decl=Second]

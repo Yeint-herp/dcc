@@ -23,14 +23,14 @@ Module m
         Binary + [type=i32 const=<none>]
           Ident a [type=i32 const=<none> lvalue decl=a]
           Ident b [type=i32 const=<none> lvalue decl=b]
-  Var g1 type=fn(i32, i32) -> i32 storage=module offset=0
-    Ident add [type=fn(i32, i32) -> i32 const=<none> decl=add]
-  Var g2 type=fn(i32, i32) -> i32 storage=module offset=0
-    Unary & [type=fn(i32, i32) -> i32 const=<none> decl=add]
-      Ident add [type=fn(i32, i32) -> i32 const=<none> decl=add]
+  Var g1 type=i32(*)(i32, i32) storage=module offset=0
+    Ident add [type=i32(*)(i32, i32) const=<none> decl=add]
+  Var g2 type=i32(*)(i32, i32) storage=module offset=0
+    Unary & [type=i32(*)(i32, i32) const=<none> decl=add]
+      Ident add [type=i32(*)(i32, i32) const=<none> decl=add]
   Func test_read_globals diverging=false
     Body
-      Var r1 type=fn(i32, i32) -> i32 storage=local offset=0
-        Ident g1 [type=fn(i32, i32) -> i32 const=<none> lvalue decl=g1]
-      Var r2 type=fn(i32, i32) -> i32 storage=local offset=8
-        Ident g2 [type=fn(i32, i32) -> i32 const=<none> lvalue decl=g2]
+      Var r1 type=i32(*)(i32, i32) storage=local offset=0
+        Ident g1 [type=i32(*)(i32, i32) const=<none> lvalue decl=g1]
+      Var r2 type=i32(*)(i32, i32) storage=local offset=8
+        Ident g2 [type=i32(*)(i32, i32) const=<none> lvalue decl=g2]

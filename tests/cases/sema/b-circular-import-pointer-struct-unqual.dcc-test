@@ -23,15 +23,15 @@ public i32 fb(a::A* a) { return 2; }
 === EXPECT-TYPES FOR: a ===
 Module a
   Struct A
-    Field next: ptr(struct B)
+    Field next: B*
   Func fa
     Return: i32
-    Param b: ptr(struct B)
+    Param b: B*
 
 === EXPECT-TYPES FOR: b ===
 Module b
   Struct B
-    Field prev: ptr(struct A)
+    Field prev: A*
   Func fb
     Return: i32
-    Param a: ptr(struct A)
+    Param a: A*

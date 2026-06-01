@@ -56,49 +56,49 @@ Result(i32) test_implicit_construction_return() {
 Module m
   Func test_non_generic_payload_less diverging=true
     Body
-      Var s type=enum Simple storage=local offset=0
-        Path Simple::A [type=enum Simple const=agg(0) constant decl=Simple]
+      Var s type=Simple storage=local offset=0
+        Path Simple::A [type=Simple const=agg(0) constant decl=Simple]
       Return
         IntLiteral 0 [type=i32 const=0 constant]
   Func test_non_generic_constructor diverging=true
     Body
-      Var s type=enum Simple storage=local offset=0
-        Call [type=enum Simple const=agg(1, 42) constant decl=Simple]
-          Path Simple::B [type=enum Simple const=<none> decl=Simple]
+      Var s type=Simple storage=local offset=0
+        Call [type=Simple const=agg(1, 42) constant decl=Simple]
+          Path Simple::B [type=Simple const=<none> decl=Simple]
           IntLiteral 42 [type=i32 const=42 constant]
       Return
         IntLiteral 0 [type=i32 const=0 constant]
   Func test_generic_payload_less_i32 diverging=true
     Body
-      Var y type=enum Result storage=local offset=0
-        Path Result::None [type=enum Result const=agg(1) constant decl=Result]
+      Var y type=Result(i32) storage=local offset=0
+        Path Result::None [type=Result(i32) const=agg(1) constant decl=Result]
       Return
         IntLiteral 0 [type=i32 const=0 constant]
   Func test_generic_payload_less_u8 diverging=true
     Body
-      Var y type=enum Result storage=local offset=0
-        Path Result::None [type=enum Result const=agg(1) constant decl=Result]
+      Var y type=Result(u8) storage=local offset=0
+        Path Result::None [type=Result(u8) const=agg(1) constant decl=Result]
       Return
         IntLiteral 0 [type=i32 const=0 constant]
   Func test_generic_constructor_lhs diverging=true
     Body
-      Var y type=enum Result storage=local offset=0
-        Call [type=enum Result const=agg(0, 23) constant decl=Result]
-          Path Result::Ok [type=enum Result const=<none> decl=Result]
+      Var y type=Result(i32) storage=local offset=0
+        Call [type=Result(i32) const=agg(0, 23) constant decl=Result]
+          Path Result::Ok [type=Result(i32) const=<none> decl=Result]
           IntLiteral 23 [type=i32 const=23 constant]
       Return
         IntLiteral 0 [type=i32 const=0 constant]
   Func test_generic_constructor_u8 diverging=true
     Body
-      Var y type=enum Result storage=local offset=0
-        Call [type=enum Result const=agg(0, 42) constant decl=Result]
-          Path Result::Ok [type=enum Result const=<none> decl=Result]
+      Var y type=Result(u8) storage=local offset=0
+        Call [type=Result(u8) const=agg(0, 42) constant decl=Result]
+          Path Result::Ok [type=Result(u8) const=<none> decl=Result]
           IntLiteral 42 [type=u8 const=42 constant]
       Return
         IntLiteral 0 [type=i32 const=0 constant]
   Func test_implicit_construction_assign diverging=true
     Body
-      Var y type=enum Result storage=local offset=0
+      Var y type=Result(i32) storage=local offset=0
         IntLiteral 23 [type=i32 const=23 constant]
       Return
         IntLiteral 0 [type=i32 const=0 constant]

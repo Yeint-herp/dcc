@@ -16,19 +16,19 @@ void f() {
 Module m
   Func f diverging=false
     Body
-      Var ps type=[struct Point; 2] storage=local offset=0
-        StructLiteral [type=[struct Point; 2] const=agg(agg(1, 2), agg(3, 4)) constant]
-          StructLiteral [type=struct Point const=agg(1, 2) constant]
+      Var ps type=Point[2] storage=local offset=0
+        StructLiteral [type=Point[2] const=agg(agg(1, 2), agg(3, 4)) constant]
+          StructLiteral [type=Point const=agg(1, 2) constant]
             FloatLiteral 1 [type=f64 const=1 constant]
             FloatLiteral 2 [type=f64 const=2 constant]
-          StructLiteral [type=struct Point const=agg(3, 4) constant]
+          StructLiteral [type=Point const=agg(3, 4) constant]
             FloatLiteral 3 [type=f64 const=3 constant]
             FloatLiteral 4 [type=f64 const=4 constant]
       FieldAccess x [type=f64 const=1 constant decl=Point]
-        Index [type=struct Point const=agg(1, 2) constant decl=ps]
-          Ident ps [type=[struct Point; 2] const=agg(agg(1, 2), agg(3, 4)) lvalue constant decl=ps]
+        Index [type=Point const=agg(1, 2) constant decl=ps]
+          Ident ps [type=Point[2] const=agg(agg(1, 2), agg(3, 4)) lvalue constant decl=ps]
           IntLiteral 0 [type=i32 const=0 constant]
       FieldAccess y [type=f64 const=4 constant decl=Point]
-        Index [type=struct Point const=agg(3, 4) constant decl=ps]
-          Ident ps [type=[struct Point; 2] const=agg(agg(1, 2), agg(3, 4)) lvalue constant decl=ps]
+        Index [type=Point const=agg(3, 4) constant decl=ps]
+          Ident ps [type=Point[2] const=agg(agg(1, 2), agg(3, 4)) lvalue constant decl=ps]
           IntLiteral 1 [type=i32 const=1 constant]

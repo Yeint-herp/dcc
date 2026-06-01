@@ -16,6 +16,6 @@ Module m
     Param x type=f64 storage=param offset=0 index=0
     Param y type=f64 storage=param offset=8 index=1
     Body
-      StructLiteral [type=struct Point const=<none>]
+      StructLiteral [type=Point const=<none>]
         Ident x [type=f64 const=<none> lvalue decl=x]
         Ident y [type=f64 const=<none> lvalue decl=y]

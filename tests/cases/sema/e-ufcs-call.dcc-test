@@ -16,17 +16,17 @@ i32 use(S s, i32 x) {
 === EXPECT-BODY ===
 Module m
   Func add diverging=true
-    Param s type=struct S storage=param offset=0 index=0
+    Param s type=S storage=param offset=0 index=0
     Param x type=i32 storage=param offset=4 index=1
     Body
       Return
         Ident x [type=i32 const=<none> lvalue decl=x]
   Func use diverging=true
-    Param s type=struct S storage=param offset=0 index=0
+    Param s type=S storage=param offset=0 index=0
     Param x type=i32 storage=param offset=4 index=1
     Body
       Return
         Call [type=i32 const=<none> decl=add ufcs=add]
           FieldAccess add [type=<unresolved> const=<none> decl=add ufcs=add]
-            Ident s [type=struct S const=<none> lvalue decl=s]
+            Ident s [type=S const=<none> lvalue decl=s]
           Ident x [type=i32 const=<none> lvalue decl=x]

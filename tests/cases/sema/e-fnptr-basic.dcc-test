@@ -21,11 +21,11 @@ Module m
           Ident b [type=i32 const=<none> lvalue decl=b]
   Func test diverging=false
     Body
-      Var fp type=fn(i32, i32) -> i32 storage=local offset=0
-        Unary & [type=fn(i32, i32) -> i32 const=<none> decl=add]
-          Ident add [type=fn(i32, i32) -> i32 const=<none> decl=add]
+      Var fp type=i32(*)(i32, i32) storage=local offset=0
+        Unary & [type=i32(*)(i32, i32) const=<none> decl=add]
+          Ident add [type=i32(*)(i32, i32) const=<none> decl=add]
       Var x type=i32 storage=local offset=8
         IntLiteral 42 [type=i32 const=42 constant]
-      Var px type=ptr(i32) storage=local offset=16
-        Unary & [type=ptr(i32) const=<none> lvalue decl=x]
+      Var px type=i32* storage=local offset=16
+        Unary & [type=i32* const=<none> lvalue decl=x]
           Ident x [type=i32 const=42 lvalue constant decl=x]

@@ -25,15 +25,15 @@ Container test_nested_empty() {
 Module m
   Func test_empty_struct diverging=true
     Body
-      Var e type=struct Empty storage=local offset=0
-        StructLiteral [type=struct Empty const=agg() constant]
+      Var e type=Empty storage=local offset=0
+        StructLiteral [type=Empty const=agg() constant]
       Return
-        Ident e [type=struct Empty const=agg() lvalue constant decl=e]
+        Ident e [type=Empty const=agg() lvalue constant decl=e]
   Func test_nested_empty diverging=true
     Body
-      Var c type=struct Container storage=local offset=0
-        StructLiteral [type=struct Container const=agg(1, agg()) constant]
+      Var c type=Container storage=local offset=0
+        StructLiteral [type=Container const=agg(1, agg()) constant]
           IntLiteral 1 [type=i32 const=1 constant]
-          StructLiteral [type=struct Empty const=agg() constant]
+          StructLiteral [type=Empty const=agg() constant]
       Return
-        Ident c [type=struct Container const=agg(1, agg()) lvalue constant decl=c]
+        Ident c [type=Container const=agg(1, agg()) lvalue constant decl=c]
