@@ -1,0 +1,27 @@
+=== FILE: test.dc ===
+module test;
+
+struct Point {
+    i64 x;
+    i64 y;
+}
+
+@nomangle
+i64 get_y_at(Point* p, i64 idx) {
+    return p[idx].y;
+}
+
+=== EXPECT-LLVM FLAGS: -verify ===
+; ModuleID = 'test'
+source_filename = "test"
+target triple = "x86_64-unknown-linux-gnu"
+
+%0 = type { i64, i64 }
+
+define i64 @get_y_at(ptr %p, i64 %idx) {
+entry:
+  %"0" = getelementptr %0, ptr %p, i64 %idx
+  %"1" = load %0, ptr %"0", align 4
+  %"2" = extractvalue %0 %"1", 1
+  ret i64 %"2"
+}

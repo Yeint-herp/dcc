@@ -24,7 +24,7 @@ target triple = "x86_64-unknown-linux-gnu"
 define i64 @read_gpp() {
 entry:
   %"0" = load ptr, ptr @gpp, align 8
-  %"1" = getelementptr %0, ptr %"0", i32 0
+  %"1" = getelementptr %0, ptr %"0", i32 0, i32 0
   %"2" = load i64, ptr %"1", align 4
   ret i64 %"2"
 }

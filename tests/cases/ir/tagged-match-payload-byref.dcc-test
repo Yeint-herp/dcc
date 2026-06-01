@@ -41,10 +41,10 @@ i32@_DC0F1.4.test1.f1D1.4.test6.Option0.i32s({@0 u8, @4 [4 x u8]}) {
   br.cond %3, label %match.arm0.body4, label %match.arm1.test5
 %match.arm0.body4:
   %4 = extract {@0 u8, @4 [4 x u8]} %1, field #1
-  %5 = alloca {@0 i32}
-  %6 = bitcast ptr<{@0 i32}> %5 to ptr<[4 x u8]>
-  store [4 x u8] %4, ptr<[4 x u8]> %6
-  %7 = load {@0 i32}, ptr<{@0 i32}> %5
+  %5 = alloca [4 x u8]
+  store [4 x u8] %4, ptr<[4 x u8]> %5
+  %6 = bitcast ptr<[4 x u8]> %5 to ptr<{@0 i32}>
+  %7 = load {@0 i32}, ptr<{@0 i32}> %6
   %8 = gep ptr<{@0 u8, @4 [4 x u8]}> %0, field #1
   %9 = bitcast ptr<[4 x u8]> %8 to ptr<{@0 i32}>
   %10 = gep ptr<{@0 i32}> %9, field #0
@@ -67,10 +67,10 @@ i32@_DC0F1.4.test1.f1D1.4.test6.Option0.i32s({@0 u8, @4 [4 x u8]}) {
   br.cond %15, label %match.arm0.body10, label %match.arm1.test11
 %match.arm0.body10:
   %16 = extract {@0 u8, @4 [4 x u8]} %13, field #1
-  %17 = alloca {@0 i32}
-  %18 = bitcast ptr<{@0 i32}> %17 to ptr<[4 x u8]>
-  store [4 x u8] %16, ptr<[4 x u8]> %18
-  %19 = load {@0 i32}, ptr<{@0 i32}> %17
+  %17 = alloca [4 x u8]
+  store [4 x u8] %16, ptr<[4 x u8]> %17
+  %18 = bitcast ptr<[4 x u8]> %17 to ptr<{@0 i32}>
+  %19 = load {@0 i32}, ptr<{@0 i32}> %18
   %20 = alloca {@0 i32}
   store {@0 i32} %19, ptr<{@0 i32}> %20
   %21 = load {@0 i32}, ptr<{@0 i32}> %20

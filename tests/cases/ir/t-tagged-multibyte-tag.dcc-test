@@ -279,10 +279,11 @@ module "test"
 
 {@0 u16, @4 [4 x u8]}@_DC0F1.4.test8.make_big1i32sD1.4.test3.Big0.(i32) {
 %entry(i32 %x):
-  %0 = alloca i32
-  store i32 %x, ptr<i32> %0
-  %1 = bitcast ptr<i32> %0 to ptr<[4 x u8]>
-  %2 = load [4 x u8], ptr<[4 x u8]> %1
+  %0 = alloca [4 x u8]
+  store [4 x u8] aggregate [4 x u8], #0, #0, #0, #0, ptr<[4 x u8]> %0
+  %1 = bitcast ptr<[4 x u8]> %0 to ptr<i32>
+  store i32 %x, ptr<i32> %1
+  %2 = load [4 x u8], ptr<[4 x u8]> %0
   %3 = aggregate {@0 u16, @4 [4 x u8]}, #256, %2
   ret {@0 u16, @4 [4 x u8]} %3
 }

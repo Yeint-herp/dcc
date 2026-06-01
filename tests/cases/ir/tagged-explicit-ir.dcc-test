@@ -36,10 +36,11 @@ module "test"
 
 {@0 u8, @4 [4 x u8]}@_DC0F1.4.test12.make_warning1i32sD1.4.test6.Status0.(i32) {
 %entry(i32 %x):
-  %0 = alloca i32
-  store i32 %x, ptr<i32> %0
-  %1 = bitcast ptr<i32> %0 to ptr<[4 x u8]>
-  %2 = load [4 x u8], ptr<[4 x u8]> %1
+  %0 = alloca [4 x u8]
+  store [4 x u8] aggregate [4 x u8], #0, #0, #0, #0, ptr<[4 x u8]> %0
+  %1 = bitcast ptr<[4 x u8]> %0 to ptr<i32>
+  store i32 %x, ptr<i32> %1
+  %2 = load [4 x u8], ptr<[4 x u8]> %0
   %3 = aggregate {@0 u8, @4 [4 x u8]}, #100, %2
   ret {@0 u8, @4 [4 x u8]} %3
 }
@@ -73,10 +74,10 @@ i32@_DC0F1.4.test5.check1D1.4.test6.Status0.i32s({@0 u8, @4 [4 x u8]}) {
   br.cond %5, label %match.arm1.body6, label %match.arm2.test7
 %match.arm1.body6:
   %6 = extract {@0 u8, @4 [4 x u8]} %1, field #1
-  %7 = alloca i32
-  %8 = bitcast ptr<i32> %7 to ptr<[4 x u8]>
-  store [4 x u8] %6, ptr<[4 x u8]> %8
-  %9 = load i32, ptr<i32> %7
+  %7 = alloca [4 x u8]
+  store [4 x u8] %6, ptr<[4 x u8]> %7
+  %8 = bitcast ptr<[4 x u8]> %7 to ptr<i32>
+  %9 = load i32, ptr<i32> %8
   br label %match.merge1
 %match.arm2.test7:
   %10 = extract {@0 u8, @4 [4 x u8]} %1, field #0

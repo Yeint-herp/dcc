@@ -1628,6 +1628,15 @@ namespace dcc::backend
                         std::vector<LLVMValueRef> llvm_indices;
                         IrType const* current_type = source_elem;
 
+                        if (!g->indices.empty())
+                        {
+                            auto const& first_idx = g->indices[0];
+                            if (first_idx.kind == IrGepInst::IndexKind::Field)
+                                llvm_indices.push_back(LLVMConstInt(LLVMInt32TypeInContext(ctx), 0, 0));
+                            else if (first_idx.kind == IrGepInst::IndexKind::Array && source_elem && source_elem->kind == IrTypeKind::Array)
+                                llvm_indices.push_back(LLVMConstInt(LLVMInt32TypeInContext(ctx), 0, 0));
+                        }
+
                         for (auto const& ir_idx : g->indices)
                         {
                             if (ir_idx.kind == IrGepInst::IndexKind::Field)

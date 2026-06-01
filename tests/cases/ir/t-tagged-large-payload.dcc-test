@@ -34,10 +34,11 @@ module "test"
   %1 = aggregate {@0 i64, @8 i64}, %a, %b
   store {@0 i64, @8 i64} %1, ptr<{@0 i64, @8 i64}> %0
   %2 = load {@0 i64, @8 i64}, ptr<{@0 i64, @8 i64}> %0
-  %3 = alloca {@0 i64, @8 i64}
-  store {@0 i64, @8 i64} %2, ptr<{@0 i64, @8 i64}> %3
-  %4 = bitcast ptr<{@0 i64, @8 i64}> %3 to ptr<[16 x u8]>
-  %5 = load [16 x u8], ptr<[16 x u8]> %4
+  %3 = alloca [16 x u8]
+  store [16 x u8] aggregate [16 x u8], #0, #0, #0, #0, #0, #0, #0, #0, #0, #0, #0, #0, #0, #0, #0, #0, ptr<[16 x u8]> %3
+  %4 = bitcast ptr<[16 x u8]> %3 to ptr<{@0 i64, @8 i64}>
+  store {@0 i64, @8 i64} %2, ptr<{@0 i64, @8 i64}> %4
+  %5 = load [16 x u8], ptr<[16 x u8]> %3
   %6 = aggregate {@0 u8, @8 [16 x u8]}, #1, %5
   ret {@0 u8, @8 [16 x u8]} %6
 }

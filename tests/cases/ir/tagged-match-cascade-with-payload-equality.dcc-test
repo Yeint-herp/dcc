@@ -39,10 +39,10 @@ i32@_DC0F1.4.test1.f1D1.4.test6.Result0.i32s({@0 u8, @4 [4 x u8]}) {
   br.cond %10, label %match.arm1.body6, label %match.arm2.test7
 %match.arm1.body6:
   %11 = extract {@0 u8, @4 [4 x u8]} %1, field #1
-  %12 = alloca i32
-  %13 = bitcast ptr<i32> %12 to ptr<[4 x u8]>
-  store [4 x u8] %11, ptr<[4 x u8]> %13
-  %14 = load i32, ptr<i32> %12
+  %12 = alloca [4 x u8]
+  store [4 x u8] %11, ptr<[4 x u8]> %12
+  %13 = bitcast ptr<[4 x u8]> %12 to ptr<i32>
+  %14 = load i32, ptr<i32> %13
   br label %match.merge1
 %match.arm2.test7:
   %15 = extract {@0 u8, @4 [4 x u8]} %1, field #0
@@ -53,10 +53,10 @@ i32@_DC0F1.4.test1.f1D1.4.test6.Result0.i32s({@0 u8, @4 [4 x u8]}) {
   br label %match.merge1
 %match.payload.check9:
   %4 = extract {@0 u8, @4 [4 x u8]} %1, field #1
-  %5 = alloca i32
-  %6 = bitcast ptr<i32> %5 to ptr<[4 x u8]>
-  store [4 x u8] %4, ptr<[4 x u8]> %6
-  %7 = load i32, ptr<i32> %5
+  %5 = alloca [4 x u8]
+  store [4 x u8] %4, ptr<[4 x u8]> %5
+  %6 = bitcast ptr<[4 x u8]> %5 to ptr<i32>
+  %7 = load i32, ptr<i32> %6
   %8 = cmp.eq i32 %7, #0
   br.cond %8, label %match.arm0.body4, label %match.arm1.test5
 }

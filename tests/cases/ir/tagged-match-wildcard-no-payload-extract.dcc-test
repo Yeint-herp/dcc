@@ -53,9 +53,9 @@ i32@_DC0F1.4.test1.f1D1.4.test6.Status0.i32s({@0 u8, @8 [32 x u8]}) {
   br.cond %7, label %match.arm2.body8, label %match.fail2
 %match.arm2.body8:
   %8 = extract {@0 u8, @8 [32 x u8]} %1, field #1
-  %9 = alloca i32
-  %10 = bitcast ptr<i32> %9 to ptr<[32 x u8]>
-  store [32 x u8] %8, ptr<[32 x u8]> %10
-  %11 = load i32, ptr<i32> %9
+  %9 = alloca [32 x u8]
+  store [32 x u8] %8, ptr<[32 x u8]> %9
+  %10 = bitcast ptr<[32 x u8]> %9 to ptr<i32>
+  %11 = load i32, ptr<i32> %10
   br label %match.merge1
 }

@@ -8,11 +8,11 @@ public void test([]i64 s, i64 i, i64 j) {
 === EXPECT-IR FLAGS: -fbounds-check ===
 module "test"
 
-const global @.str.0 : [8 x u8] = aggregate [8 x u8], #116, #101, #115, #116, #46, #100, #99, #0
+const global @.str.0 : [7 x u8] = aggregate [7 x u8], #116, #101, #115, #116, #46, #100, #99
 
-const global @.str.1 : [5 x u8] = aggregate [5 x u8], #116, #101, #115, #116, #0
+const global @.str.1 : [4 x u8] = aggregate [4 x u8], #116, #101, #115, #116
 
-const global @.str.2 : [26 x u8] = aggregate [26 x u8], #115, #108, #105, #99, #101, #32, #105, #110, #100, #101, #120, #32, #111, #117, #116, #32, #111, #102, #32, #98, #111, #117, #110, #100, #115, #0
+const global @.str.2 : [25 x u8] = aggregate [25 x u8], #115, #108, #105, #99, #101, #32, #105, #110, #100, #101, #120, #32, #111, #117, #116, #32, #111, #102, #32, #98, #111, #117, #110, #100, #115
 
 
 void@_DC0F1.4.test4.test3Sqi64si64si64sv([]i64, i64, i64) {
@@ -35,16 +35,16 @@ void@_DC0F1.4.test4.test3Sqi64si64si64sv([]i64, i64, i64) {
   %11 = cmp.ult i64 %j, %10
   br.cond %11, label %bounds.ok3, label %bounds.fail4
 %bounds.fail2:
-  call fn(@_DC0F1.6.assert8.__assert4Pqi8ui32sPqi8uPqi8uv)(ptr<u8> @.str.0, i32 #4, ptr<u8> @.str.1, ptr<u8> @.str.2)
+  call fn(@_DC0F1.6.assert8.__assert4SCqci32sSCqcSCqcv)([]u8 aggregate []u8, @.str.0, #7, i32 #4, []u8 aggregate []u8, @.str.1, #4, []u8 aggregate []u8, @.str.2, #25)
   unreachable
 %bounds.ok3:
   %12 = gep ptr<i64> %8, %j
   store i64 #2, ptr<i64> %12
   ret void
 %bounds.fail4:
-  call fn(@_DC0F1.6.assert8.__assert4Pqi8ui32sPqi8uPqi8uv)(ptr<u8> @.str.0, i32 #5, ptr<u8> @.str.1, ptr<u8> @.str.2)
+  call fn(@_DC0F1.6.assert8.__assert4SCqci32sSCqcSCqcv)([]u8 aggregate []u8, @.str.0, #7, i32 #5, []u8 aggregate []u8, @.str.1, #4, []u8 aggregate []u8, @.str.2, #25)
   unreachable
 }
 
-import void@_DC0F1.6.assert8.__assert4Pqi8ui32sPqi8uPqi8uv(ptr<u8>, i32, ptr<u8>, ptr<u8>) {
+import void@_DC0F1.6.assert8.__assert4SCqci32sSCqcSCqcv([]u8, i32, []u8, []u8) {
 }

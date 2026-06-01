@@ -32,10 +32,10 @@ i32@_DC0F1.4.test6.unwrap1D1.4.test6.Option0.i32s({@0 u8, @4 [4 x u8]}) {
   br.cond %3, label %match.arm0.body4, label %match.arm1.test5
 %match.arm0.body4:
   %4 = extract {@0 u8, @4 [4 x u8]} %1, field #1
-  %5 = alloca i32
-  %6 = bitcast ptr<i32> %5 to ptr<[4 x u8]>
-  store [4 x u8] %4, ptr<[4 x u8]> %6
-  %7 = load i32, ptr<i32> %5
+  %5 = alloca [4 x u8]
+  store [4 x u8] %4, ptr<[4 x u8]> %5
+  %6 = bitcast ptr<[4 x u8]> %5 to ptr<i32>
+  %7 = load i32, ptr<i32> %6
   br label %match.merge1
 %match.arm1.test5:
   %8 = extract {@0 u8, @4 [4 x u8]} %1, field #0
