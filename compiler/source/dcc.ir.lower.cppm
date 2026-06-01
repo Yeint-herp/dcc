@@ -1443,19 +1443,40 @@ export namespace dcc::ir::lower
             auto* void_type = m_ctx.void_t();
             auto* call_inst = m_ctx.call(void_type, m_assert_func_ref);
 
-            auto* file_global = get_or_create_string_global(file, true);
-            auto* file_ref = m_ctx.global_ref(file_global, m_ctx.pointer_to(m_ctx.int_t(8, false)));
-            call_inst->args.push_back(file_ref);
+            {
+                auto* slice_ir_ty = m_ctx.slice_t(m_ctx.int_t(8, false), ir::Segment::None);
+                auto* file_global = get_or_create_string_global(file, false);
+                auto* file_ptr = m_ctx.global_ref(file_global, m_ctx.pointer_to(m_ctx.int_t(8, false)));
+                auto* file_len = m_ctx.int_const(m_ctx.int_t(64, false), static_cast<std::int64_t>(file.size()));
+                auto* file_slice = m_ctx.aggregate(slice_ir_ty);
+                file_slice->values.push_back(file_ptr);
+                file_slice->values.push_back(file_len);
+                call_inst->args.push_back(file_slice);
+            }
 
             call_inst->args.push_back(m_ctx.int_const(m_ctx.int_t(32, true), line));
 
-            auto* func_global = get_or_create_string_global(func, true);
-            auto* func_ref = m_ctx.global_ref(func_global, m_ctx.pointer_to(m_ctx.int_t(8, false)));
-            call_inst->args.push_back(func_ref);
+            {
+                auto* slice_ir_ty = m_ctx.slice_t(m_ctx.int_t(8, false), ir::Segment::None);
+                auto* func_global = get_or_create_string_global(func, false);
+                auto* func_ptr = m_ctx.global_ref(func_global, m_ctx.pointer_to(m_ctx.int_t(8, false)));
+                auto* func_len = m_ctx.int_const(m_ctx.int_t(64, false), static_cast<std::int64_t>(func.size()));
+                auto* func_slice = m_ctx.aggregate(slice_ir_ty);
+                func_slice->values.push_back(func_ptr);
+                func_slice->values.push_back(func_len);
+                call_inst->args.push_back(func_slice);
+            }
 
-            auto* expr_global = get_or_create_string_global(expr, true);
-            auto* expr_ref = m_ctx.global_ref(expr_global, m_ctx.pointer_to(m_ctx.int_t(8, false)));
-            call_inst->args.push_back(expr_ref);
+            {
+                auto* slice_ir_ty = m_ctx.slice_t(m_ctx.int_t(8, false), ir::Segment::None);
+                auto* expr_global = get_or_create_string_global(expr, false);
+                auto* expr_ptr = m_ctx.global_ref(expr_global, m_ctx.pointer_to(m_ctx.int_t(8, false)));
+                auto* expr_len = m_ctx.int_const(m_ctx.int_t(64, false), static_cast<std::int64_t>(expr.size()));
+                auto* expr_slice = m_ctx.aggregate(slice_ir_ty);
+                expr_slice->values.push_back(expr_ptr);
+                expr_slice->values.push_back(expr_len);
+                call_inst->args.push_back(expr_slice);
+            }
 
             append_inst(call_inst);
         }
@@ -1465,11 +1486,15 @@ export namespace dcc::ir::lower
             if (m_assert_func)
                 return;
 
+            bool in_assert_module = false;
+            if (m_module_path.size() == 1 && m_module_path[0] == "assert")
+                in_assert_module = true;
+
             auto* void_type_ir = m_ctx.void_t();
-            auto* ptr_type_ir = m_ctx.pointer_to(m_ctx.int_t(8, false));
+            auto* slice_type_ir = m_ctx.slice_t(m_ctx.int_t(8, false), ir::Segment::None);
             auto* i32_type_ir = m_ctx.int_t(32, true);
 
-            std::vector<IrType const*> params_ir = {ptr_type_ir, i32_type_ir, ptr_type_ir, ptr_type_ir};
+            std::vector<IrType const*> params_ir = {slice_type_ir, i32_type_ir, slice_type_ir, slice_type_ir};
             auto* func_type = m_ctx.func_t(void_type_ir, params_ir);
 
             auto* assert_func_type = ir_type_cast<IrFuncType>(func_type);
@@ -1477,13 +1502,13 @@ export namespace dcc::ir::lower
                 lower_panic("failed to create __assert function type");
 
             auto* void_sema = m_ctx.make<dcc::types::VoidType>();
-            auto* u8_sema = m_ctx.make<dcc::types::IntType>(static_cast<std::uint8_t>(8), false);
+            auto* char_sema = m_ctx.make<dcc::types::CharType>();
             auto* i32_sema = m_ctx.make<dcc::types::IntType>(static_cast<std::uint8_t>(32), true);
-            auto* ptr_u8_sema = m_ctx.make<dcc::types::PointerType>(u8_sema, dcc::types::Qual::None);
+            auto* slice_const_char_sema = m_ctx.make<dcc::types::SliceType>(char_sema, dcc::types::Qual::Const);
 
             auto* synthetic_fd = m_ctx.make<ast::FuncDecl>(sm::SourceRange{}, std::string_view{"__assert"}, sm::SourceRange{});
 
-            std::vector<dcc::types::TypePtr> param_sema_types = {ptr_u8_sema, i32_sema, ptr_u8_sema, ptr_u8_sema};
+            std::vector<dcc::types::TypePtr> param_sema_types = {slice_const_char_sema, i32_sema, slice_const_char_sema, slice_const_char_sema};
             std::array<std::string_view, 1> assert_module_path = {"assert"};
 
             m_name_pool.push_back(dcc::ir::mangle::mangle_function(std::span<std::string_view const>{assert_module_path}, *synthetic_fd, param_sema_types,
@@ -1491,11 +1516,30 @@ export namespace dcc::ir::lower
 
             std::string_view mangled_name = m_name_pool.back();
 
-            m_assert_func = m_ctx.function(mangled_name, assert_func_type);
-            m_assert_func->is_dll_import = true;
-            m_module->functions.push_back(m_assert_func);
+            if (in_assert_module)
+            {
+                IrFunction* self_func = nullptr;
+                for (auto* f : m_module->functions)
+                {
+                    if (f->name == mangled_name)
+                    {
+                        self_func = f;
+                        break;
+                    }
+                }
+                if (!self_func)
+                    lower_panic("__assert not found in function map while compiling assert module");
+                m_assert_func = self_func;
+                m_assert_func_ref = m_ctx.make<IrGlobalRef>(m_assert_func, func_type);
+            }
+            else
+            {
+                m_assert_func = m_ctx.function(mangled_name, assert_func_type);
+                m_assert_func->is_dll_import = true;
+                m_module->functions.push_back(m_assert_func);
 
-            m_assert_func_ref = m_ctx.make<IrGlobalRef>(m_assert_func, func_type);
+                m_assert_func_ref = m_ctx.make<IrGlobalRef>(m_assert_func, func_type);
+            }
         }
 
         dcc::sm::SourceManager const* get_source_manager() const { return m_source_manager; }
