@@ -116,6 +116,8 @@ namespace
         bool no_red_zone{false};
         bool no_simd{false};
         bool no_x87{false};
+        bool no_stack_protector{false};
+        bool no_stack_probe{false};
         bool position_independent_code{false};
         std::optional<dcc::target::CodeModel> code_model;
         bool omit_frame_pointer{true};
@@ -223,6 +225,20 @@ namespace
             if (arg == "-fno-x87")
             {
                 opts.no_x87 = true;
+                ++i;
+                continue;
+            }
+
+            if (arg == "-fno-stack-protector")
+            {
+                opts.no_stack_protector = true;
+                ++i;
+                continue;
+            }
+
+            if (arg == "-fno-stack-probe")
+            {
+                opts.no_stack_probe = true;
                 ++i;
                 continue;
             }
@@ -365,7 +381,8 @@ namespace
     {
         std::println(
             "usage: dcc [-I<dir>] [-flibdcext] [-fbounds-check] [-fdump-ast] [-fdump-ir] [-fdump-llvm] [-fdump-asm] [-c] [-g|-g0|-g3|-gdwarf|-gpdb|-gnone] "
-            "[-fno-red-zone] [-fno-simd] [-fno-x87] [-fomit-frame-pointer|-fno-omit-frame-pointer] [-fPIC|-fPIE] [-mcmodel <model>] "
+            "[-fno-red-zone] [-fno-simd] [-fno-x87] [-fno-stack-protector] [-fno-stack-probe] [-fomit-frame-pointer|-fno-omit-frame-pointer] [-fPIC|-fPIE] "
+            "[-mcmodel <model>] "
             "[-target <triple>] [-h] [-o "
             "<file>] <input-file>");
     }
@@ -686,6 +703,8 @@ auto main(int argc, char** argv) -> int
             target.no_red_zone = opts.no_red_zone;
             target.no_simd = opts.no_simd;
             target.no_x87 = opts.no_x87;
+            target.no_stack_protector = opts.no_stack_protector;
+            target.no_stack_probe = opts.no_stack_probe;
             target.position_independent_code = opts.position_independent_code;
             if (opts.code_model)
                 target.code_model = *opts.code_model;

@@ -1208,6 +1208,26 @@ namespace dcc::backend
                     }
                 }
 
+                if (opts.target.no_stack_protector)
+                {
+                    auto const* key = "stack-protector";
+                    auto const* val = "none";
+                    auto* attr = LLVMCreateStringAttribute(ctx, key, static_cast<unsigned>(std::strlen(key)), val, static_cast<unsigned>(std::strlen(val)));
+                    LLVMAddAttributeAtIndex(llvm_func, static_cast<LLVMAttributeIndex>(LLVMAttributeFunctionIndex), attr);
+                }
+
+                if (opts.target.no_stack_probe)
+                {
+                    auto const* key = "stack-probe-size";
+                    auto const* val = "4294967295";
+                    auto* attr = LLVMCreateStringAttribute(ctx, key, static_cast<unsigned>(std::strlen(key)), val, static_cast<unsigned>(std::strlen(val)));
+                    LLVMAddAttributeAtIndex(llvm_func, static_cast<LLVMAttributeIndex>(LLVMAttributeFunctionIndex), attr);
+
+                    auto const* no_arg_probe_key = "no-stack-arg-probe";
+                    auto* no_arg_probe_attr = LLVMCreateStringAttribute(ctx, no_arg_probe_key, static_cast<unsigned>(std::strlen(no_arg_probe_key)), "", 0);
+                    LLVMAddAttributeAtIndex(llvm_func, static_cast<LLVMAttributeIndex>(LLVMAttributeFunctionIndex), no_arg_probe_attr);
+                }
+
                 if (!opts.omit_frame_pointer)
                 {
                     auto const* fp_key = "frame-pointer";

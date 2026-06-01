@@ -51,6 +51,8 @@ export namespace dcc::target
         bool no_red_zone{false};
         bool no_simd{false};
         bool no_x87{false};
+        bool no_stack_protector{false};
+        bool no_stack_probe{false};
         bool position_independent_code{false};
         CodeModel code_model{CodeModel::Default};
 
