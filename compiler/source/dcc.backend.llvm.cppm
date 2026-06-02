@@ -1315,9 +1315,10 @@ namespace dcc::backend
                     auto* sp = LLVMDIBuilderCreateFunction(debug->dibuilder, debug->dicu, std::string{sp_name}.c_str(), sp_name.size(), "", 0, sp_file,
                                                            decl_line, sub_ty, false, true, decl_line, LLVMDIFlagZero, false);
 
-                    debug->subprogram_map[func] = sp;
+                    if (!func->blocks.empty())
+                        LLVMSetSubprogram(llvm_func, sp);
 
-                    LLVMSetSubprogram(llvm_func, sp);
+                    debug->subprogram_map[func] = sp;
                 }
 
                 bool found_cc_attr = false;

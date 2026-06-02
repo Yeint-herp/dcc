@@ -1,0 +1,6 @@
+=== FILE: test.dc ===
+module test;
+@nomangle extern void ext_func();
+public void call_ext() { ext_func(); }
+
+=== EXPECT-LLVM FLAGS: -gdwarf -verify ===

@@ -83,6 +83,8 @@ namespace
         std::string target_triple;
         bool is_error{false};
         bool verify{false};
+        bool emit_debug_info{false};
+        dcc::backend::DebugFormat debug_format{dcc::backend::DebugFormat::Auto};
         bool no_red_zone{false};
         bool no_simd{false};
         bool no_x87{false};
@@ -342,6 +344,21 @@ namespace
 
                     if (flags_str.find("-verify") != std::string::npos)
                         e.verify = true;
+                    if (flags_str.find("-gdwarf") != std::string::npos)
+                    {
+                        e.emit_debug_info = true;
+                        e.debug_format = dcc::backend::DebugFormat::Dwarf;
+                    }
+                    else if (flags_str.find("-gpdb") != std::string::npos)
+                    {
+                        e.emit_debug_info = true;
+                        e.debug_format = dcc::backend::DebugFormat::Pdb;
+                    }
+                    else if (flags_str.find("-g") != std::string::npos && flags_str.find("-gnone") == std::string::npos &&
+                             flags_str.find("-g0") == std::string::npos)
+                    {
+                        e.emit_debug_info = true;
+                    }
                     if (flags_str.find("-fbounds-check") != std::string::npos)
                         e.bounds_check = true;
                     if (flags_str.find("-fno-red-zone") != std::string::npos)
@@ -1266,6 +1283,10 @@ namespace
             backend_opts.target = target;
             backend_opts.requested_artifacts = {dcc::backend::ArtifactKind::LlvmIrText};
             backend_opts.omit_frame_pointer = exp.omit_frame_pointer;
+            backend_opts.emit_debug_info = exp.emit_debug_info;
+            backend_opts.debug_format = exp.debug_format;
+            if (exp.emit_debug_info)
+                backend_opts.source_manager = &sm;
 
             auto backend = dcc::backend::make_llvm_backend();
             auto artifact = backend->emit(*ir_mod, backend_opts);
@@ -1288,13 +1309,24 @@ namespace
                 }
             }
 
-            auto a = normalize(actual);
-            auto e = normalize(exp.body);
-            if (a != e)
+            auto const body_provided = !trim(exp.body).empty();
+            if (body_provided)
+            {
+                auto a = normalize(actual);
+                auto e = normalize(exp.body);
+                if (a != e)
+                {
+                    ok = false;
+                    std::println(std::cerr, "    FAIL  LLVM mismatch  ({}:{})", path.string(), exp.base_line);
+                    print_diff(exp.is_error ? "LLVM-ERROR" : "LLVM", e, a, exp.base_line);
+                }
+            }
+            else if (exp.verify && !exp.is_error && !artifact.llvm_ir_text)
             {
                 ok = false;
-                std::println(std::cerr, "    FAIL  LLVM mismatch  ({}:{})", path.string(), exp.base_line);
-                print_diff(exp.is_error ? "LLVM-ERROR" : "LLVM", e, a, exp.base_line);
+                std::string detail = actual.empty() ? "no output" : actual;
+                std::println(std::cerr, "    FAIL  EXPECT-LLVM verify-only: expected valid IR, got backend error  ({}:{})", path.string(), exp.base_line);
+                std::println(std::cerr, "          detail: {}", detail);
             }
 
             if (!exp.is_error && artifact.llvm_ir_text && exp.verify)
