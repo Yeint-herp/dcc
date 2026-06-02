@@ -1,0 +1,32 @@
+=== FILE: test.dc ===
+module win::common;
+
+public struct ListEntry { u64 Flink; u64 Blink; }
+public struct UnicodeString { u16 Length; u16 MaximumLength; u64 Buffer; }
+
+public ListEntry* next_entry(ListEntry* current, ListEntry* list_head) {
+    ListEntry* next = current.Flink as ListEntry*;
+    if next == list_head { return null; }
+    return next;
+}
+
+=== EXPECT-IR ===
+module "win::common"
+ptr<{@0 u64, @8 u64}>@_DC0F2.3.win6.common10.next_entry2PqD2.3.win6.common9.ListEntry0.PqD2.3.win6.common9.ListEntry0.PqD2.3.win6.common9.ListEntry0.(ptr<{@0 u64, @8 u64}>, ptr<{@0 u64, @8 u64}>) {
+%entry(ptr<{@0 u64, @8 u64}> %current, ptr<{@0 u64, @8 u64}> %list_head):
+  %0 = alloca ptr<{@0 u64, @8 u64}>
+  %1 = gep ptr<{@0 u64, @8 u64}> %current, field #0
+  %2 = load u64, ptr<u64> %1
+  %3 = itoptr u64 %2 to ptr<{@0 u64, @8 u64}>
+  store ptr<{@0 u64, @8 u64}> %3, ptr<ptr<{@0 u64, @8 u64}>> %0
+  %4 = load ptr<{@0 u64, @8 u64}>, ptr<ptr<{@0 u64, @8 u64}>> %0
+  %5 = cmp.eq ptr<{@0 u64, @8 u64}> %4, %list_head
+  br.cond %5, label %if.then1, label %if.else2
+%if.then1:
+  ret ptr<{@0 u64, @8 u64}> #null
+%if.else2:
+  br label %if.merge3
+%if.merge3:
+  %6 = load ptr<{@0 u64, @8 u64}>, ptr<ptr<{@0 u64, @8 u64}>> %0
+  ret ptr<{@0 u64, @8 u64}> %6
+}

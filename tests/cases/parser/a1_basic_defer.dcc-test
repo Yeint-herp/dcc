@@ -19,28 +19,16 @@ TranslationUnit
           Qualified const
             Primitive u8
     Body
-      AmbiguousStmt resolution=as_decl
-        AsDecl
-          Var name=f
-            Type
-              Pointer
-                Named File
-            Init
-              Call
-                Callee
-                  Ident open
-                Args
-                  Ident path
-        AsExpr
-          Binary op==
-            Binary op=*
-              Ident File
-              Ident f
-            Call
-              Callee
-                Ident open
-              Args
-                Ident path
+      Var name=f
+        Type
+          Pointer
+            Named File
+        Init
+          Call
+            Callee
+              Ident open
+            Args
+              Ident path
       Defer
         ExprStmt
           Call

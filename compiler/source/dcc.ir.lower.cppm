@@ -1717,6 +1717,10 @@ export namespace dcc::ir::lower
                     break;
                 }
 
+                case ast::StmtKind::Ambiguous: {
+                    lower_panic(stmt, "unresolved ambiguous statement reached IR lowering");
+                }
+
                 default: {
                     std::string reason = std::format("unsupported statement kind: {}", static_cast<int>(stmt->kind));
                     lower_unimplemented(stmt, reason);

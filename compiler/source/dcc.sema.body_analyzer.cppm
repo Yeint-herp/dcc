@@ -8524,12 +8524,23 @@ export namespace dcc::sema
             auto const saved_defer_depth = m_active_defers.size();
             block.exit_defers.clear();
             bool reachable = true;
-            for (auto* s : block.stmts)
+            for (std::size_t i = 0; i < block.stmts.size(); ++i)
             {
+                auto* s = block.stmts[i];
                 if (!reachable)
                     error(s->range, "unreachable statement");
 
                 auto r = analyze_stmt(mod, fn, scope, *s, loop_depth, next_off, const_env);
+
+                if (s->kind == ast::StmtKind::Ambiguous)
+                {
+                    auto& ambig = static_cast<ast::AmbiguousStmt&>(*s);
+                    if (ambig.resolution == ast::AmbiguousStmt::Resolution::AsDecl && ambig.as_decl)
+                        block.stmts[i] = m_ast_ctx.make<ast::DeclStmt>(ambig.range, ambig.as_decl);
+                    else if (ambig.resolution == ast::AmbiguousStmt::Resolution::AsExpr && ambig.as_expr)
+                        block.stmts[i] = m_ast_ctx.make<ast::ExprStmt>(ambig.range, ambig.as_expr);
+                }
+
                 if (!r.falls_through)
                     reachable = false;
 
