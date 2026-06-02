@@ -49,6 +49,7 @@ export namespace dcc::backend
         bool emit_debug_info{false};
         DebugFormat debug_format{DebugFormat::Auto};
         bool omit_frame_pointer{true};
+        sm::SourceManager const* source_manager{};
     };
 
     class Backend

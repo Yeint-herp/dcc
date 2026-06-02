@@ -1011,6 +1011,10 @@ export namespace dcc::ir
 
         std::pmr::vector<IrDebugLocation> debug_locations;
 
+        std::string_view source_name;
+        std::uint32_t decl_file_id{static_cast<std::uint32_t>(sm::FileId::Invalid)};
+        std::uint32_t decl_line{};
+
         bool is_dll_import{};
         bool is_dll_export{};
         Linkage linkage{Linkage::Internal};
@@ -1048,6 +1052,7 @@ export namespace dcc::ir
         std::string_view name;
         std::pmr::vector<IrGlobal*> globals;
         std::pmr::vector<IrFunction*> functions;
+        std::uint32_t source_file_id{static_cast<std::uint32_t>(sm::FileId::Invalid)};
 
         explicit IrModule(std::pmr::polymorphic_allocator<> a) : globals(a), functions(a) {}
 

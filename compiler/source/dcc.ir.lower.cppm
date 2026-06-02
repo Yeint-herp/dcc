@@ -39,6 +39,8 @@ export namespace dcc::ir::lower
                 auto* mem = static_cast<char*>(m_ctx.allocator().allocate_bytes(mod_name_str.size(), alignof(char)));
                 std::memcpy(mem, mod_name_str.data(), mod_name_str.size());
                 m_module = m_ctx.module(std::string_view{mem, mod_name_str.size()});
+                if (mod.file_id != sm::FileId::Invalid)
+                    m_module->source_file_id = static_cast<std::uint32_t>(mod.file_id);
             }
 
             build_nominal_resolver();
@@ -251,6 +253,15 @@ export namespace dcc::ir::lower
             if (is_definition_here)
                 m_definition_functions.insert(decl);
 
+            ir_func->source_name = decl->name;
+            if (decl->range.valid() && m_source_manager)
+            {
+                ir_func->decl_file_id = static_cast<std::uint32_t>(decl->range.begin.fileId);
+                auto lc = m_source_manager->line_col(decl->range.begin);
+                if (lc)
+                    ir_func->decl_line = lc->line;
+            }
+
             propagate_attrs(decl, ir_func);
 
             m_func_map[decl] = ir_func;
@@ -298,6 +309,15 @@ export namespace dcc::ir::lower
             ir_func->linkage = Linkage::LinkOnceODR;
 
             m_definition_functions.insert(fd);
+
+            ir_func->source_name = fd->name;
+            if (fd->range.valid() && m_source_manager)
+            {
+                ir_func->decl_file_id = static_cast<std::uint32_t>(fd->range.begin.fileId);
+                auto lc = m_source_manager->line_col(fd->range.begin);
+                if (lc)
+                    ir_func->decl_line = lc->line;
+            }
 
             propagate_attrs(fd, ir_func);
 

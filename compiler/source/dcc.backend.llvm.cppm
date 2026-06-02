@@ -37,7 +37,63 @@ namespace dcc::backend
             LLVMMetadataRef difile = nullptr;
             LLVMMetadataRef dicu = nullptr;
             std::unordered_map<IrFunction const*, LLVMMetadataRef> subprogram_map;
+            std::unordered_map<std::uint32_t, LLVMMetadataRef> file_map;
+            sm::SourceManager const* sm = nullptr;
+            std::string comp_dir;
             bool finalized = false;
+
+            [[nodiscard]] LLVMMetadataRef get_or_create_file(std::uint32_t file_id)
+            {
+                if (file_id == static_cast<std::uint32_t>(sm::FileId::Invalid))
+                    return difile;
+
+                auto it = file_map.find(file_id);
+                if (it != file_map.end())
+                    return it->second;
+
+                if (!sm)
+                    return difile;
+
+                auto* sf = sm->get(static_cast<sm::FileId>(static_cast<std::uint32_t>(file_id)));
+                if (!sf)
+                    return difile;
+
+                auto path = sf->path();
+                std::string filename;
+                std::string directory = comp_dir;
+
+                if (!path.empty())
+                {
+                    std::error_code ec;
+                    auto abs_path = std::filesystem::weakly_canonical(path, ec);
+                    if (!ec)
+                    {
+                        auto rel = std::filesystem::proximate(abs_path, std::filesystem::path(comp_dir), ec);
+                        if (!ec && !rel.empty())
+                            filename = rel.generic_string();
+                        else
+                        {
+                            filename = abs_path.generic_string();
+                            directory.clear();
+                        }
+                    }
+                    else
+                    {
+                        filename = path.generic_string();
+                        directory.clear();
+                    }
+                }
+                else
+                {
+                    filename = "<unknown>";
+                    directory.clear();
+                }
+
+                auto* file_node = LLVMDIBuilderCreateFile(dibuilder, filename.c_str(), filename.size(), directory.empty() ? "." : directory.c_str(),
+                                                          directory.empty() ? 1 : directory.size());
+                file_map[file_id] = file_node;
+                return file_node;
+            }
 
             void finalize()
             {
@@ -586,11 +642,53 @@ namespace dcc::backend
                 if (wants_debug)
                 {
                     debug.dibuilder = LLVMCreateDIBuilder(llvm_mod);
+                    debug.sm = opts.source_manager;
 
-                    std::string file_name = module.name.empty() ? "<unknown>" : std::string{module.name};
-                    std::string file_dir = ".";
+                    {
+                        std::error_code ec;
+                        auto cwd = std::filesystem::current_path(ec);
+                        debug.comp_dir = ec ? "." : cwd.generic_string();
+                    }
 
-                    debug.difile = LLVMDIBuilderCreateFile(debug.dibuilder, file_name.c_str(), file_name.size(), file_dir.c_str(), file_dir.size());
+                    std::string cu_filename;
+                    std::string cu_directory = debug.comp_dir;
+                    if (module.source_file_id != static_cast<std::uint32_t>(sm::FileId::Invalid) && opts.source_manager)
+                    {
+                        auto* sf = opts.source_manager->get(static_cast<sm::FileId>(static_cast<std::uint32_t>(module.source_file_id)));
+                        if (sf)
+                        {
+                            auto path = sf->path();
+                            if (!path.empty())
+                            {
+                                std::error_code ec2;
+                                auto abs_path = std::filesystem::weakly_canonical(path, ec2);
+                                if (!ec2)
+                                {
+                                    auto rel = std::filesystem::proximate(abs_path, std::filesystem::path(debug.comp_dir), ec2);
+                                    if (!ec2 && !rel.empty())
+                                        cu_filename = rel.generic_string();
+                                    else
+                                    {
+                                        cu_filename = abs_path.generic_string();
+                                        cu_directory.clear();
+                                    }
+                                }
+                                else
+                                    cu_filename = path.filename().generic_string();
+                            }
+                        }
+                    }
+                    if (cu_filename.empty())
+                    {
+                        cu_filename = module.name.empty() ? "<unknown>" : std::string{module.name};
+                        cu_directory = ".";
+                    }
+
+                    debug.difile = LLVMDIBuilderCreateFile(debug.dibuilder, cu_filename.c_str(), cu_filename.size(),
+                                                           cu_directory.empty() ? "." : cu_directory.c_str(), cu_directory.empty() ? 1 : cu_directory.size());
+
+                    if (module.source_file_id != static_cast<std::uint32_t>(sm::FileId::Invalid))
+                        debug.file_map[module.source_file_id] = debug.difile;
 
                     debug.dicu = LLVMDIBuilderCreateCompileUnit(debug.dibuilder, LLVMDWARFSourceLanguageC, debug.difile, "dcc", 3, false, "", 0, 0, "", 0,
                                                                 LLVMDWARFEmissionFull, 0, false, false, "", 0, "", 0);
@@ -1182,9 +1280,16 @@ namespace dcc::backend
                 {
                     auto* sub_ty = LLVMDIBuilderCreateSubroutineType(debug->dibuilder, debug->difile, nullptr, 0, LLVMDIFlagZero);
 
-                    auto* sp = LLVMDIBuilderCreateFunction(debug->dibuilder, debug->dicu, std::string{func->name}.c_str(), func->name.size(),
-                                                           std::string{func->name}.c_str(), func->name.size(), debug->difile, 1, sub_ty, false, true, 1,
-                                                           LLVMDIFlagZero, false);
+                    std::string_view sp_name = func->source_name.empty() ? func->name : func->source_name;
+
+                    unsigned decl_line = func->decl_line;
+                    if (decl_line == 0)
+                        decl_line = 1;
+
+                    auto* sp_file = debug->get_or_create_file(func->decl_file_id);
+
+                    auto* sp = LLVMDIBuilderCreateFunction(debug->dibuilder, debug->dicu, std::string{sp_name}.c_str(), sp_name.size(), "", 0, sp_file,
+                                                           decl_line, sub_ty, false, true, decl_line, LLVMDIFlagZero, false);
 
                     debug->subprogram_map[func] = sp;
 
@@ -1299,7 +1404,7 @@ namespace dcc::backend
 
                 std::unordered_map<LocKey, IrDebugLocation const*, LocKeyHash> loc_index;
                 std::unordered_map<std::uint32_t, LLVMMetadataRef> scope_map;
-                std::unordered_map<std::uint32_t, std::pair<unsigned, unsigned>> scope_first_loc;
+                std::unordered_map<std::uint32_t, std::tuple<std::uint32_t, unsigned, unsigned>> scope_first_loc;
 
                 if (debug)
                 {
@@ -1315,7 +1420,7 @@ namespace dcc::backend
                             continue;
 
                         if (!scope_first_loc.contains(dl.loc.scope_id))
-                            scope_first_loc[dl.loc.scope_id] = {dl.loc.line, dl.loc.column};
+                            scope_first_loc[dl.loc.scope_id] = {dl.loc.file_id, dl.loc.line, dl.loc.column};
                     }
                 }
 
@@ -1344,14 +1449,18 @@ namespace dcc::backend
 
                     unsigned line = 0;
                     unsigned col = 0;
+                    std::uint32_t file_id = 0;
                     auto loc_it = scope_first_loc.find(scope_id);
                     if (loc_it != scope_first_loc.end())
                     {
-                        line = loc_it->second.first;
-                        col = loc_it->second.second;
+                        file_id = std::get<0>(loc_it->second);
+                        line = std::get<1>(loc_it->second);
+                        col = std::get<2>(loc_it->second);
                     }
 
-                    auto* lb = LLVMDIBuilderCreateLexicalBlock(debug->dibuilder, sp, debug->difile, line, col);
+                    auto* scope_file = debug->get_or_create_file(file_id);
+
+                    auto* lb = LLVMDIBuilderCreateLexicalBlock(debug->dibuilder, sp, scope_file, line, col);
                     scope_map[scope_id] = lb;
                     return lb;
                 };

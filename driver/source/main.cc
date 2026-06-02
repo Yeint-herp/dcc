@@ -722,6 +722,7 @@ auto main(int argc, char** argv) -> int
             backend_opts.emit_debug_info = opts.emit_debug_info;
             backend_opts.debug_format = opts.debug_format;
             backend_opts.omit_frame_pointer = opts.omit_frame_pointer;
+            backend_opts.source_manager = &session.source_manager();
 
             if (opts.libdcext && kinds.contains(dcc::backend::ArtifactKind::ExecutableBytes))
             {
