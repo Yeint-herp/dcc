@@ -1,0 +1,41 @@
+=== FILE: main.dc ===
+module m;
+const u16 a = u'A';
+const u16 b = u'\n';
+const u16 c = u'\u03A9';
+const u16 d = u'\0';
+const u16 e = u'\x41';
+
+=== EXPECT-AST ===
+TranslationUnit
+  Module m
+  Var name=a
+    Type
+      Qualified const
+        Primitive u16
+    Init
+      U16CharLiteral 65
+  Var name=b
+    Type
+      Qualified const
+        Primitive u16
+    Init
+      U16CharLiteral 10
+  Var name=c
+    Type
+      Qualified const
+        Primitive u16
+    Init
+      U16CharLiteral 937
+  Var name=d
+    Type
+      Qualified const
+        Primitive u16
+    Init
+      U16CharLiteral 0
+  Var name=e
+    Type
+      Qualified const
+        Primitive u16
+    Init
+      U16CharLiteral 65

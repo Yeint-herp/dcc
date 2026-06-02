@@ -27,6 +27,8 @@ export namespace dcc::lex
 
             if (c == 'u' && peek_at(1) == '"')
                 return lex_u16_string(start);
+            else if (c == 'u' && peek_at(1) == '\'')
+                return lex_u16_char(start);
             else if (is_ident_start(c))
                 return lex_identifier(start);
             else if (is_digit(c))
@@ -452,6 +454,70 @@ export namespace dcc::lex
             auto tok = make_token(TokenKind::CharLiteral, start);
             tok.interned = m_interner.intern(m_src.substr(start, m_pos - start));
             tok.value = static_cast<std::uint32_t>(cp);
+            return tok;
+        }
+
+        Token lex_u16_char(std::uint32_t start)
+        {
+            advance();
+            advance();
+
+            if (at_end() || peek() == '\'')
+                return make_error(start, "empty utf-16 character literal");
+
+            std::u16string val;
+
+            if (peek() == '\\')
+            {
+                advance();
+                if (auto err = lex_u16_escape(val); !err.empty())
+                    return make_error(start, std::string{err});
+            }
+            else
+            {
+                auto res = utf8::decode_one(m_src.substr(m_pos));
+                if (!res)
+                    return make_error(start, "invalid UTF-8 in utf-16 character literal");
+
+                encode_utf16(res->codepoint, val);
+                m_pos += static_cast<std::uint32_t>(res->bytes_consumed);
+            }
+
+            if (val.empty())
+                return make_error(start, "empty utf-16 character literal");
+
+            if (val.size() > 1)
+                return make_error(start, "utf-16 character literal must contain a single code unit");
+
+            if (val[0] >= 0xD800 && val[0] <= 0xDFFF)
+                return make_error(start, "utf-16 character literal cannot be a surrogate");
+
+            if (!at_end() && peek() != '\'')
+            {
+                bool found_closing = false;
+                for (auto scan = m_pos; scan < m_src.size() && m_src[scan] != '\n'; ++scan)
+                {
+                    if (m_src[scan] == '\'')
+                    {
+                        found_closing = true;
+                        break;
+                    }
+                }
+
+                if (found_closing)
+                    return make_error(start, "utf-16 character literal must contain a single code unit");
+                else
+                    return make_error(start, "unterminated utf-16 character literal");
+            }
+
+            if (at_end() || peek() != '\'')
+                return make_error(start, "unterminated utf-16 character literal");
+
+            advance();
+
+            auto tok = make_token(TokenKind::U16CharLiteral, start);
+            tok.interned = m_interner.intern(m_src.substr(start, m_pos - start));
+            tok.value = static_cast<std::uint32_t>(val[0]);
             return tok;
         }
 

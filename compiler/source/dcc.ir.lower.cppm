@@ -1764,8 +1764,9 @@ export namespace dcc::ir::lower
             if (expr->sema.const_value)
             {
                 bool pure = (expr->kind == ast::ExprKind::IntLiteral || expr->kind == ast::ExprKind::FloatLiteral || expr->kind == ast::ExprKind::BoolLiteral ||
-                             expr->kind == ast::ExprKind::CharLiteral || expr->kind == ast::ExprKind::NullLiteral || expr->kind == ast::ExprKind::Cast ||
-                             expr->kind == ast::ExprKind::Sizeof || expr->kind == ast::ExprKind::Alignof || expr->kind == ast::ExprKind::Offsetof);
+                             expr->kind == ast::ExprKind::CharLiteral || expr->kind == ast::ExprKind::U16CharLiteral ||
+                             expr->kind == ast::ExprKind::NullLiteral || expr->kind == ast::ExprKind::Cast || expr->kind == ast::ExprKind::Sizeof ||
+                             expr->kind == ast::ExprKind::Alignof || expr->kind == ast::ExprKind::Offsetof);
 
                 if (pure)
                     return materialize_comptime(*expr->sema.const_value, get_sema_resolved_type(expr));
@@ -1793,6 +1794,11 @@ export namespace dcc::ir::lower
                 case ast::ExprKind::CharLiteral: {
                     auto* lit = static_cast<ast::CharLiteralExpr const*>(expr);
                     return m_ctx.int_const(m_ctx.int_t(8, false), static_cast<std::int64_t>(lit->codepoint));
+                }
+
+                case ast::ExprKind::U16CharLiteral: {
+                    auto* lit = static_cast<ast::U16CharLiteralExpr const*>(expr);
+                    return m_ctx.int_const(m_ctx.int_t(16, false), static_cast<std::int64_t>(lit->value));
                 }
 
                 case ast::ExprKind::NullLiteral: {
@@ -3126,6 +3132,8 @@ export namespace dcc::ir::lower
                 return il->value;
             if (auto* cl = ast::node_cast<ast::CharLiteralExpr>(expr))
                 return static_cast<std::int64_t>(cl->codepoint);
+            if (auto* ucl = ast::node_cast<ast::U16CharLiteralExpr>(expr))
+                return static_cast<std::int64_t>(ucl->value);
             return std::nullopt;
         }
 
@@ -4557,6 +4565,10 @@ export namespace dcc::ir::lower
                 case ast::ExprKind::CharLiteral: {
                     auto* lit = static_cast<ast::CharLiteralExpr const*>(expr);
                     return m_ctx.int_const(m_ctx.int_t(8, false), static_cast<std::int64_t>(lit->codepoint));
+                }
+                case ast::ExprKind::U16CharLiteral: {
+                    auto* lit = static_cast<ast::U16CharLiteralExpr const*>(expr);
+                    return m_ctx.int_const(m_ctx.int_t(16, false), static_cast<std::int64_t>(lit->value));
                 }
                 case ast::ExprKind::NullLiteral: {
                     auto* ir_ty = lower_type(target_type);
@@ -6051,6 +6063,8 @@ export namespace dcc::ir::lower
                         return il->value;
                     if (auto* cl = ast::node_cast<ast::CharLiteralExpr>(e))
                         return static_cast<std::int64_t>(cl->codepoint);
+                    if (auto* ucl = ast::node_cast<ast::U16CharLiteralExpr>(e))
+                        return static_cast<std::int64_t>(ucl->value);
                     if (e->sema.const_value)
                     {
                         auto v = e->sema.const_value->const_to_int();

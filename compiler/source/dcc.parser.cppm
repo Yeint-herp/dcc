@@ -2042,8 +2042,8 @@ export namespace dcc::parser
                                 arg.type = m_ctx.make<ast::NamedType>(tok.range, std::move(p));
                             }
                             else if (peek().kind == TK::IntLiteral || peek().kind == TK::FloatLiteral || peek().kind == TK::StringLiteral ||
-                                     peek().kind == TK::U16StringLiteral || peek().kind == TK::CharLiteral || peek().kind == TK::KwTrue ||
-                                     peek().kind == TK::KwFalse || peek().kind == TK::KwNull)
+                                     peek().kind == TK::U16StringLiteral || peek().kind == TK::CharLiteral || peek().kind == TK::U16CharLiteral ||
+                                     peek().kind == TK::KwTrue || peek().kind == TK::KwFalse || peek().kind == TK::KwNull)
                                 arg.expr = parse_primary(no_struct_lit);
                             else
                                 return expr;
@@ -2120,6 +2120,15 @@ export namespace dcc::parser
                             cp = *uv;
 
                     return m_ctx.make<ast::CharLiteralExpr>(tok.range, cp);
+                }
+                case TK::U16CharLiteral: {
+                    auto tok = advance();
+                    std::uint32_t val = 0;
+                    if (tok.value)
+                        if (auto* uv = std::get_if<std::uint32_t>(&*tok.value))
+                            val = *uv;
+
+                    return m_ctx.make<ast::U16CharLiteralExpr>(tok.range, val);
                 }
                 case TK::KwTrue:
                     advance();
@@ -2222,7 +2231,18 @@ export namespace dcc::parser
                         return m_ctx.make<ast::TypeASTExpr>(range_from(start), type_node);
                     }
 
-                    error_at(single_range(), std::format("expected expression, found '{}'", lex::to_string(peek().kind)));
+                    {
+                        auto const& tok = peek();
+                        auto msg = std::format("expected expression, found '{}'", lex::to_string(tok.kind));
+                        auto d = diag::Diagnostic(diag::Severity::Error, std::move(msg)).primary(tok.range);
+                        if (!tok.valid())
+                            if (auto em = tok.error_message(); !em.empty())
+                                std::move(d).note(std::string{em});
+
+                        emit(std::move(d));
+                        m_last_error_range = tok.range;
+                    }
+
                     advance();
                     return nullptr;
             }
@@ -2688,6 +2708,7 @@ export namespace dcc::parser
                 case TK::StringLiteral:
                 case TK::U16StringLiteral:
                 case TK::CharLiteral:
+                case TK::U16CharLiteral:
                 case TK::KwTrue:
                 case TK::KwFalse:
                 case TK::KwNull:

@@ -1,0 +1,7 @@
+=== FILE: main.dc ===
+module m;
+const u16 a = u'';
+
+=== EXPECT-ERRORS ===
+main.dc:2: expected expression, found 'invalid'
+main.dc:2: expected ';' after variable declaration, found 'invalid'

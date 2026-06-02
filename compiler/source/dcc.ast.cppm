@@ -105,6 +105,7 @@ export namespace dcc::ast
         StringLiteral,
         U16StringLiteral,
         CharLiteral,
+        U16CharLiteral,
         BoolLiteral,
         NullLiteral,
         Ident,
@@ -518,6 +519,13 @@ export namespace dcc::ast
         static constexpr auto Kind = ExprKind::CharLiteral;
         std::uint32_t codepoint;
         CharLiteralExpr(sm::SourceRange r, std::uint32_t cp) : Expr(Kind, r), codepoint(cp) {}
+    };
+
+    struct U16CharLiteralExpr : Expr
+    {
+        static constexpr auto Kind = ExprKind::U16CharLiteral;
+        std::uint32_t value;
+        U16CharLiteralExpr(sm::SourceRange r, std::uint32_t v) : Expr(Kind, r), value(v) {}
     };
 
     struct BoolLiteralExpr : Expr

@@ -1,0 +1,17 @@
+=== FILE: test.dc ===
+module test;
+
+public u16 get_a() { return u'A'; }
+public u16 get_omega() { return u'\u03A9'; }
+
+=== EXPECT-IR ===
+module "test"
+u16@_DC0F1.4.test5.get_a0i16u() {
+%entry:
+  ret u16 #65
+}
+
+u16@_DC0F1.4.test9.get_omega0i16u() {
+%entry:
+  ret u16 #937
+}

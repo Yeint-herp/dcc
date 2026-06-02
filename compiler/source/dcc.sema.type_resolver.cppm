@@ -1227,6 +1227,9 @@ export namespace dcc::sema
                 case ast::ExprKind::CharLiteral:
                     return static_cast<std::int64_t>(static_cast<ast::CharLiteralExpr*>(expr)->codepoint);
 
+                case ast::ExprKind::U16CharLiteral:
+                    return static_cast<std::int64_t>(static_cast<ast::U16CharLiteralExpr*>(expr)->value);
+
                 case ast::ExprKind::Ident: {
                     auto* ident = static_cast<ast::IdentExpr*>(expr);
 

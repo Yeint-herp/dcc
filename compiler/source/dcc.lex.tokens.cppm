@@ -17,6 +17,7 @@ export namespace dcc::lex
         StringLiteral,
         U16StringLiteral,
         CharLiteral,
+        U16CharLiteral,
 
         Kwu8,
         Kwi8,
@@ -156,6 +157,8 @@ export namespace dcc::lex
                 return "utf-16 string literal";
             case TokenKind::CharLiteral:
                 return "char literal";
+            case TokenKind::U16CharLiteral:
+                return "utf-16 char literal";
 
             case TokenKind::Kwu8:
                 return "u8";
@@ -384,7 +387,7 @@ export namespace dcc::lex
 
     [[nodiscard]] constexpr bool is_literal(TokenKind k) noexcept
     {
-        return k >= TokenKind::IntLiteral && k <= TokenKind::CharLiteral;
+        return k >= TokenKind::IntLiteral && k <= TokenKind::U16CharLiteral;
     }
 
     using TokenValue = std::variant<std::monostate, std::intmax_t, double, std::string, std::uint32_t, std::u16string>;

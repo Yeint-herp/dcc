@@ -373,6 +373,10 @@ namespace dccd::semantic_tokens
                     emit(expr->range, TokenType::String);
                     break;
                 }
+                case dcc::ast::ExprKind::U16CharLiteral: {
+                    emit(expr->range, TokenType::String);
+                    break;
+                }
                 case dcc::ast::ExprKind::BoolLiteral:
                 case dcc::ast::ExprKind::NullLiteral:
                     break;

@@ -1,0 +1,11 @@
+=== FILE: main.dc ===
+module m;
+
+const u16 a = u'A';
+const u16 b = u'\u03A9';
+const bool y = u'A' == 65;
+const bool z = u'\n' == 10;
+
+bool test() { return y && z; }
+
+=== EXPECT-SEMA ===

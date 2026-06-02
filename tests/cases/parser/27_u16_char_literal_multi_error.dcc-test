@@ -1,0 +1,9 @@
+=== FILE: main.dc ===
+module m;
+const u16 a = u'ab';
+
+=== EXPECT-ERRORS ===
+main.dc:2: expected expression, found 'invalid'
+main.dc:2: = note: utf-16 character literal must contain a single code unit
+main.dc:2: expected ';' after variable declaration, found 'identifier'
+main.dc:2: expected 'identifier' in declaration, found 'invalid'

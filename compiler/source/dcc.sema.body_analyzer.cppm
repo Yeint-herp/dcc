@@ -533,6 +533,9 @@ export namespace dcc::sema
                 case ast::ExprKind::CharLiteral:
                     line_fmt("CharLiteral {} {}", static_cast<ast::CharLiteralExpr const&>(e).codepoint, expr_suffix(e));
                     break;
+                case ast::ExprKind::U16CharLiteral:
+                    line_fmt("U16CharLiteral {} {}", static_cast<ast::U16CharLiteralExpr const&>(e).value, expr_suffix(e));
+                    break;
                 case ast::ExprKind::BoolLiteral:
                     line_fmt("BoolLiteral {} {}", static_cast<ast::BoolLiteralExpr const&>(e).value, expr_suffix(e));
                     break;
@@ -5257,6 +5260,13 @@ export namespace dcc::sema
                     out.is_constant = true;
                     break;
                 }
+                case ast::ExprKind::U16CharLiteral: {
+                    auto& e = static_cast<ast::U16CharLiteralExpr&>(expr);
+                    out.type = m_types.int_t(16, false);
+                    out.constant = make_int_const(e.value, out.type);
+                    out.is_constant = true;
+                    break;
+                }
                 case ast::ExprKind::BoolLiteral: {
                     auto& e = static_cast<ast::BoolLiteralExpr&>(expr);
                     out.type = m_types.m_boolt();
@@ -8842,6 +8852,7 @@ export namespace dcc::sema
                 }
                 case ast::ExprKind::FloatLiteral:
                 case ast::ExprKind::CharLiteral:
+                case ast::ExprKind::U16CharLiteral:
                 case ast::ExprKind::BoolLiteral:
                 case ast::ExprKind::StringLiteral:
                 case ast::ExprKind::U16StringLiteral:
