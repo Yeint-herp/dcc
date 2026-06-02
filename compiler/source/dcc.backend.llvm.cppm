@@ -2,6 +2,7 @@ module;
 
 #include <array>
 #include <cstdio>
+#include <llvm-c/Analysis.h>
 #include <llvm-c/Comdat.h>
 #include <llvm-c/Core.h>
 #include <llvm-c/DebugInfo.h>
@@ -266,12 +267,31 @@ namespace dcc::backend
                 if (it != map.end())
                     return it->second;
 
+                if (t->kind == IrTypeKind::Array)
+                {
+                    auto* at2 = static_cast<IrArrayType const*>(t);
+                    auto* elem_ty = get(at2->element, true);
+                    auto* arr_ty = LLVMArrayType2(elem_ty, static_cast<unsigned>(at2->count));
+                    map[t] = arr_ty;
+                    return arr_ty;
+                }
+
+                if (t->kind == IrTypeKind::Slice)
+                {
+                    LLVMTypeRef fields[] = {
+                        LLVMPointerTypeInContext(ctx, 0),
+                        LLVMInt64TypeInContext(ctx),
+                    };
+                    auto* slice_ty = LLVMStructTypeInContext(ctx, fields, 2, 0);
+                    map[t] = slice_ty;
+                    return slice_ty;
+                }
+
                 auto* opaque = LLVMStructCreateNamed(ctx, "");
                 map[t] = opaque;
 
-                auto* result = build_complex(t);
-                map[t] = result;
-                return result;
+                build_aggregate_body(t, opaque);
+                return opaque;
             }
 
             [[nodiscard]] unsigned get_llvm_field_index(IrAggregateType const* at, unsigned ir_field_idx) const
@@ -299,68 +319,47 @@ namespace dcc::backend
                 }
             }
 
-            [[nodiscard]] LLVMTypeRef build_complex(IrType const* t)
+            void build_aggregate_body(IrType const* t, LLVMTypeRef opaque)
             {
-                switch (t->kind)
+                auto* at = static_cast<IrAggregateType const*>(t);
+                std::vector<LLVMTypeRef> elems;
+                elems.reserve(at->members.size() + 1);
+                std::vector<unsigned> index_map;
+                index_map.reserve(at->members.size());
+
+                std::uint64_t expected_offset = 0;
+                unsigned next_llvm_idx = 0;
+                for (std::size_t i = 0; i < at->members.size(); ++i)
                 {
-                    case IrTypeKind::Aggregate: {
-                        auto* at = static_cast<IrAggregateType const*>(t);
-                        std::vector<LLVMTypeRef> elems;
-                        elems.reserve(at->members.size() + 1);
-                        std::vector<unsigned> index_map;
-                        index_map.reserve(at->members.size());
+                    auto* m = at->members[i];
+                    auto offset = i < at->member_offsets.size() ? at->member_offsets[i] : 0;
 
-                        std::uint64_t expected_offset = 0;
-                        unsigned next_llvm_idx = 0;
-                        for (std::size_t i = 0; i < at->members.size(); ++i)
-                        {
-                            auto* m = at->members[i];
-                            auto offset = i < at->member_offsets.size() ? at->member_offsets[i] : 0;
-
-                            if (offset > expected_offset)
-                            {
-                                auto pad_size = offset - expected_offset;
-                                auto* pad_ty = LLVMArrayType2(LLVMInt8TypeInContext(ctx), static_cast<unsigned>(pad_size));
-                                elems.push_back(pad_ty);
-                                ++next_llvm_idx;
-                            }
-
-                            auto* mem_ty = get(m, true);
-                            elems.push_back(mem_ty);
-                            index_map.push_back(next_llvm_idx);
-                            ++next_llvm_idx;
-
-                            expected_offset = offset + (m ? m->byte_size : 0);
-                        }
-
-                        if (expected_offset < at->byte_size)
-                        {
-                            auto pad_size = at->byte_size - expected_offset;
-                            auto* pad_ty = LLVMArrayType2(LLVMInt8TypeInContext(ctx), static_cast<unsigned>(pad_size));
-                            elems.push_back(pad_ty);
-                        }
-
-                        field_index_map[t] = std::move(index_map);
-
-                        auto* struct_ty = LLVMStructCreateNamed(ctx, "");
-                        LLVMStructSetBody(struct_ty, elems.data(), static_cast<unsigned>(elems.size()), 0);
-                        return struct_ty;
+                    if (offset > expected_offset)
+                    {
+                        auto pad_size = offset - expected_offset;
+                        auto* pad_ty = LLVMArrayType2(LLVMInt8TypeInContext(ctx), static_cast<unsigned>(pad_size));
+                        elems.push_back(pad_ty);
+                        ++next_llvm_idx;
                     }
-                    case IrTypeKind::Array: {
-                        auto* at2 = static_cast<IrArrayType const*>(t);
-                        auto* elem_ty = get(at2->element, true);
-                        return LLVMArrayType2(elem_ty, static_cast<unsigned>(at2->count));
-                    }
-                    case IrTypeKind::Slice: {
-                        LLVMTypeRef fields[] = {
-                            LLVMPointerTypeInContext(ctx, 0),
-                            LLVMInt64TypeInContext(ctx),
-                        };
-                        return LLVMStructTypeInContext(ctx, fields, 2, 0);
-                    }
-                    default:
-                        return LLVMVoidTypeInContext(ctx);
+
+                    auto* mem_ty = get(m, true);
+                    elems.push_back(mem_ty);
+                    index_map.push_back(next_llvm_idx);
+                    ++next_llvm_idx;
+
+                    expected_offset = offset + (m ? m->byte_size : 0);
                 }
+
+                if (expected_offset < at->byte_size)
+                {
+                    auto pad_size = at->byte_size - expected_offset;
+                    auto* pad_ty = LLVMArrayType2(LLVMInt8TypeInContext(ctx), static_cast<unsigned>(pad_size));
+                    elems.push_back(pad_ty);
+                }
+
+                field_index_map[t] = std::move(index_map);
+
+                LLVMStructSetBody(opaque, elems.data(), static_cast<unsigned>(elems.size()), 0);
             }
         };
 
@@ -534,7 +533,7 @@ namespace dcc::backend
                             if (!fields[i])
                                 fields[i] = LLVMConstNull(LLVMStructGetTypeAtIndex(mem_ty, i));
 
-                        return LLVMConstStructInContext(ctx, fields.data(), static_cast<unsigned>(fields.size()), 0);
+                        return LLVMConstNamedStruct(mem_ty, fields.data(), static_cast<unsigned>(fields.size()));
                     }
 
                     if (ty_kind == LLVMArrayTypeKind)
@@ -749,6 +748,28 @@ namespace dcc::backend
                 {
                     LLVMDisposeModule(llvm_mod);
                     return artifact;
+                }
+
+                {
+                    char* verifier_msg = nullptr;
+                    if (LLVMVerifyModule(llvm_mod, LLVMReturnStatusAction, &verifier_msg))
+                    {
+                        char* ir_str = LLVMPrintModuleToString(llvm_mod);
+                        auto diag_msg = std::string{"LLVM module verification failed:\n"} + (verifier_msg ? verifier_msg : "unknown error") +
+                                        "\n\nFull LLVM IR:\n" + (ir_str ? ir_str : "");
+
+                        add_diag(diags, {}, diag_msg);
+                        if (verifier_msg)
+                            LLVMDisposeMessage(verifier_msg);
+
+                        if (ir_str)
+                            LLVMDisposeMessage(ir_str);
+
+                        LLVMDisposeModule(llvm_mod);
+                        return artifact;
+                    }
+                    if (verifier_msg)
+                        LLVMDisposeMessage(verifier_msg);
                 }
 
                 bool want_ir = opts.requested_artifacts.contains(ArtifactKind::LlvmIrText);
@@ -1115,7 +1136,10 @@ namespace dcc::backend
                     LLVMSetInitializer(gv, init_val);
                 }
                 else if (g->linkage != Linkage::External)
-                    LLVMSetInitializer(gv, LLVMConstNull(mem_ty));
+                {
+                    auto* null_val = LLVMConstNull(mem_ty);
+                    LLVMSetInitializer(gv, null_val);
+                }
 
                 if (g->is_constant)
                     LLVMSetGlobalConstant(gv, 1);

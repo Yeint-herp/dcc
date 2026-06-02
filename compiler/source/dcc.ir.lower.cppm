@@ -1401,7 +1401,34 @@ export namespace dcc::ir::lower
             if (!m_bounds_check)
                 return;
 
-            auto* cmp = m_ctx.cmp_ult(index, len);
+            auto* cmp_index = index;
+            if (index->type && len->type && index->type->kind == IrTypeKind::Int && len->type->kind == IrTypeKind::Int)
+            {
+                auto const* idx_int = static_cast<IrIntType const*>(index->type);
+                auto const* len_int = static_cast<IrIntType const*>(len->type);
+                if (idx_int->bits != len_int->bits)
+                {
+                    if (idx_int->bits < len_int->bits)
+                    {
+                        auto* ext =
+                            idx_int->is_signed ? static_cast<IrValue*>(m_ctx.sext(len->type, index)) : static_cast<IrValue*>(m_ctx.zext(len->type, index));
+                        auto ext_name = ident_name();
+                        ext->name = m_name_pool.back();
+                        append_inst(ext);
+                        cmp_index = ext;
+                    }
+                    else
+                    {
+                        auto* tr = m_ctx.trunc(len->type, index);
+                        auto tr_name = ident_name();
+                        tr->name = m_name_pool.back();
+                        append_inst(tr);
+                        cmp_index = tr;
+                    }
+                }
+            }
+
+            auto* cmp = m_ctx.cmp_ult(cmp_index, len);
             auto cmp_name = ident_name();
             cmp->name = m_name_pool.back();
             append_inst(cmp);
@@ -1556,6 +1583,7 @@ export namespace dcc::ir::lower
             {
                 m_assert_func = m_ctx.function(mangled_name, assert_func_type);
                 m_assert_func->is_dll_import = true;
+                m_assert_func->linkage = ir::Linkage::External;
                 m_module->functions.push_back(m_assert_func);
 
                 m_assert_func_ref = m_ctx.make<IrGlobalRef>(m_assert_func, func_type);
@@ -5197,7 +5225,6 @@ export namespace dcc::ir::lower
                         continue;
 
                     auto* gep = m_ctx.gep(m_ctx.pointer_to(ir_elem_type), alloca);
-                    gep->indices.push_back({IrGepInst::IndexKind::Array, m_ctx.int_const(m_ctx.int_t(64, false), 0), 0});
                     gep->indices.push_back({IrGepInst::IndexKind::Array, m_ctx.int_const(m_ctx.int_t(64, false), static_cast<std::int64_t>(idx)), 0});
                     auto gep_name = ident_name();
                     gep->name = m_name_pool.back();
@@ -5206,7 +5233,6 @@ export namespace dcc::ir::lower
                 }
 
                 auto* ptr_to_first = m_ctx.gep(m_ctx.pointer_to(ir_elem_type), alloca);
-                ptr_to_first->indices.push_back({IrGepInst::IndexKind::Array, m_ctx.int_const(m_ctx.int_t(64, false), 0), 0});
                 ptr_to_first->indices.push_back({IrGepInst::IndexKind::Array, m_ctx.int_const(m_ctx.int_t(64, false), 0), 0});
                 auto ptr_name = ident_name();
                 ptr_to_first->name = m_name_pool.back();

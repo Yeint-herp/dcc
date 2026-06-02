@@ -1,0 +1,44 @@
+=== FILE: test.dc ===
+module test;
+public void f() { []i32 x = {1, 2}; i32 y = x[100]; }
+
+=== EXPECT-LLVM FLAGS: -fbounds-check -verify ===
+; ModuleID = 'test'
+source_filename = "test"
+target triple = "x86_64-unknown-linux-gnu"
+
+@.str.0 = internal constant [7 x i8] c"test.dc"
+@.str.1 = internal constant [1 x i8] c"f"
+@.str.2 = internal constant [25 x i8] c"slice index out of bounds"
+
+define void @_DC0F1.4.test1.f0v() {
+entry:
+  %"0" = alloca { ptr, i64 }, align 8
+  %"1" = alloca [2 x i32], align 4
+  %"2" = getelementptr [2 x i32], ptr %"1", i32 0, i64 0
+  store i32 1, ptr %"2", align 4
+  %"3" = getelementptr [2 x i32], ptr %"1", i32 0, i64 1
+  store i32 2, ptr %"3", align 4
+  %"4" = getelementptr [2 x i32], ptr %"1", i32 0, i64 0
+  %0 = insertvalue { ptr, i64 } undef, ptr %"4", 0
+  %"5" = insertvalue { ptr, i64 } %0, i64 2, 1
+  store { ptr, i64 } %"5", ptr %"0", align 8
+  %"6" = alloca i32, align 4
+  %"7" = load { ptr, i64 }, ptr %"0", align 8
+  %"8" = extractvalue { ptr, i64 } %"7", 0
+  %"9" = extractvalue { ptr, i64 } %"7", 1
+  %"11" = icmp ult i64 100, %"9"
+  br i1 %"11", label %bounds.ok1, label %bounds.fail2
+
+bounds.ok1:                                       ; preds = %entry
+  %"12" = getelementptr i32, ptr %"8", i32 100
+  %"13" = load i32, ptr %"12", align 4
+  store i32 %"13", ptr %"6", align 4
+  ret void
+
+bounds.fail2:                                     ; preds = %entry
+  call void @_DC0F1.6.assert8.__assert4SCqci32sSCqcSCqcv({ ptr, i64 } { ptr @.str.0, i64 7 }, i32 2, { ptr, i64 } { ptr @.str.1, i64 1 }, { ptr, i64 } { ptr @.str.2, i64 25 })
+  unreachable
+}
+
+declare void @_DC0F1.6.assert8.__assert4SCqci32sSCqcSCqcv({ ptr, i64 }, i32, { ptr, i64 }, { ptr, i64 })

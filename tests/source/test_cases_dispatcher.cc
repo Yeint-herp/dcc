@@ -89,6 +89,7 @@ namespace
         bool position_independent_code{false};
         std::optional<dcc::target::CodeModel> code_model;
         bool omit_frame_pointer{true};
+        bool bounds_check{false};
     };
 
     struct ExpectRegistry
@@ -341,6 +342,8 @@ namespace
 
                     if (flags_str.find("-verify") != std::string::npos)
                         e.verify = true;
+                    if (flags_str.find("-fbounds-check") != std::string::npos)
+                        e.bounds_check = true;
                     if (flags_str.find("-fno-red-zone") != std::string::npos)
                         e.no_red_zone = true;
                     if (flags_str.find("-fno-simd") != std::string::npos)
@@ -1234,7 +1237,7 @@ namespace
             }
 
             dcc::ir::IrContext ir_ctx;
-            auto lowerer = std::make_unique<dcc::ir::lower::Lowerer>(ir_ctx, &sema.spec_registry(), &sema.graph(), false, &sm, &sema.types());
+            auto lowerer = std::make_unique<dcc::ir::lower::Lowerer>(ir_ctx, &sema.spec_registry(), &sema.graph(), exp.bounds_check, &sm, &sema.types());
             auto* ir_mod = lowerer->lower_module(*mod);
 
             dcc::target::TargetConfig target;
