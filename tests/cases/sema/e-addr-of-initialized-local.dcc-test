@@ -1,0 +1,41 @@
+=== FILE: main.dc ===
+module m;
+
+void take_ptr(i32* p) {
+    *p = 10;
+}
+
+void test_init_local() {
+    i32 x = 0;
+    i32* p = &x;
+}
+
+void test_init_u8() {
+    u8 x = 0;
+    u8* p = &x;
+}
+
+void test_init_call_arg() {
+    i32 x = 0;
+    take_ptr(&x);
+}
+
+void test_uninit_local() {
+    i32 x;
+    i32* p = &x;
+}
+
+void test_uninit_call_arg() {
+    i32 x;
+    take_ptr(&x);
+}
+
+void test_param_addr(i32 x) {
+    i32* p = &x;
+}
+
+void test_param_call_arg(i32 x) {
+    take_ptr(&x);
+}
+
+=== EXPECT-ERRORS ===

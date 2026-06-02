@@ -1,0 +1,20 @@
+=== FILE: main.dc ===
+module m;
+
+struct NoWrite {
+}
+
+using WritableInto(T) = compiles(T x) {
+    x.write("H");
+    x.write('H');
+};
+
+void println(T)(T out, []const char msg) if WritableInto(T) {}
+
+void test_negative() {
+    NoWrite nw;
+    nw.println("hello");
+}
+
+=== EXPECT-ERRORS ===
+main.dc:15: template constraint not satisfied for `println`

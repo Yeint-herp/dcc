@@ -1445,6 +1445,12 @@ export namespace dcc::sema
 
         void emit_overload_error(sm::SourceRange range, std::string primary_msg, std::vector<CandidateInfo> const& candidates)
         {
+            if (m_suppress_errors)
+            {
+                ++m_suppressed_error_count;
+                return;
+            }
+
             auto diag_obj = diag::Diagnostic{diag::Severity::Error, std::move(primary_msg)}.primary(range);
             for (auto const& cand : candidates)
             {
@@ -5224,6 +5230,7 @@ export namespace dcc::sema
                     out.type = get_resolved_type(expr.sema);
                     out.constant = expr.sema.const_value;
                     out.is_constant = true;
+                    out.is_lvalue = expr.sema.is_lvalue;
                     return out;
                 }
             }
@@ -7795,14 +7802,14 @@ export namespace dcc::sema
                 }
             }
 
-            if (saw_probe_error)
-                return {m_types.m_errort()};
-
             if (saw_constraint_failure && !saw_non_constraint_failure)
             {
                 error(f.range, "template constraint not satisfied for `{}`", f.field);
                 return {m_types.m_errort()};
             }
+
+            if (saw_probe_error)
+                return {m_types.m_errort()};
 
             error(f.range, "no matching UFCS function for `{}`", f.field);
             return {m_types.m_errort()};
@@ -9082,10 +9089,18 @@ export namespace dcc::sema
                         if (mod.own_scope)
                             if (auto const* sym = mod.own_scope->lookup_type(nt->path.simple_name()))
                                 return {.type = instantiate(sym->decl)};
+
+                        if (m_specialization_defining_module && m_specialization_defining_module->own_scope)
+                            if (auto const* sym = m_specialization_defining_module->own_scope->lookup_type(nt->path.simple_name()))
+                                return {.type = instantiate(sym->decl)};
                     }
 
                     if (mod.own_scope)
                         if (auto const* sym = resolve_type_path(*mod.own_scope, nt->path))
+                            return {.type = instantiate(sym->decl)};
+
+                    if (m_specialization_defining_module && m_specialization_defining_module->own_scope)
+                        if (auto const* sym = resolve_type_path(*m_specialization_defining_module->own_scope, nt->path))
                             return {.type = instantiate(sym->decl)};
 
                     return {.type = m_types.m_errort()};

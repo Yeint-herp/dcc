@@ -1,0 +1,35 @@
+=== FILE: fmt.dc ===
+module fmt;
+
+public enum FormatArg {
+    Str([]const char),
+    Int(i32),
+}
+
+using WritableInto(T) = compiles(T x) {
+    x.write("H");
+    x.write('H');
+};
+
+public void println(T)(T out, []const char msg) if WritableInto(T) {
+    FormatArg[0] empty;
+    out.format_impl(msg, empty);
+}
+
+public void format_impl(T)(T out, []const char fmt, []const FormatArg args) if WritableInto(T) {}
+
+=== FILE: main.dc ===
+module main;
+import fmt;
+
+struct MyOut { i32 fd; }
+
+void write(MyOut o, []const char s) {}
+void write(MyOut o, char c) {}
+
+void test_cross_module_zero_array() {
+    MyOut out;
+    out.println("hello");
+}
+
+=== ENTRY: main.dc ===

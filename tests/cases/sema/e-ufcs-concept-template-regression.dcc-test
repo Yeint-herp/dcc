@@ -1,0 +1,31 @@
+=== FILE: main.dc ===
+module m;
+
+// Test 1: UFCS auto-ref: value receiver matches pointer first-param
+struct W {
+}
+
+void write(W* w, char c) {}
+void write(W* w, []const char msg) {}
+
+void test_ufcs_auto_ref() {
+    W w;
+    w.write('x');
+    w.write("hello");
+}
+
+// Test 2: Concept/compiles with UFCS for write
+using WritableInto(T) = compiles(T x) {
+    x.write("H");
+    x.write('H');
+};
+
+// Test 3: Template UFCS with concept constraint
+void println(T)(T out, []const char msg) if WritableInto(T) {}
+
+void test_template_ufcs_with_concept() {
+    W w;
+    w.println("hello");
+}
+
+=== EXPECT-ERRORS ===
