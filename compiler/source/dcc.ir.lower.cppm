@@ -2632,6 +2632,16 @@ export namespace dcc::ir::lower
                 return {nullptr, gep};
             }
 
+            if (expr->kind == ast::ExprKind::Unary)
+            {
+                auto* u = static_cast<ast::UnaryExpr const*>(expr);
+                if (u->op == dcc::lex::TokenKind::Star)
+                {
+                    auto* ptr = lower_expr(u->operand);
+                    return {nullptr, ptr};
+                }
+            }
+
             return {nullptr, nullptr};
         }
 

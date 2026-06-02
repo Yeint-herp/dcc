@@ -4,6 +4,10 @@ module test;
 public i32 deref_test(i32* p) { return *p; }
 public bool null_test(i32* p) { return p == null; }
 public bool ptr_eq(i32* a, i32* b) { return a == b; }
+public void store_u64(u64* p, u64 x) { *p = x; }
+public u64 load_u64(u64* p) { return *p; }
+public void* f(u64* out_size, u64 to_read, void* data) { *out_size = to_read; return data; }
+public void incdec_test(u64* p) { ++*p; (*p)--; *p += 5; }
 
 === EXPECT-IR ===
 module "test"
@@ -23,4 +27,36 @@ bool@_DC0F1.4.test6.ptr_eq2Pqi32sPqi32sb(ptr<i32>, ptr<i32>) {
 %entry(ptr<i32> %a, ptr<i32> %b):
   %0 = cmp.eq ptr<i32> %a, %b
   ret bool %0
+}
+
+void@_DC0F1.4.test9.store_u642Pqi64ui64uv(ptr<u64>, u64) {
+%entry(ptr<u64> %p, u64 %x):
+  store u64 %x, ptr<u64> %p
+  ret void
+}
+
+u64@_DC0F1.4.test8.load_u641Pqi64ui64u(ptr<u64>) {
+%entry(ptr<u64> %p):
+  %0 = load u64, ptr<u64> %p
+  ret u64 %0
+}
+
+ptr<void>@_DC0F1.4.test1.f3Pqi64ui64uPqvPqv(ptr<u64>, u64, ptr<void>) {
+%entry(ptr<u64> %out_size, u64 %to_read, ptr<void> %data):
+  store u64 %to_read, ptr<u64> %out_size
+  ret ptr<void> %data
+}
+
+void@_DC0F1.4.test11.incdec_test1Pqi64uv(ptr<u64>) {
+%entry(ptr<u64> %p):
+  %0 = load u64, ptr<u64> %p
+  %1 = add u64 %0, u64 #1
+  store u64 %1, ptr<u64> %p
+  %2 = load u64, ptr<u64> %p
+  %3 = sub u64 %2, u64 #1
+  store u64 %3, ptr<u64> %p
+  %4 = load u64, ptr<u64> %p
+  %5 = add u64 %4, u64 #5
+  store u64 %5, ptr<u64> %p
+  ret void
 }

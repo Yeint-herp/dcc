@@ -7,7 +7,12 @@ void bad(i32 x) {
     x.f;
 }
 
+void bad_assign(u64 x) {
+    *x = 1;
+}
+
 === EXPECT-ERRORS ===
 main.dc:4: dereference of non-pointer
 main.dc:5: indexing non-indexable type
 main.dc:6: field access on non-record type
+main.dc:10: dereference of non-pointer
