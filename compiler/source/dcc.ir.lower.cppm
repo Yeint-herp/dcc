@@ -1745,7 +1745,7 @@ export namespace dcc::ir::lower
             {
                 bool pure = (expr->kind == ast::ExprKind::IntLiteral || expr->kind == ast::ExprKind::FloatLiteral || expr->kind == ast::ExprKind::BoolLiteral ||
                              expr->kind == ast::ExprKind::CharLiteral || expr->kind == ast::ExprKind::NullLiteral || expr->kind == ast::ExprKind::Cast ||
-                             expr->kind == ast::ExprKind::Sizeof);
+                             expr->kind == ast::ExprKind::Sizeof || expr->kind == ast::ExprKind::Alignof || expr->kind == ast::ExprKind::Offsetof);
 
                 if (pure)
                     return materialize_comptime(*expr->sema.const_value, get_sema_resolved_type(expr));
@@ -1870,6 +1870,14 @@ export namespace dcc::ir::lower
 
                 case ast::ExprKind::PathExpr: {
                     return lower_path_expr(static_cast<ast::PathExpr const*>(expr));
+                }
+
+                case ast::ExprKind::Alignof: {
+                    lower_panic(expr, "Alignof reached switch without a const_value");
+                }
+
+                case ast::ExprKind::Offsetof: {
+                    lower_panic(expr, "Offsetof reached switch without a const_value");
                 }
 
                 default: {

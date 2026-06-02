@@ -1,0 +1,23 @@
+=== FILE: test.dc ===
+module test;
+
+struct S {
+    u8 a;
+    i64 b;
+    u16 c;
+}
+
+public u64 get_offset_b() { return offsetof(S, b); }
+public u64 get_offset_c() { return offsetof(S, c); }
+
+=== EXPECT-IR ===
+module "test"
+u64@_DC0F1.4.test12.get_offset_b0i64u() {
+%entry:
+  ret u64 #8
+}
+
+u64@_DC0F1.4.test12.get_offset_c0i64u() {
+%entry:
+  ret u64 #16
+}

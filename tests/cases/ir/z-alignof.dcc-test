@@ -1,0 +1,17 @@
+=== FILE: test.dc ===
+module test;
+
+public u64 test_align_i64() { return alignof(i64); }
+public u64 test_align_u16() { return alignof(u16); }
+
+=== EXPECT-IR ===
+module "test"
+u64@_DC0F1.4.test14.test_align_i640i64u() {
+%entry:
+  ret u64 #8
+}
+
+u64@_DC0F1.4.test14.test_align_u160i64u() {
+%entry:
+  ret u64 #2
+}
