@@ -1023,36 +1023,72 @@ export namespace dcc::sema
 
             auto variant_count = ed->variants.size();
 
-            std::int64_t max_disc = static_cast<std::int64_t>(variant_count) - 1;
-            std::int64_t min_disc = 0;
+            auto disc_magnitude = [](std::int64_t stored_val, bool is_negative) -> std::uint64_t {
+                if (!is_negative)
+                    return static_cast<std::uint64_t>(stored_val);
+                if (stored_val == std::numeric_limits<std::int64_t>::min())
+                    return static_cast<std::uint64_t>(std::numeric_limits<std::int64_t>::max()) + 1;
+                return static_cast<std::uint64_t>(-stored_val);
+            };
+
+            std::uint64_t max_positive = 0;
+            std::uint64_t max_negative_magnitude = 0;
+            bool has_negative_disc = false;
             for (auto& v : ed->variants)
             {
-                if (v.discriminant > max_disc)
-                    max_disc = v.discriminant;
-                if (v.discriminant < min_disc)
-                    min_disc = v.discriminant;
+                auto mag = disc_magnitude(v.discriminant, v.discriminant_is_negative);
+                if (v.discriminant_is_negative)
+                {
+                    has_negative_disc = true;
+                    if (mag > max_negative_magnitude)
+                        max_negative_magnitude = mag;
+                }
+                else
+                {
+                    if (mag > max_positive)
+                        max_positive = mag;
+                }
             }
 
-            bool needs_signed = (min_disc < 0);
+            bool needs_signed = has_negative_disc;
             types::IntType const* disc_type = nullptr;
             std::uint64_t disc_size = 0;
 
+            auto signed_fits = [&](std::uint8_t bits) -> bool {
+                if (bits >= 64)
+                {
+                    if (max_positive > static_cast<std::uint64_t>(std::numeric_limits<std::int64_t>::max()))
+                        return false;
+                }
+                else
+                {
+                    std::int64_t pos_max = (std::int64_t(1) << (bits - 1)) - 1;
+                    if (static_cast<std::int64_t>(max_positive) > pos_max)
+                        return false;
+                }
+
+                if (bits >= 64)
+                    return max_negative_magnitude <= static_cast<std::uint64_t>(std::numeric_limits<std::int64_t>::max()) + 1;
+                else
+                {
+                    std::uint64_t neg_max_mag = std::uint64_t(1) << (bits - 1);
+                    return max_negative_magnitude <= neg_max_mag;
+                }
+            };
+
             if (needs_signed)
             {
-                if (fits_int_type(static_cast<std::int64_t>(max_disc), *static_cast<types::IntType const*>(m_types.int_t(8, true))) &&
-                    fits_int_type(min_disc, *static_cast<types::IntType const*>(m_types.int_t(8, true))))
+                if (signed_fits(8))
                 {
                     disc_type = static_cast<types::IntType const*>(m_types.int_t(8, true));
                     disc_size = 1;
                 }
-                else if (fits_int_type(static_cast<std::int64_t>(max_disc), *static_cast<types::IntType const*>(m_types.int_t(16, true))) &&
-                         fits_int_type(min_disc, *static_cast<types::IntType const*>(m_types.int_t(16, true))))
+                else if (signed_fits(16))
                 {
                     disc_type = static_cast<types::IntType const*>(m_types.int_t(16, true));
                     disc_size = 2;
                 }
-                else if (fits_int_type(static_cast<std::int64_t>(max_disc), *static_cast<types::IntType const*>(m_types.int_t(32, true))) &&
-                         fits_int_type(min_disc, *static_cast<types::IntType const*>(m_types.int_t(32, true))))
+                else if (signed_fits(32))
                 {
                     disc_type = static_cast<types::IntType const*>(m_types.int_t(32, true));
                     disc_size = 4;
@@ -1065,8 +1101,8 @@ export namespace dcc::sema
             }
             else
             {
-                std::uint64_t needed = static_cast<std::uint64_t>(
-                    max_disc > static_cast<std::int64_t>(variant_count) - 1 ? max_disc : static_cast<std::int64_t>(variant_count) - 1);
+                std::uint64_t needed =
+                    max_positive > static_cast<std::uint64_t>(variant_count) - 1 ? max_positive : static_cast<std::uint64_t>(variant_count) - 1;
 
                 if (needed <= 255)
                 {

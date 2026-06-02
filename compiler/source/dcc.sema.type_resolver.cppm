@@ -1208,27 +1208,98 @@ export namespace dcc::sema
             return false;
         }
 
-        [[nodiscard]] std::optional<std::int64_t> evaluate_enum_discriminant(ast::Expr* expr, ModuleInfo const& mod,
-                                                                             si::InternedHashMap<std::int64_t>& prior_variants,
-                                                                             std::unordered_set<ast::VarDecl const*>& evaluating_consts,
-                                                                             ast::EnumDecl const* current_enum = nullptr)
+        struct DiscriminantValue
+        {
+            std::uint64_t bits{};
+            bool is_negative{};
+        };
+
+        [[nodiscard]] static DiscriminantValue make_disc_from_raw(std::uint64_t raw_bits, bool is_negative)
+        {
+            if (!is_negative)
+                return DiscriminantValue{raw_bits, false};
+
+            if (raw_bits == 0)
+                return DiscriminantValue{0, false};
+            std::uint64_t mag = (~raw_bits) + 1;
+            return DiscriminantValue{mag, true};
+        }
+
+        [[nodiscard]] static DiscriminantValue disc_from_stored(std::int64_t stored_val, bool is_negative)
+        {
+            if (!is_negative)
+                return DiscriminantValue{static_cast<std::uint64_t>(stored_val), false};
+
+            if (stored_val == std::numeric_limits<std::int64_t>::min())
+                return DiscriminantValue{static_cast<std::uint64_t>(std::numeric_limits<std::int64_t>::max()) + 1, true};
+
+            return DiscriminantValue{static_cast<std::uint64_t>(-stored_val), true};
+        }
+
+        [[nodiscard]] static std::string disc_value_str(DiscriminantValue const& dv)
+        {
+            if (dv.is_negative)
+                return std::format("-{}", dv.bits);
+
+            return std::format("{}", dv.bits);
+        }
+
+        [[nodiscard]] static std::optional<std::int64_t> disc_to_int64(DiscriminantValue const& dv)
+        {
+            if (dv.is_negative)
+            {
+                if (dv.bits > std::uint64_t(std::numeric_limits<std::int64_t>::max()) + 1)
+                    return std::nullopt;
+                if (dv.bits == std::uint64_t(std::numeric_limits<std::int64_t>::max()) + 1)
+                    return std::numeric_limits<std::int64_t>::min();
+                return -static_cast<std::int64_t>(dv.bits);
+            }
+            return static_cast<std::int64_t>(dv.bits);
+        }
+
+        [[nodiscard]] static DiscriminantValue int64_to_disc(std::int64_t val)
+        {
+            if (val < 0)
+            {
+                if (val == std::numeric_limits<std::int64_t>::min())
+                    return DiscriminantValue{std::uint64_t(std::numeric_limits<std::int64_t>::max()) + 1, true};
+
+                return DiscriminantValue{static_cast<std::uint64_t>(-val), true};
+            }
+            return DiscriminantValue{static_cast<std::uint64_t>(val), false};
+        }
+
+        [[nodiscard]] std::optional<DiscriminantValue> evaluate_enum_discriminant(ast::Expr* expr, ModuleInfo const& mod,
+                                                                                  si::InternedHashMap<DiscriminantValue>& prior_variants,
+                                                                                  std::unordered_set<ast::VarDecl const*>& evaluating_consts,
+                                                                                  ast::EnumDecl const* current_enum = nullptr)
         {
             if (!expr)
                 return std::nullopt;
 
             switch (expr->kind)
             {
-                case ast::ExprKind::IntLiteral:
-                    return static_cast<ast::IntLiteralExpr*>(expr)->value;
+                case ast::ExprKind::IntLiteral: {
+                    auto* lit = static_cast<ast::IntLiteralExpr*>(expr);
+                    auto sp = lit->spelling;
+
+                    bool is_radix =
+                        sp.size() > 2 && sp[0] == '0' && (sp[1] == 'x' || sp[1] == 'X' || sp[1] == 'o' || sp[1] == 'O' || sp[1] == 'b' || sp[1] == 'B');
+
+                    if (is_radix)
+                        return DiscriminantValue{static_cast<std::uint64_t>(lit->value), false};
+
+                    return DiscriminantValue{static_cast<std::uint64_t>(lit->value), false};
+                }
 
                 case ast::ExprKind::BoolLiteral:
-                    return static_cast<ast::BoolLiteralExpr*>(expr)->value ? 1 : 0;
+                    return DiscriminantValue{static_cast<ast::BoolLiteralExpr*>(expr)->value ? 1ULL : 0ULL, false};
 
                 case ast::ExprKind::CharLiteral:
-                    return static_cast<std::int64_t>(static_cast<ast::CharLiteralExpr*>(expr)->codepoint);
+                    return DiscriminantValue{static_cast<ast::CharLiteralExpr*>(expr)->codepoint, false};
 
                 case ast::ExprKind::U16CharLiteral:
-                    return static_cast<std::int64_t>(static_cast<ast::U16CharLiteralExpr*>(expr)->value);
+                    return DiscriminantValue{static_cast<ast::U16CharLiteralExpr*>(expr)->value, false};
 
                 case ast::ExprKind::Ident: {
                     auto* ident = static_cast<ast::IdentExpr*>(expr);
@@ -1301,7 +1372,7 @@ export namespace dcc::sema
 
                             for (auto const& v : enum_decl->variants)
                                 if (v.name == sym->name)
-                                    return v.discriminant;
+                                    return disc_from_stored(v.discriminant, v.discriminant_is_negative);
                         }
                     }
 
@@ -1322,8 +1393,15 @@ export namespace dcc::sema
                         return std::nullopt;
                     }
 
+                    auto i64_opt = disc_to_int64(*operand);
+                    if (!i64_opt)
+                    {
+                        m_diag.error(expr->range, "overflow in unary operation in enum discriminant");
+                        return std::nullopt;
+                    }
+
                     auto* i64t = m_types.int_t(64, true);
-                    auto val = comptime::Value::make_int(*operand, i64t);
+                    auto val = comptime::Value::make_int(*i64_opt, i64t);
                     auto result = val.fold_unary(*uop, i64t);
                     if (!result)
                     {
@@ -1331,7 +1409,19 @@ export namespace dcc::sema
                         return std::nullopt;
                     }
 
-                    return result->get_int();
+                    auto result_i64 = result->get_int();
+                    switch (*uop)
+                    {
+                        case comptime::UnaryOp::Plus:
+                            return *operand;
+                        case comptime::UnaryOp::Minus:
+                            return int64_to_disc(result_i64);
+                        case comptime::UnaryOp::BitNot:
+                            return DiscriminantValue{static_cast<std::uint64_t>(result_i64), false};
+                        case comptime::UnaryOp::Not:
+                            return DiscriminantValue{static_cast<std::uint64_t>(result_i64), false};
+                    }
+                    return std::nullopt;
                 }
 
                 case ast::ExprKind::Binary: {
@@ -1365,8 +1455,16 @@ export namespace dcc::sema
                             break;
                     }
 
+                    auto lhs_i64 = disc_to_int64(*lhs_val);
+                    auto rhs_i64 = disc_to_int64(*rhs_val);
+                    if (!lhs_i64 || !rhs_i64)
+                    {
+                        m_diag.error(expr->range, "integer overflow in enum discriminant");
+                        return std::nullopt;
+                    }
+
                     auto* i64t = m_types.int_t(64, true);
-                    auto result = comptime::Value::fold_int_binary(*bop, *lhs_val, *rhs_val, i64t);
+                    auto result = comptime::Value::fold_int_binary(*bop, *lhs_i64, *rhs_i64, i64t);
                     if (!result)
                     {
                         if (*bop == comptime::BinaryOp::Div || *bop == comptime::BinaryOp::Rem)
@@ -1377,7 +1475,27 @@ export namespace dcc::sema
                         return std::nullopt;
                     }
 
-                    return result->get_int();
+                    auto result_i64 = result->get_int();
+                    switch (*bop)
+                    {
+                        case comptime::BinaryOp::Add:
+                        case comptime::BinaryOp::Sub:
+                        case comptime::BinaryOp::Mul:
+                        case comptime::BinaryOp::Div:
+                        case comptime::BinaryOp::Rem:
+                            return int64_to_disc(result_i64);
+                        case comptime::BinaryOp::BitAnd:
+                        case comptime::BinaryOp::BitOr:
+                        case comptime::BinaryOp::BitXor: {
+                            bool neg = (lhs_val->is_negative || rhs_val->is_negative) && (result_i64 < 0);
+                            return DiscriminantValue{static_cast<std::uint64_t>(result_i64), neg};
+                        }
+                        case comptime::BinaryOp::Shl:
+                        case comptime::BinaryOp::Shr:
+                            return DiscriminantValue{static_cast<std::uint64_t>(result_i64), lhs_val->is_negative};
+                        default:
+                            return int64_to_disc(result_i64);
+                    }
                 }
 
                 case ast::ExprKind::Cast: {
@@ -1399,13 +1517,24 @@ export namespace dcc::sema
                         return std::nullopt;
                     }
 
+                    auto i64_opt = disc_to_int64(*operand);
+                    if (!i64_opt)
+                    {
+                        m_diag.error(expr->range, "integer overflow in enum discriminant");
+                        return std::nullopt;
+                    }
+
                     auto* i64t = m_types.int_t(64, true);
-                    auto val = comptime::Value::make_int(*operand, i64t);
+                    auto val = comptime::Value::make_int(*i64_opt, i64t);
                     auto result = val.fold_cast(target_type);
                     if (!result)
                         return std::nullopt;
 
-                    return result->get_int();
+                    auto* ti = types::type_cast<types::IntType>(target_type);
+                    if (ti && !ti->is_signed)
+                        return DiscriminantValue{static_cast<std::uint64_t>(result->get_int()), false};
+
+                    return int64_to_disc(result->get_int());
                 }
 
                 default:
@@ -1414,25 +1543,37 @@ export namespace dcc::sema
             }
         }
 
-        [[nodiscard]] static bool fits_int64_val(std::int64_t value, std::uint8_t bits, bool is_signed) noexcept
+        [[nodiscard]] static bool fits_enum_backing(DiscriminantValue const& dv, std::uint8_t bits, bool is_signed) noexcept
         {
             if (is_signed)
             {
                 if (bits >= 64)
+                {
+                    if (dv.is_negative)
+                        return dv.bits <= (std::uint64_t(1) << 63);
+                    else
+                        return dv.bits <= (std::uint64_t(1) << 63) - 1;
+                }
+                else
+                {
+                    std::uint64_t max_magnitude = std::uint64_t(1) << (bits - 1);
+                    if (dv.is_negative)
+                        return dv.bits <= max_magnitude;
+                    else
+                        return dv.bits <= max_magnitude - 1;
+                }
+            }
+            else
+            {
+                if (dv.is_negative)
+                    return false;
+
+                if (bits >= 64)
                     return true;
 
-                auto const min = -(std::int64_t(1) << (bits - 1));
-                auto const max = (std::int64_t(1) << (bits - 1)) - 1;
-                return value >= min && value <= max;
+                std::uint64_t const max = (std::uint64_t(1) << bits) - 1;
+                return dv.bits <= max;
             }
-            if (value < 0)
-                return false;
-
-            if (bits >= 64)
-                return true;
-
-            auto const max = static_cast<std::uint64_t>((static_cast<std::uint64_t>(1) << bits) - 1);
-            return static_cast<std::uint64_t>(value) <= max;
         }
 
         [[nodiscard]] static std::optional<comptime::UnaryOp> token_to_unary_op(lex::TokenKind op) noexcept
@@ -1512,9 +1653,9 @@ export namespace dcc::sema
 
             m_finalizing_stack.push_back({&d, {}});
 
-            std::int64_t next_implicit = 0;
-            si::InternedHashMap<std::int64_t> prior_variants;
-            std::unordered_map<std::int64_t, std::string_view> used_values;
+            DiscriminantValue next_implicit{0, false};
+            si::InternedHashMap<DiscriminantValue> prior_variants;
+            std::unordered_map<std::uint64_t, std::string_view> used_values;
             std::unordered_set<ast::VarDecl const*> evaluating_consts;
             bool has_disc_error = false;
 
@@ -1525,27 +1666,71 @@ export namespace dcc::sema
                     auto val = evaluate_enum_discriminant(v.explicit_value, mod, prior_variants, evaluating_consts, &d);
                     if (val)
                     {
-                        v.discriminant = *val;
-                        next_implicit = *val + 1;
+                        auto i64_opt = disc_to_int64(*val);
+                        if (i64_opt)
+                        {
+                            v.discriminant = *i64_opt;
+                            v.discriminant_is_negative = val->is_negative;
+                        }
+                        else
+                        {
+                            v.discriminant = static_cast<std::int64_t>(val->bits);
+                            v.discriminant_is_negative = val->is_negative;
+                        }
+
+                        if (val->is_negative)
+                        {
+                            if (val->bits == 1)
+                                next_implicit = DiscriminantValue{0, false};
+                            else
+                                next_implicit = DiscriminantValue{val->bits - 1, true};
+                        }
+                        else
+                            next_implicit = DiscriminantValue{val->bits + 1, false};
                     }
                     else
                     {
                         v.discriminant = 0;
+                        v.discriminant_is_negative = false;
                         has_disc_error = true;
                     }
                 }
                 else
-                    v.discriminant = next_implicit++;
-
-                if (auto it = used_values.find(v.discriminant); it != used_values.end())
                 {
-                    m_diag.error(v.range, "duplicate discriminant value {} for `{}` (previously used by `{}`)", v.discriminant, v.name, it->second);
+                    auto i64_opt = disc_to_int64(next_implicit);
+                    if (i64_opt)
+                    {
+                        v.discriminant = *i64_opt;
+                        v.discriminant_is_negative = next_implicit.is_negative;
+                    }
+                    else
+                    {
+                        v.discriminant = static_cast<std::int64_t>(next_implicit.bits);
+                        v.discriminant_is_negative = next_implicit.is_negative;
+                    }
+
+                    if (next_implicit.is_negative)
+                    {
+                        if (next_implicit.bits == 1)
+                            next_implicit = DiscriminantValue{0, false};
+                        else
+                            next_implicit = DiscriminantValue{next_implicit.bits - 1, true};
+                    }
+                    else
+                        next_implicit = DiscriminantValue{next_implicit.bits + 1, false};
+                }
+
+                auto dup_bits = static_cast<std::uint64_t>(v.discriminant);
+                if (auto it = used_values.find(dup_bits); it != used_values.end())
+                {
+                    auto dv = disc_from_stored(v.discriminant, v.discriminant_is_negative);
+                    m_diag.error(v.range, "duplicate discriminant value {} for `{}` (previously used by `{}`)", disc_value_str(dv), v.name, it->second);
                     has_disc_error = true;
                 }
                 else
-                    used_values.emplace(v.discriminant, v.name);
+                    used_values.emplace(dup_bits, v.name);
 
-                prior_variants.emplace(v.name, v.discriminant);
+                prior_variants.emplace(v.name, disc_from_stored(v.discriminant, v.discriminant_is_negative));
             }
 
             if (d.is_tagged)
@@ -1568,34 +1753,45 @@ export namespace dcc::sema
 
                 auto variant_count = d.variants.size();
 
-                std::int64_t max_disc = static_cast<std::int64_t>(variant_count) - 1;
-                std::int64_t min_disc = 0;
+                std::uint64_t max_positive = 0;
+                std::uint64_t max_negative_magnitude = 0;
+                bool has_negative_disc = false;
                 for (auto& v : d.variants)
                 {
-                    if (v.discriminant > max_disc)
-                        max_disc = v.discriminant;
-                    if (v.discriminant < min_disc)
-                        min_disc = v.discriminant;
+                    auto dv = disc_from_stored(v.discriminant, v.discriminant_is_negative);
+                    if (v.discriminant_is_negative)
+                    {
+                        has_negative_disc = true;
+                        if (dv.bits > max_negative_magnitude)
+                            max_negative_magnitude = dv.bits;
+                    }
+                    else
+                    {
+                        if (dv.bits > max_positive)
+                            max_positive = dv.bits;
+                    }
                 }
 
-                bool needs_signed = (min_disc < 0);
+                bool needs_signed = has_negative_disc;
 
                 types::IntType const* disc_type = nullptr;
                 std::uint64_t disc_size = 0;
 
                 if (needs_signed)
                 {
-                    if (fits_int64_val(static_cast<std::int64_t>(max_disc), 8, true) && fits_int64_val(min_disc, 8, true))
+                    auto neg_dv = DiscriminantValue{max_negative_magnitude, true};
+                    auto pos_dv = DiscriminantValue{max_positive, false};
+                    if (fits_enum_backing(neg_dv, 8, true) && fits_enum_backing(pos_dv, 8, true))
                     {
                         disc_type = static_cast<types::IntType const*>(m_types.int_t(8, true));
                         disc_size = 1;
                     }
-                    else if (fits_int64_val(static_cast<std::int64_t>(max_disc), 16, true) && fits_int64_val(min_disc, 16, true))
+                    else if (fits_enum_backing(neg_dv, 16, true) && fits_enum_backing(pos_dv, 16, true))
                     {
                         disc_type = static_cast<types::IntType const*>(m_types.int_t(16, true));
                         disc_size = 2;
                     }
-                    else if (fits_int64_val(static_cast<std::int64_t>(max_disc), 32, true) && fits_int64_val(min_disc, 32, true))
+                    else if (fits_enum_backing(neg_dv, 32, true) && fits_enum_backing(pos_dv, 32, true))
                     {
                         disc_type = static_cast<types::IntType const*>(m_types.int_t(32, true));
                         disc_size = 4;
@@ -1608,8 +1804,8 @@ export namespace dcc::sema
                 }
                 else
                 {
-                    std::uint64_t needed = static_cast<std::uint64_t>(
-                        max_disc > static_cast<std::int64_t>(variant_count) - 1 ? max_disc : static_cast<std::int64_t>(variant_count) - 1);
+                    std::uint64_t needed =
+                        max_positive > static_cast<std::uint64_t>(variant_count) - 1 ? max_positive : static_cast<std::uint64_t>(variant_count) - 1;
 
                     if (needed <= 255)
                     {
@@ -1715,9 +1911,12 @@ export namespace dcc::sema
                 {
                     auto const* int_ty = types::type_cast<types::IntType>(et->backing);
                     for (auto& v : d.variants)
-                        if (!fits_int64_val(v.discriminant, int_ty->bits, int_ty->is_signed))
-                            m_diag.error(v.range, "discriminant value {} does not fit in backing type {}", v.discriminant,
+                    {
+                        auto dv = disc_from_stored(v.discriminant, v.discriminant_is_negative);
+                        if (!fits_enum_backing(dv, int_ty->bits, int_ty->is_signed))
+                            m_diag.error(v.range, "discriminant value {} does not fit in backing type {}", disc_value_str(dv),
                                          int_ty->is_signed ? std::format("i{}", int_ty->bits) : std::format("u{}", int_ty->bits));
+                    }
 
                     et->byte_size = int_ty->byte_size;
                     et->byte_align = int_ty->byte_align;
@@ -1726,13 +1925,27 @@ export namespace dcc::sema
                 {
                     types::TypePtr inferred_backing{};
                     bool has_negative = false;
-                    std::int64_t max_val = 0;
+                    std::uint64_t max_val = 0;
                     for (auto& v : d.variants)
                     {
-                        if (v.discriminant < 0)
+                        if (v.discriminant_is_negative)
+                        {
                             has_negative = true;
-                        if (v.discriminant > max_val)
-                            max_val = v.discriminant;
+
+                            std::uint64_t mag;
+                            if (v.discriminant == std::numeric_limits<std::int64_t>::min())
+                                mag = std::uint64_t(std::numeric_limits<std::int64_t>::max()) + 1;
+                            else
+                                mag = static_cast<std::uint64_t>(-v.discriminant);
+                            if (mag > max_val)
+                                max_val = mag;
+                        }
+                        else
+                        {
+                            auto ubits = static_cast<std::uint64_t>(v.discriminant);
+                            if (ubits > max_val)
+                                max_val = ubits;
+                        }
                     }
 
                     std::uint8_t bits = 8;
@@ -1740,12 +1953,11 @@ export namespace dcc::sema
                     {
                         while (bits < 64)
                         {
-                            auto const min = -(std::int64_t(1) << (bits - 1));
-                            auto const max = (std::int64_t(1) << (bits - 1)) - 1;
                             bool ok = true;
                             for (auto& v : d.variants)
                             {
-                                if (v.discriminant < min || v.discriminant > max)
+                                auto dv = disc_from_stored(v.discriminant, v.discriminant_is_negative);
+                                if (!fits_enum_backing(dv, bits, true))
                                 {
                                     ok = false;
                                     break;
@@ -1760,11 +1972,10 @@ export namespace dcc::sema
                     }
                     else
                     {
-                        auto umax = static_cast<std::uint64_t>(max_val);
                         while (bits < 64)
                         {
-                            auto const limit = (static_cast<std::uint64_t>(1) << bits) - 1;
-                            if (umax <= limit)
+                            auto const limit = (std::uint64_t(1) << bits) - 1;
+                            if (max_val <= limit)
                                 break;
 
                             bits *= 2;

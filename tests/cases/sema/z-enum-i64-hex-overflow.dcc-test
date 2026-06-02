@@ -1,0 +1,9 @@
+=== FILE: main.dc ===
+module m;
+
+enum E : i64 {
+    A = 0x8000000000000000,
+}
+
+=== EXPECT-ERRORS ===
+main.dc:4: discriminant value 9223372036854775808 does not fit in backing type i64

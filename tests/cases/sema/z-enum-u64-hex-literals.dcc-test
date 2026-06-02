@@ -1,0 +1,16 @@
+=== FILE: main.dc ===
+module m;
+
+public enum E : u64 {
+    A = 0x8000000000000000,
+    B = 0x8000000000000001,
+    C = 0xffffffffffffffff,
+}
+
+=== EXPECT-TYPES FOR: m ===
+Module m
+  Enum E
+    Backing: u64
+    Variant A
+    Variant B
+    Variant C

@@ -1,0 +1,12 @@
+=== FILE: main.dc ===
+module m;
+
+enum Status : u64 {
+    LoadError = 0x8000000000000001,
+}
+
+=== EXPECT-TYPES FOR: m ===
+Module m
+  Enum Status
+    Backing: u64
+    Variant LoadError

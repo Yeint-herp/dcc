@@ -392,6 +392,7 @@ export namespace dcc::ast
         std::pmr::vector<TypePtr> payload;
 
         std::int64_t discriminant{};
+        bool discriminant_is_negative{};
 
         explicit EnumVariant(Allocator a) : attrs(a), payload(a) {}
     };
