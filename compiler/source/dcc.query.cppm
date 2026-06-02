@@ -593,6 +593,9 @@ namespace dcc::query
                     walk_template_args(e->template_args, result, target, opts);
                     break;
                 }
+                case ast::ExprKind::SizeofPack:
+                case ast::ExprKind::PackExpansion:
+                    break;
             }
         }
 
@@ -688,6 +691,12 @@ namespace dcc::query
                     for (auto const& arm : s->arms)
                         if (range_contains_or_touches_end(arm.range, target))
                             walk_match_arm(arm, result, target, opts);
+                    break;
+                }
+                case ast::StmtKind::StaticFor: {
+                    auto* s = static_cast<ast::StaticForStmt const*>(stmt);
+                    if (s->pack_expr && range_contains_or_touches_end(s->pack_expr->range, target))
+                        walk_expr(s->pack_expr, result, target, opts);
                     break;
                 }
                 case ast::StmtKind::Ambiguous: {

@@ -1,0 +1,11 @@
+=== FILE: main.dc ===
+module m;
+
+void foo(T...)(T x) {}
+
+void test() {
+    foo!(i32)(42);
+}
+
+=== EXPECT-REGISTRY ===
+fn=foo args=[i32] state=2

@@ -31,6 +31,7 @@ export namespace dcc::types
         Range,
         RangeInclusive,
         RuntimeArray,
+        TypePack,
         Error,
     };
 
@@ -220,6 +221,20 @@ export namespace dcc::types
         }
     };
 
+    struct TypePackType : Type
+    {
+        static constexpr auto Kind = TypeKind::TypePack;
+
+        TypePtr element;
+        std::uint32_t pack_index{};
+
+        TypePackType(TypePtr e) : Type(Kind), element(e)
+        {
+            is_complete = false;
+            is_zero_sized = true;
+        }
+    };
+
     struct FuncPtrType : Type
     {
         static constexpr auto Kind = TypeKind::FuncPtr;
@@ -312,12 +327,12 @@ export namespace dcc::types
         return (t && t->kind == To::Kind) ? static_cast<To const*>(t) : nullptr;
     }
 
-    [[nodiscard]] inline bool is_fam_type(TypePtr t) noexcept
+    [[nodiscard]] bool is_fam_type(TypePtr t) noexcept
     {
         return t && t->kind == TypeKind::Fam;
     }
 
-    [[nodiscard]] inline TypePtr fam_element(TypePtr t) noexcept
+    [[nodiscard]] TypePtr fam_element(TypePtr t) noexcept
     {
         if (auto const* ft = type_cast<FamType>(t))
             return ft->element;
@@ -325,7 +340,7 @@ export namespace dcc::types
         return nullptr;
     }
 
-    [[nodiscard]] inline bool type_has_fam_struct(TypePtr t) noexcept
+    [[nodiscard]] bool type_has_fam_struct(TypePtr t) noexcept
     {
         if (!t)
             return false;
@@ -485,6 +500,18 @@ export namespace dcc::types
             return t;
         }
 
+        [[nodiscard]] TypePtr type_pack_t(TypePtr element, std::uint32_t pack_index = 0)
+        {
+            for (auto const* t : m_type_packs)
+                if (t->element == element && t->pack_index == pack_index)
+                    return t;
+
+            auto* t = make<TypePackType>(element);
+            t->pack_index = pack_index;
+            m_type_packs.push_back(t);
+            return t;
+        }
+
         [[nodiscard]] TypePtr funcptr_t(TypePtr ret, std::span<TypePtr const> params)
         {
             for (auto const* t : m_funcptrs)
@@ -577,6 +604,7 @@ export namespace dcc::types
         std::vector<RangeInclusiveType const*> m_range_inclusives;
         std::vector<FamType const*> m_fams;
         std::vector<RuntimeArrayType const*> m_runtime_arrays;
+        std::vector<TypePackType const*> m_type_packs;
         std::vector<FuncPtrType const*> m_funcptrs;
         std::vector<StructType const*> m_structs;
         std::vector<UnionType const*> m_unions;

@@ -1,0 +1,8 @@
+=== FILE: main.dc ===
+module m;
+
+void bad(T..., U)() {
+}
+
+=== EXPECT-ERRORS ===
+main.dc:2: non-pack parameter after pack parameter

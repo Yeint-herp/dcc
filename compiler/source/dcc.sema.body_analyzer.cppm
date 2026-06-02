@@ -460,6 +460,9 @@ export namespace dcc::sema
                     }
                     m_indent--;
                     break;
+                case ast::StmtKind::StaticFor:
+                    line_fmt("StaticFor name={}", static_cast<ast::StaticForStmt const&>(s).item_name);
+                    break;
                 case ast::StmtKind::Ambiguous:
                     line_fmt("Ambiguous {}", static_cast<int>(static_cast<ast::AmbiguousStmt const&>(s).resolution));
                     break;
@@ -719,6 +722,12 @@ export namespace dcc::sema
                     else
                         line("<null>");
                     m_indent--;
+                    break;
+                case ast::ExprKind::SizeofPack:
+                    line_fmt("SizeofPack name={} {}", static_cast<ast::SizeofPackExpr const&>(e).pack_name, expr_suffix(e));
+                    break;
+                case ast::ExprKind::PackExpansion:
+                    line_fmt("PackExpansion {}", expr_suffix(e));
                     break;
             }
         }
@@ -1611,6 +1620,36 @@ export namespace dcc::sema
             return resolve_template_param_actual(std::span<ast::TemplateParam const>{f.template_params.data(), f.template_params.size()}, bindings, name);
         }
 
+        [[nodiscard]] std::vector<types::TypePtr> expand_pack_param_type(types::TypePtr ty, infer::TemplateBindings const& bindings) const
+        {
+            std::vector<types::TypePtr> result;
+
+            auto expand = [&](types::TypePtr inner) -> std::vector<types::TypePtr> {
+                if (auto const* tpp = types::type_cast<types::TemplateParamType>(inner))
+                {
+                    if (auto* pack = bindings.lookup_pack(tpp))
+                    {
+                        std::vector<types::TypePtr> out;
+                        out.reserve(pack->size());
+                        for (auto const& pt : *pack)
+                            out.push_back(pt);
+
+                        return out;
+                    }
+                }
+
+                return {bindings.substitute(inner)};
+            };
+
+            if (auto const* pack_ty = types::type_cast<types::TypePackType>(ty))
+                return expand(pack_ty->element);
+
+            if (auto const* tp = types::type_cast<types::TemplateParamType>(ty))
+                return expand(tp);
+
+            return {bindings.substitute(ty)};
+        }
+
         [[nodiscard]] types::TypePtr resolve_constraint_arg_type(ModuleInfo& mod, Scope const& scope, std::span<ast::TemplateParam const> params,
                                                                  infer::TemplateBindings const& bindings, ast::Expr const& arg)
         {
@@ -2344,19 +2383,35 @@ export namespace dcc::sema
                 return std::nullopt;
             }
 
-            if (f.template_params.size() != template_args.size())
+            bool has_pack = !f.template_params.empty() && f.template_params.back().is_pack;
+            std::size_t non_pack_count = has_pack ? f.template_params.size() - 1 : f.template_params.size();
+
+            if (!has_pack)
             {
-                if (failure)
-                    *failure = ExplicitInstFailure::CountMismatch;
-                return std::nullopt;
+                if (f.template_params.size() != template_args.size())
+                {
+                    if (failure)
+                        *failure = ExplicitInstFailure::CountMismatch;
+                    return std::nullopt;
+                }
+            }
+            else
+            {
+                if (template_args.size() < non_pack_count)
+                {
+                    if (failure)
+                        *failure = ExplicitInstFailure::CountMismatch;
+                    return std::nullopt;
+                }
             }
 
             infer::TemplateBindings bindings{m_types};
-            for (std::size_t i = 0; i < template_args.size(); ++i)
+            std::size_t i = 0;
+
+            for (; i < non_pack_count; ++i)
             {
                 auto const& tp = f.template_params[i];
                 auto const& arg = template_args[i];
-
                 auto param_ty = m_types.template_param_t(const_cast<ast::TemplateParam*>(std::addressof(tp)), tp.name, static_cast<std::uint32_t>(i));
 
                 if (tp.value_type)
@@ -2385,7 +2440,6 @@ export namespace dcc::sema
                         m_diag.note(tp.range, "in non-type template parameter `{}` of type `{}`", tp.name, type_str);
                         if (failure)
                             *failure = ExplicitInstFailure::ValueArg;
-
                         return std::nullopt;
                     }
 
@@ -2397,7 +2451,6 @@ export namespace dcc::sema
                 {
                     if (failure)
                         *failure = ExplicitInstFailure::CountMismatch;
-
                     return std::nullopt;
                 }
 
@@ -2405,7 +2458,6 @@ export namespace dcc::sema
                 {
                     if (failure)
                         *failure = ExplicitInstFailure::CountMismatch;
-
                     return std::nullopt;
                 }
 
@@ -2414,7 +2466,6 @@ export namespace dcc::sema
                 {
                     if (failure)
                         *failure = ExplicitInstFailure::CountMismatch;
-
                     return std::nullopt;
                 }
 
@@ -2422,16 +2473,74 @@ export namespace dcc::sema
                 {
                     if (failure)
                         *failure = ExplicitInstFailure::CountMismatch;
-
                     return std::nullopt;
                 }
+            }
+
+            if (has_pack)
+            {
+                auto const& tp = f.template_params.back();
+                std::vector<types::TypePtr> pack_types;
+                for (; i < template_args.size(); ++i)
+                {
+                    auto const& arg = template_args[i];
+                    if (tp.value_type)
+                    {
+                        auto vt_type = tp.value_type->sema.canonical ? get_canonical(tp.value_type->sema) : nullptr;
+                        if (!vt_type)
+                        {
+                            if (failure)
+                                *failure = ExplicitInstFailure::ValueArg;
+                            return std::nullopt;
+                        }
+                        if (!arg.expr)
+                        {
+                            if (failure)
+                                *failure = ExplicitInstFailure::CountMismatch;
+                            return std::nullopt;
+                        }
+                        std::uint32_t probe_off = 0;
+                        auto analyzed = analyze_expr(mod, nullptr, scope, *arg.expr, 0, probe_off, vt_type, nullptr);
+                        if (has_error(analyzed.type) || !analyzed.constant)
+                        {
+                            error(arg.range, "non-type template argument must be a constant expression");
+                            if (failure)
+                                *failure = ExplicitInstFailure::ValueArg;
+                            return std::nullopt;
+                        }
+
+                        std::ignore = analyzed;
+                        pack_types.push_back(analyzed.type);
+                    }
+                    else
+                    {
+                        if (arg.expr)
+                        {
+                            if (failure)
+                                *failure = ExplicitInstFailure::CountMismatch;
+                            return std::nullopt;
+                        }
+                        auto actual = resolve_type_node(mod, scope, arg.type);
+                        if (!actual)
+                        {
+                            if (failure)
+                                *failure = ExplicitInstFailure::CountMismatch;
+                            return std::nullopt;
+                        }
+                        pack_types.push_back(actual);
+                    }
+                }
+
+                auto pack_param_ty =
+                    m_types.template_param_t(const_cast<ast::TemplateParam*>(std::addressof(tp)), tp.name, static_cast<std::uint32_t>(non_pack_count));
+
+                std::ignore = bindings.bind_pack(static_cast<types::TemplateParamType const*>(pack_param_ty), pack_types);
             }
 
             if (!check_template_constraint(mod, scope, f, bindings))
             {
                 if (failure)
                     *failure = ExplicitInstFailure::Constraint;
-
                 return std::nullopt;
             }
 
@@ -2439,7 +2548,17 @@ export namespace dcc::sema
             for (auto const& p : f.params)
             {
                 auto ty = p.type && p.type->sema.canonical ? get_canonical(p.type->sema) : m_types.m_errort();
-                param_types.push_back(bindings.substitute(ty));
+                if (p.is_pack)
+                {
+                    auto expanded = expand_pack_param_type(ty, bindings);
+                    for (auto const& et : expanded)
+                        param_types.push_back(et);
+                }
+                else
+                {
+                    auto sub = bindings.substitute(ty);
+                    param_types.push_back(sub);
+                }
             }
 
             auto ret_ty = f.return_type && f.return_type->sema.canonical ? get_canonical(f.return_type->sema) : m_types.m_voidt();
@@ -2709,15 +2828,43 @@ export namespace dcc::sema
                         ++num_value_tparams;
             }
 
-            if (params.size() + num_value_tparams != arg_exprs.size())
+            bool has_func_pack = false;
+            std::size_t non_pack_func_params = params.size();
+            if (func)
             {
-                if (had_non_constraint_failure)
-                    *had_non_constraint_failure = true;
+                if (!func->params.empty() && func->params.back().is_pack)
+                {
+                    has_func_pack = true;
+                    non_pack_func_params = params.size() - 1;
+                }
+            }
 
-                if (rejection_reason)
-                    *rejection_reason = std::format("argument count mismatch: expected {}, got {}", params.size() + num_value_tparams, arg_exprs.size());
+            if (!has_func_pack)
+            {
+                if (params.size() + num_value_tparams != arg_exprs.size())
+                {
+                    if (had_non_constraint_failure)
+                        *had_non_constraint_failure = true;
 
-                return std::nullopt;
+                    if (rejection_reason)
+                        *rejection_reason = std::format("argument count mismatch: expected {}, got {}", params.size() + num_value_tparams, arg_exprs.size());
+
+                    return std::nullopt;
+                }
+            }
+            else
+            {
+                if (arg_exprs.size() < non_pack_func_params + num_value_tparams)
+                {
+                    if (had_non_constraint_failure)
+                        *had_non_constraint_failure = true;
+
+                    if (rejection_reason)
+                        *rejection_reason = std::format("argument count mismatch: expected at least {} (with pack), got {}",
+                                                        non_pack_func_params + num_value_tparams, arg_exprs.size());
+
+                    return std::nullopt;
+                }
             }
 
             if (std::ranges::any_of(arg_exprs, [](auto* e) { return e == nullptr; }))
@@ -2811,9 +2958,13 @@ export namespace dcc::sema
 
             std::vector<detail::ExprResult> args;
             args.reserve(func_arg_count);
-            for (std::size_t i = 0; i < func_arg_count; ++i)
+            std::vector<types::TypePtr> actual_param_types;
+            actual_param_types.reserve(func_arg_count);
+
+            for (std::size_t i = 0; i < non_pack_func_params; ++i)
             {
                 auto param_ty = b.substitute(params[i]);
+                actual_param_types.push_back(param_ty);
                 auto r = analyze_expr(mod, nullptr, *probe_scope, *arg_exprs[func_arg_start + i], loop_depth, probe_off, param_ty, const_env);
                 if (has_error(r.type))
                 {
@@ -2831,12 +2982,56 @@ export namespace dcc::sema
                 args.push_back(r);
             }
 
+            std::vector<types::TypePtr> pack_arg_types;
+            if (has_func_pack)
+            {
+                auto pack_param_ty = b.substitute(params.back());
+                for (std::size_t i = non_pack_func_params; i < func_arg_count; ++i)
+                {
+                    types::TypePtr expected_ty = nullptr;
+                    if (auto const* pt = types::type_cast<types::TypePackType>(pack_param_ty))
+                        expected_ty = b.substitute(pt->element);
+                    else if (auto const* tp = types::type_cast<types::TemplateParamType>(pack_param_ty))
+                        expected_ty = tp;
+
+                    auto r = analyze_expr(mod, nullptr, *probe_scope, *arg_exprs[func_arg_start + i], loop_depth, probe_off, expected_ty, const_env);
+                    if (has_error(r.type))
+                    {
+                        if (had_suppressed_errors)
+                            *had_suppressed_errors = suppress.had_suppressed_errors();
+
+                        if (had_non_constraint_failure)
+                            *had_non_constraint_failure = true;
+
+                        if (rejection_reason)
+                            *rejection_reason = std::format("cannot convert argument {} (pack element)", func_arg_start + i + 1);
+
+                        return std::nullopt;
+                    }
+                    args.push_back(r);
+                    pack_arg_types.push_back(r.type);
+                }
+            }
+
             std::vector<types::TypePtr> actuals;
             actuals.reserve(args.size());
             for (auto const& a : args)
                 actuals.push_back(a.type);
 
-            auto deduce_result = b.deduce_function(params, actuals);
+            std::vector<types::TypePtr> deduce_params;
+            deduce_params.reserve(non_pack_func_params + (has_func_pack ? 1 : 0));
+            for (std::size_t i = 0; i < non_pack_func_params; ++i)
+                deduce_params.push_back(params[i]);
+
+            if (has_func_pack)
+            {
+                auto pack_elem = params.back();
+                if (auto const* pt = types::type_cast<types::TypePackType>(params.back()))
+                    pack_elem = pt->element;
+                deduce_params.push_back(m_types.type_pack_t(pack_elem));
+            }
+
+            auto deduce_result = b.deduce_function(deduce_params, actuals);
             if (!deduce_result)
             {
                 if (had_suppressed_errors)
@@ -2848,9 +3043,9 @@ export namespace dcc::sema
                 if (rejection_reason)
                 {
                     bool arg_mismatch_found = false;
-                    for (std::size_t i = 0; i < actuals.size(); ++i)
+                    for (std::size_t i = 0; i < actuals.size() && i < deduce_params.size(); ++i)
                     {
-                        auto subbed_param = b.substitute(params[i]);
+                        auto subbed_param = b.substitute(deduce_params[i]);
                         if (actuals[i] != subbed_param && !has_error(actuals[i]) && !has_error(subbed_param) &&
                             !types::type_cast<types::TemplateParamType>(subbed_param))
                         {
@@ -2874,6 +3069,20 @@ export namespace dcc::sema
                 return std::nullopt;
             }
 
+            if (has_func_pack && !pack_arg_types.empty())
+            {
+                if (!func->template_params.empty() && func->template_params.back().is_pack)
+                {
+                    auto const& tp = func->template_params.back();
+                    auto* pack_ty = m_types.template_param_t(const_cast<ast::TemplateParam*>(std::addressof(tp)), tp.name,
+                                                             static_cast<std::uint32_t>(func->template_params.size() - 1));
+                    if (pack_ty)
+                    {
+                        std::ignore = b.bind_pack(static_cast<types::TemplateParamType const*>(pack_ty), pack_arg_types);
+                    }
+                }
+            }
+
             if (!check_template_constraint(mod, scope, *func, b, false, sym.module))
             {
                 if (had_constraint_failure)
@@ -2892,7 +3101,7 @@ export namespace dcc::sema
             for (std::size_t vi = 0; vi < num_value_tparams; ++vi)
                 out.ranks.push_back(CallRank::ConcreteExact);
 
-            for (std::size_t i = 0; i < args.size(); ++i)
+            for (std::size_t i = 0; i < non_pack_func_params; ++i)
             {
                 auto const* param = params[i];
                 if (!param || !args[i].type || args[i].type->kind == types::TypeKind::Error)
@@ -2908,6 +3117,9 @@ export namespace dcc::sema
 
                 out.ranks.push_back(rank_for_exact_arg(*arg_exprs[func_arg_start + i], args[i], param));
             }
+
+            for (std::size_t i = non_pack_func_params; i < args.size(); ++i)
+                out.ranks.push_back(CallRank::TemplateExact);
 
             if (had_suppressed_errors)
                 *had_suppressed_errors = suppress.had_suppressed_errors();
@@ -3537,6 +3749,7 @@ export namespace dcc::sema
                 case types::TypeKind::Fam:
                 case types::TypeKind::RuntimeArray:
                 case types::TypeKind::TemplateParam:
+                case types::TypeKind::TypePack:
                 case types::TypeKind::Error:
                     return std::nullopt;
                 case types::TypeKind::Struct:
@@ -5406,6 +5619,27 @@ export namespace dcc::sema
                 case ast::ExprKind::TemplateInst:
                     out = analyze_template_inst(mod, fn, scope, static_cast<ast::TemplateInstExpr&>(expr), loop_depth, next_off, expected_type, const_env);
                     break;
+                case ast::ExprKind::SizeofPack:
+                    out = analyze_sizeof_pack(mod, scope, static_cast<ast::SizeofPackExpr&>(expr));
+                    break;
+                case ast::ExprKind::PackExpansion: {
+                    auto& pe = static_cast<ast::PackExpansionExpr&>(expr);
+                    if (pe.operand)
+                    {
+                        auto* ident = ast::node_cast<ast::IdentExpr>(pe.operand);
+                        if (ident)
+                        {
+                            auto pack_result = resolve_pack_info(mod, scope, ident->name, ident->range);
+                            if (pack_result.has_value())
+                                out.type = m_types.int_t(64, false);
+                            else
+                                error(ident->range, "cannot expand '{}': not a pack", ident->name);
+                        }
+                        else
+                            error(pe.range, "pack expansion requires an identifier");
+                    }
+                    break;
+                }
             }
 
             set_resolved_type(expr.sema, out.type);
@@ -6906,6 +7140,52 @@ export namespace dcc::sema
             return out;
         }
 
+        struct PackInfo
+        {
+            std::size_t count{0};
+            std::vector<types::TypePtr> element_types;
+        };
+
+        [[nodiscard]] std::optional<PackInfo> resolve_pack_info(ModuleInfo& mod, Scope const& scope, std::string_view name, sm::SourceRange range)
+        {
+            std::ignore = mod;
+            std::ignore = range;
+            auto const* sym = lookup_name(mod, scope, name);
+            if (!sym)
+                return std::nullopt;
+
+            if (sym->kind == SymbolKind::TemplateParam)
+            {
+                PackInfo info;
+                info.count = 0;
+                return info;
+            }
+
+            if (sym->kind == SymbolKind::Variable && sym->decl)
+            {
+                PackInfo info;
+                info.count = 1;
+                return info;
+            }
+
+            return std::nullopt;
+        }
+
+        detail::ExprResult analyze_sizeof_pack(ModuleInfo& mod, Scope const& scope, ast::SizeofPackExpr& s)
+        {
+            detail::ExprResult out{};
+            out.type = m_types.int_t(64, false);
+            out.is_constant = true;
+
+            auto pack = resolve_pack_info(mod, scope, s.pack_name, s.name_range);
+            if (pack.has_value())
+                out.constant = make_int_const(static_cast<std::int64_t>(pack->count), out.type);
+            else
+                error(s.name_range, "'{}' is not a pack", s.pack_name);
+
+            return out;
+        }
+
         detail::ExprResult analyze_alignof(ModuleInfo& mod, Scope const& scope, ast::AlignofExpr& s)
         {
             detail::ExprResult out{};
@@ -7829,16 +8109,40 @@ export namespace dcc::sema
                 if (tp.value_type)
                     ++num_value_tparams;
 
-            if (params.size() + num_value_tparams != arg_exprs.size())
+            bool has_func_pack = false;
+            std::size_t non_pack_func_params = params.size();
+            if (!f.params.empty() && f.params.back().is_pack)
             {
-                if (!quiet)
-                {
-                    auto loc = format_source_location(f.range);
-                    error(range, "argument count mismatch for `{}`: expected {}, got {}", f.name, params.size() + num_value_tparams, arg_exprs.size());
-                    m_diag.note(f.range, "declared at {}", loc);
-                }
+                has_func_pack = true;
+                non_pack_func_params = params.size() - 1;
+            }
 
-                return {m_types.m_errort()};
+            if (!has_func_pack)
+            {
+                if (params.size() + num_value_tparams != arg_exprs.size())
+                {
+                    if (!quiet)
+                    {
+                        auto loc = format_source_location(f.range);
+                        error(range, "argument count mismatch for `{}`: expected {}, got {}", f.name, params.size() + num_value_tparams, arg_exprs.size());
+                        m_diag.note(f.range, "declared at {}", loc);
+                    }
+                    return {m_types.m_errort()};
+                }
+            }
+            else
+            {
+                if (arg_exprs.size() < non_pack_func_params + num_value_tparams)
+                {
+                    if (!quiet)
+                    {
+                        auto loc = format_source_location(f.range);
+                        error(range, "argument count mismatch for `{}`: expected at least {} (with pack), got {}", f.name,
+                              non_pack_func_params + num_value_tparams, arg_exprs.size());
+                        m_diag.note(f.range, "declared at {}", loc);
+                    }
+                    return {m_types.m_errort()};
+                }
             }
 
             infer::TemplateBindings b{m_types};
@@ -7894,10 +8198,24 @@ export namespace dcc::sema
 
             std::vector<detail::ExprResult> args;
             args.reserve(func_arg_count);
-            for (std::size_t i = 0; i < func_arg_count; ++i)
+            std::vector<types::TypePtr> pack_arg_types;
+
+            for (std::size_t i = 0; i < non_pack_func_params; ++i)
             {
                 auto param_ty = b.substitute(params[i]);
                 args.push_back(analyze_expr(mod, nullptr, scope, *arg_exprs[func_arg_start + i], loop_depth, next_off, param_ty, const_env));
+            }
+
+            if (has_func_pack)
+            {
+                for (std::size_t i = non_pack_func_params; i < func_arg_count; ++i)
+                {
+                    auto pack_param_ty = b.substitute(params.back());
+                    types::TypePtr expected_ty = nullptr;
+                    if (auto const* pt = types::type_cast<types::TypePackType>(pack_param_ty))
+                        expected_ty = b.substitute(pt->element);
+                    args.push_back(analyze_expr(mod, nullptr, scope, *arg_exprs[func_arg_start + i], loop_depth, next_off, expected_ty, const_env));
+                }
             }
 
             if (std::ranges::any_of(args, [](detail::ExprResult const& r) { return has_error(r.type); }))
@@ -7908,15 +8226,27 @@ export namespace dcc::sema
             for (auto const& a : args)
                 actuals.push_back(a.type);
 
-            auto deduce_result = b.deduce_function(params, actuals);
+            std::vector<types::TypePtr> deduce_params;
+            deduce_params.reserve(non_pack_func_params + (has_func_pack ? 1 : 0));
+            for (std::size_t i = 0; i < non_pack_func_params; ++i)
+                deduce_params.push_back(params[i]);
+            if (has_func_pack)
+            {
+                auto pack_elem = params.back();
+                if (auto const* pt = types::type_cast<types::TypePackType>(params.back()))
+                    pack_elem = pt->element;
+                deduce_params.push_back(m_types.type_pack_t(pack_elem));
+            }
+
+            auto deduce_result = b.deduce_function(deduce_params, actuals);
             if (!deduce_result)
             {
                 if (!quiet)
                 {
                     bool reported = false;
-                    for (std::size_t i = 0; i < actuals.size(); ++i)
+                    for (std::size_t i = 0; i < actuals.size() && i < deduce_params.size(); ++i)
                     {
-                        auto param_ty = b.substitute(params[i]);
+                        auto param_ty = b.substitute(deduce_params[i]);
                         if (actuals[i] != param_ty && !has_error(actuals[i]) && !has_error(param_ty))
                         {
                             error(range, "argument {} of call to `{}` has wrong type: expected `{}`, found `{}`", i + 1, f.name, format_type_str(param_ty),
@@ -7941,6 +8271,18 @@ export namespace dcc::sema
                 }
 
                 return {m_types.m_errort()};
+            }
+
+            if (has_func_pack && !pack_arg_types.empty())
+            {
+                if (!f.template_params.empty() && f.template_params.back().is_pack)
+                {
+                    auto const& tp = f.template_params.back();
+                    auto* pack_ty = m_types.template_param_t(const_cast<ast::TemplateParam*>(std::addressof(tp)), tp.name,
+                                                             static_cast<std::uint32_t>(f.template_params.size() - 1));
+                    if (pack_ty)
+                        std::ignore = b.bind_pack(static_cast<types::TemplateParamType const*>(pack_ty), pack_arg_types);
+                }
             }
 
             detail::CommittedSpecialization committed_spec = commit_specialization(mod, f, b, range);
@@ -8458,6 +8800,35 @@ export namespace dcc::sema
                             break;
                         }
                     }
+                    out.foldable = false;
+                    return out;
+                }
+                case ast::StmtKind::StaticFor: {
+                    auto& sf = static_cast<ast::StaticForStmt&>(s);
+
+                    if (sf.pack_expr)
+                    {
+                        std::ignore = analyze_expr(mod, fn, scope, *sf.pack_expr, loop_depth, next_off, nullptr, const_env);
+                        if (auto* ident = ast::node_cast<ast::IdentExpr>(sf.pack_expr))
+                        {
+                            auto pack_info = resolve_pack_info(mod, scope, ident->name, ident->range);
+                            if (!pack_info.has_value())
+                                error(sf.pack_expr->range, "'{}' is not a pack", ident->name);
+                        }
+                    }
+
+                    if (ast::node_cast<ast::IdentExpr>(sf.pack_expr))
+                    {
+                        auto* inner = make_scope(ScopeKind::Block, &scope);
+                        auto* inner_consts = make_const_env(const_env);
+
+                        auto* v = make_local_decl(sf.item_name, sf.name_range, nullptr, ast::StorageClass::Local, allocate_frame_slot(next_off, nullptr));
+
+                        define_local(*inner, v);
+
+                        std::ignore = analyze_block(mod, fn, *inner, sf.body, loop_depth, next_off, nullptr, inner_consts);
+                    }
+
                     out.foldable = false;
                     return out;
                 }

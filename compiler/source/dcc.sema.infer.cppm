@@ -36,13 +36,18 @@ export namespace dcc::infer
     public:
         explicit TemplateBindings(types::TypeContext& types) : m_types(types) {}
 
-        [[nodiscard]] bool empty() const noexcept { return m_bindings.empty() && m_value_bindings.empty(); }
+        [[nodiscard]] bool empty() const noexcept
+        {
+            return m_bindings.empty() && m_value_bindings.empty() && m_pack_bindings.empty() && m_value_pack_bindings.empty();
+        }
         [[nodiscard]] std::size_t size() const noexcept { return m_bindings.size(); }
 
         void clear()
         {
             m_bindings.clear();
             m_value_bindings.clear();
+            m_pack_bindings.clear();
+            m_value_pack_bindings.clear();
         }
 
         [[nodiscard]] types::TypePtr lookup(types::TemplateParamType const* param) const
@@ -58,6 +63,102 @@ export namespace dcc::infer
         {
             std::unordered_set<types::TemplateParamType const*> seen;
             return resolve_impl(type, seen);
+        }
+
+        [[nodiscard]] bool bind_pack(types::TemplateParamType const* param, std::vector<types::TypePtr> types)
+        {
+            if (!param)
+                return false;
+
+            for (auto& pb : m_pack_bindings)
+                if (pb.param == param)
+                {
+                    if (pb.types.size() != types.size())
+                        return false;
+
+                    for (std::size_t i = 0; i < types.size(); ++i)
+                        if (pb.types[i] != types[i])
+                            return false;
+
+                    return true;
+                }
+
+            m_pack_bindings.push_back({param, std::move(types)});
+            return true;
+        }
+
+        [[nodiscard]] std::vector<types::TypePtr> const* lookup_pack(types::TemplateParamType const* param) const
+        {
+            if (!param)
+                return nullptr;
+
+            for (auto const& pb : m_pack_bindings)
+                if (pb.param == param)
+                    return &pb.types;
+
+            return nullptr;
+        }
+
+        [[nodiscard]] std::size_t pack_size(types::TemplateParamType const* param) const
+        {
+            auto* p = lookup_pack(param);
+            return p ? p->size() : 0;
+        }
+
+        [[nodiscard]] bool has_pack_binding(types::TemplateParamType const* param) const { return lookup_pack(param) != nullptr; }
+
+        [[nodiscard]] bool bind_value_pack(types::TemplateParamType const* param, std::vector<comptime::Value> values)
+        {
+            if (!param)
+                return false;
+
+            for (auto& pb : m_value_pack_bindings)
+                if (pb.param == param)
+                {
+                    if (pb.values.size() != values.size())
+                        return false;
+
+                    for (std::size_t i = 0; i < values.size(); ++i)
+                        if (!(pb.values[i] == values[i]))
+                            return false;
+
+                    return true;
+                }
+
+            m_value_pack_bindings.push_back({param, std::move(values)});
+            return true;
+        }
+
+        [[nodiscard]] std::vector<comptime::Value> const* lookup_value_pack(types::TemplateParamType const* param) const
+        {
+            if (!param)
+                return nullptr;
+
+            for (auto const& pb : m_value_pack_bindings)
+                if (pb.param == param)
+                    return &pb.values;
+
+            return nullptr;
+        }
+
+        [[nodiscard]] std::size_t value_pack_size(types::TemplateParamType const* param) const
+        {
+            auto* p = lookup_value_pack(param);
+            return p ? p->size() : 0;
+        }
+
+        [[nodiscard]] bool has_value_pack_binding(types::TemplateParamType const* param) const { return lookup_value_pack(param) != nullptr; }
+
+        [[nodiscard]] std::size_t total_pack_elements() const noexcept
+        {
+            std::size_t total = 0;
+            for (auto const& pb : m_pack_bindings)
+                total += pb.types.size();
+
+            for (auto const& pb : m_value_pack_bindings)
+                total += pb.values.size();
+
+            return total;
         }
 
         void bind_value(types::TemplateParamType const* param, comptime::Value value)
@@ -97,12 +198,58 @@ export namespace dcc::infer
 
         [[nodiscard]] DeductionResult deduce_function(std::span<types::TypePtr const> params, std::span<types::TypePtr const> args)
         {
-            if (params.size() != args.size())
-                return fail(DeductionError::ArityMismatch, "function argument count mismatch");
+            bool has_pack_param = false;
+            std::size_t non_pack_count = params.size();
+            if (!params.empty())
+            {
+                auto const* last = params.back();
+                if (last && last->kind == types::TypeKind::TypePack)
+                {
+                    has_pack_param = true;
+                    non_pack_count = params.size() - 1;
+                }
+            }
 
-            for (std::size_t i = 0; i < params.size(); ++i)
+            if (!has_pack_param)
+            {
+                if (params.size() != args.size())
+                    return fail(DeductionError::ArityMismatch, "function argument count mismatch");
+
+                for (std::size_t i = 0; i < params.size(); ++i)
+                    if (auto r = deduce(params[i], args[i]); !r)
+                        return r;
+
+                return ok();
+            }
+
+            if (args.size() < non_pack_count)
+                return fail(DeductionError::ArityMismatch, "not enough arguments for function with pack parameter");
+
+            for (std::size_t i = 0; i < non_pack_count; ++i)
                 if (auto r = deduce(params[i], args[i]); !r)
                     return r;
+
+            auto const* pack_type = types::type_cast<types::TypePackType>(params.back());
+            if (!pack_type)
+                return fail(DeductionError::KindMismatch, "expected type pack");
+
+            std::vector<types::TypePtr> pack_elements;
+            for (std::size_t i = non_pack_count; i < args.size(); ++i)
+            {
+                auto element_ty = deduce(pack_type->element, args[i]);
+                if (!element_ty)
+                {
+                    auto r = unify(pack_type->element, args[i]);
+                    if (!r)
+                        return r;
+                }
+                pack_elements.push_back(args[i]);
+            }
+
+            if (auto const* tp = types::type_cast<types::TemplateParamType>(pack_type->element))
+                if (!has_pack_binding(tp))
+                    if (!bind_pack(tp, pack_elements))
+                        return fail(DeductionError::Conflict, "conflicting pack binding");
 
             return ok();
         }
@@ -167,9 +314,23 @@ export namespace dcc::infer
             comptime::Value value;
         };
 
+        struct PackBinding
+        {
+            types::TemplateParamType const* param{};
+            std::vector<types::TypePtr> types;
+        };
+
+        struct ValuePackBinding
+        {
+            types::TemplateParamType const* param{};
+            std::vector<comptime::Value> values;
+        };
+
         types::TypeContext& m_types;
         std::vector<Binding> m_bindings;
         std::vector<ValueBinding> m_value_bindings;
+        std::vector<PackBinding> m_pack_bindings;
+        std::vector<ValuePackBinding> m_value_pack_bindings;
 
         [[nodiscard]] static DeductionResult ok() { return {}; }
 
@@ -268,6 +429,10 @@ export namespace dcc::infer
                         return true;
                     return false;
                 }
+                case types::TypeKind::TypePack: {
+                    auto const* t = static_cast<types::TypePackType const*>(type);
+                    return contains_param(t->element, target);
+                }
                 case types::TypeKind::Void:
                 case types::TypeKind::Bool:
                 case types::TypeKind::Int:
@@ -314,8 +479,8 @@ export namespace dcc::infer
                 return bind(rp, lhs);
 
             if (lhs && rhs && (lhs->kind == types::TypeKind::Slice || rhs->kind == types::TypeKind::Slice) &&
-                (lhs->kind == types::TypeKind::Array || rhs->kind == types::TypeKind::Array ||
-                 lhs->kind == types::TypeKind::RuntimeArray || rhs->kind == types::TypeKind::RuntimeArray))
+                (lhs->kind == types::TypeKind::Array || rhs->kind == types::TypeKind::Array || lhs->kind == types::TypeKind::RuntimeArray ||
+                 rhs->kind == types::TypeKind::RuntimeArray))
             {
                 auto const* slice =
                     (lhs->kind == types::TypeKind::Slice) ? static_cast<types::SliceType const*>(lhs) : static_cast<types::SliceType const*>(rhs);
@@ -344,6 +509,7 @@ export namespace dcc::infer
                 case types::TypeKind::Char:
                 case types::TypeKind::NullT:
                 case types::TypeKind::TemplateParam:
+                case types::TypeKind::TypePack:
                 case types::TypeKind::Error:
                     return ok();
 
@@ -481,6 +647,7 @@ export namespace dcc::infer
                 case types::TypeKind::Char:
                 case types::TypeKind::NullT:
                 case types::TypeKind::TemplateParam:
+                case types::TypeKind::TypePack:
                 case types::TypeKind::Error:
                     break;
 

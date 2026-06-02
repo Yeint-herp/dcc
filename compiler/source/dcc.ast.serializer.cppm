@@ -320,6 +320,13 @@ export namespace dcc::ast
             IndentScope is(m_indent_level);
             visitTypeExpr(e->target);
         }
+        void visitSizeofPackExpr(SizeofPackExpr const* e) override { line_fmt("SizeofPack name={}", e->pack_name); }
+        void visitPackExpansionExpr(PackExpansionExpr const* e) override
+        {
+            line("PackExpansion");
+            IndentScope is(m_indent_level);
+            visitExpr(e->operand);
+        }
         void visitAlignofExpr(AlignofExpr const* e) override
         {
             line("Alignof");
@@ -342,7 +349,10 @@ export namespace dcc::ast
                 IndentScope is2(m_indent_level);
                 for (const auto& p : e->params)
                 {
-                    line_fmt("Param name={}", p.name);
+                    if (p.is_pack)
+                        line_fmt("Param name={} pack", p.name);
+                    else
+                        line_fmt("Param name={}", p.name);
                     if (p.type)
                     {
                         IndentScope is3(m_indent_level);
@@ -571,6 +581,17 @@ export namespace dcc::ast
             }
             for (const auto& a : s->arms)
                 print_match_arm(a);
+        }
+        void visitStaticForStmt(StaticForStmt const* s) override
+        {
+            line_fmt("StaticFor name={} type_for={}", s->item_name, s->is_type_for);
+            IndentScope is(m_indent_level);
+            line("Pack");
+            {
+                IndentScope is2(m_indent_level);
+                visitExpr(s->pack_expr);
+            }
+            print_block("Body", s->body);
         }
         void visitAmbiguousStmt(AmbiguousStmt const* s) override
         {
@@ -879,7 +900,10 @@ export namespace dcc::ast
             IndentScope is(m_indent_level);
             for (const auto& tp : params)
             {
-                line_fmt("Param name={}", tp.name);
+                if (tp.is_pack)
+                    line_fmt("Param name={} pack", tp.name);
+                else
+                    line_fmt("Param name={}", tp.name);
                 if (tp.value_type)
                 {
                     IndentScope is2(m_indent_level);
@@ -971,7 +995,10 @@ export namespace dcc::ast
 
         void print_func_param(const FuncParam& p)
         {
-            line_fmt("Param name={}", p.name);
+            if (p.is_pack)
+                line_fmt("Param name={} pack", p.name);
+            else
+                line_fmt("Param name={}", p.name);
             if (p.type)
             {
                 IndentScope is(m_indent_level);

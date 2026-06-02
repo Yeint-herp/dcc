@@ -564,6 +564,7 @@ namespace dcc::ir::mangle
                     encode_type(out, rit->element, resolver);
                     return;
                 }
+                case dcc::types::TypeKind::TypePack:
                 case dcc::types::TypeKind::Error:
                     out += 'E';
                     return;

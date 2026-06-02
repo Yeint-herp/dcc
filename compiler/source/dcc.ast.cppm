@@ -128,6 +128,8 @@ export namespace dcc::ast
         Range,
         TypeAST,
         TemplateInst,
+        SizeofPack,
+        PackExpansion,
     };
 
     enum class StmtKind : std::uint8_t
@@ -144,6 +146,7 @@ export namespace dcc::ast
         Defer,
         StaticIf,
         StaticMatch,
+        StaticFor,
         Ambiguous
     };
 
@@ -325,6 +328,7 @@ export namespace dcc::ast
         std::string_view name;
         sm::SourceRange range;
         TypePtr value_type{};
+        bool is_pack : 1 {};
     };
 
     struct TemplateArg
@@ -349,6 +353,7 @@ export namespace dcc::ast
         TypePtr type{};
         DeclSema sema;
         VarDecl const* synthetic_decl{};
+        bool is_pack : 1 {};
     };
 
     struct Block
@@ -421,6 +426,7 @@ export namespace dcc::ast
         std::string_view name;
         sm::SourceRange range;
         TypePtr type{};
+        bool is_pack : 1 {};
     };
 
     struct PrimitiveType : TypeExpr
@@ -654,6 +660,21 @@ export namespace dcc::ast
         SizeofExpr(sm::SourceRange r, TypePtr t) : Expr(Kind, r), target(t) {}
     };
 
+    struct SizeofPackExpr : Expr
+    {
+        static constexpr auto Kind = ExprKind::SizeofPack;
+        std::string_view pack_name;
+        sm::SourceRange name_range;
+        SizeofPackExpr(sm::SourceRange r, std::string_view n, sm::SourceRange nr) : Expr(Kind, r), pack_name(n), name_range(nr) {}
+    };
+
+    struct PackExpansionExpr : Expr
+    {
+        static constexpr auto Kind = ExprKind::PackExpansion;
+        ExprPtr operand;
+        PackExpansionExpr(sm::SourceRange r, ExprPtr op) : Expr(Kind, r), operand(op) {}
+    };
+
     struct AlignofExpr : Expr
     {
         static constexpr auto Kind = ExprKind::Alignof;
@@ -878,6 +899,20 @@ export namespace dcc::ast
         bool is_type_match{false};
 
         StaticMatchStmt(sm::SourceRange r, ExprPtr op, Allocator a) : Stmt(Kind, r), operand(op), arms(a) {}
+    };
+
+    struct StaticForStmt : Stmt
+    {
+        static constexpr auto Kind = StmtKind::StaticFor;
+        std::string_view item_name;
+        sm::SourceRange name_range;
+        ExprPtr pack_expr{};
+        Block body;
+
+        bool is_type_for : 1 {};
+        types::Type const* resolved_pack_type{};
+
+        StaticForStmt(sm::SourceRange r, Block b) : Stmt(Kind, r), body(std::move(b)) {}
     };
 
     struct AmbiguousStmt : Stmt

@@ -1765,6 +1765,10 @@ export namespace dcc::ir::lower
                     break;
                 }
 
+                case ast::StmtKind::StaticFor: {
+                    lower_panic(stmt, "StaticFor reached IR lowering");
+                }
+
                 case ast::StmtKind::Ambiguous: {
                     lower_panic(stmt, "unresolved ambiguous statement reached IR lowering");
                 }
@@ -1794,7 +1798,7 @@ export namespace dcc::ir::lower
                 bool pure = (expr->kind == ast::ExprKind::IntLiteral || expr->kind == ast::ExprKind::FloatLiteral || expr->kind == ast::ExprKind::BoolLiteral ||
                              expr->kind == ast::ExprKind::CharLiteral || expr->kind == ast::ExprKind::U16CharLiteral ||
                              expr->kind == ast::ExprKind::NullLiteral || expr->kind == ast::ExprKind::Cast || expr->kind == ast::ExprKind::Sizeof ||
-                             expr->kind == ast::ExprKind::Alignof || expr->kind == ast::ExprKind::Offsetof);
+                             expr->kind == ast::ExprKind::SizeofPack || expr->kind == ast::ExprKind::Alignof || expr->kind == ast::ExprKind::Offsetof);
 
                 if (pure)
                     return materialize_comptime(*expr->sema.const_value, get_sema_resolved_type(expr));
@@ -1924,6 +1928,14 @@ export namespace dcc::ir::lower
 
                 case ast::ExprKind::PathExpr: {
                     return lower_path_expr(static_cast<ast::PathExpr const*>(expr));
+                }
+
+                case ast::ExprKind::SizeofPack: {
+                    lower_panic(expr, "SizeofPack reached switch without a const_value");
+                }
+
+                case ast::ExprKind::PackExpansion: {
+                    lower_panic(expr, "PackExpansion reached IR lowering");
                 }
 
                 case ast::ExprKind::Alignof: {

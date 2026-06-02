@@ -58,6 +58,8 @@ export namespace dcc::ast
         virtual void visitMatchExpr(MatchExpr const*) {}
         virtual void visitStructLiteralExpr(StructLiteralExpr const*) {}
         virtual void visitSizeofExpr(SizeofExpr const*) {}
+        virtual void visitSizeofPackExpr(SizeofPackExpr const*) {}
+        virtual void visitPackExpansionExpr(PackExpansionExpr const*) {}
         virtual void visitAlignofExpr(AlignofExpr const*) {}
         virtual void visitOffsetofExpr(OffsetofExpr const*) {}
         virtual void visitCompilesExpr(CompilesExpr const*) {}
@@ -77,6 +79,7 @@ export namespace dcc::ast
         virtual void visitDeferStmt(DeferStmt const*) {}
         virtual void visitStaticIfStmt(StaticIfStmt const*) {}
         virtual void visitStaticMatchStmt(StaticMatchStmt const*) {}
+        virtual void visitStaticForStmt(StaticForStmt const*) {}
         virtual void visitAmbiguousStmt(AmbiguousStmt const*) {}
 
         virtual void visitModuleDecl(ModuleDecl const*) {}
@@ -144,6 +147,8 @@ export namespace dcc::ast
         void visitMatchExpr(MatchExpr const*) override;
         void visitStructLiteralExpr(StructLiteralExpr const*) override;
         void visitSizeofExpr(SizeofExpr const*) override;
+        void visitSizeofPackExpr(SizeofPackExpr const*) override;
+        void visitPackExpansionExpr(PackExpansionExpr const*) override;
         void visitAlignofExpr(AlignofExpr const*) override;
         void visitOffsetofExpr(OffsetofExpr const*) override;
         void visitCompilesExpr(CompilesExpr const*) override;
@@ -163,6 +168,7 @@ export namespace dcc::ast
         void visitDeferStmt(DeferStmt const*) override;
         void visitStaticIfStmt(StaticIfStmt const*) override;
         void visitStaticMatchStmt(StaticMatchStmt const*) override;
+        void visitStaticForStmt(StaticForStmt const*) override;
         void visitAmbiguousStmt(AmbiguousStmt const*) override;
 
         void visitModuleDecl(ModuleDecl const*) override;
@@ -486,6 +492,12 @@ namespace dcc::ast
             case ExprKind::Sizeof:
                 visitSizeofExpr(node_cast<SizeofExpr>(expr));
                 break;
+            case ExprKind::SizeofPack:
+                visitSizeofPackExpr(node_cast<SizeofPackExpr>(expr));
+                break;
+            case ExprKind::PackExpansion:
+                visitPackExpansionExpr(node_cast<PackExpansionExpr>(expr));
+                break;
             case ExprKind::Alignof:
                 visitAlignofExpr(node_cast<AlignofExpr>(expr));
                 break;
@@ -600,6 +612,14 @@ namespace dcc::ast
             visitTypeExpr(e->target);
     }
 
+    void RecursiveAstVisitor::visitSizeofPackExpr(SizeofPackExpr const*) {}
+
+    void RecursiveAstVisitor::visitPackExpansionExpr(PackExpansionExpr const* e)
+    {
+        if (e->operand)
+            visitExpr(e->operand);
+    }
+
     void RecursiveAstVisitor::visitAlignofExpr(AlignofExpr const* e)
     {
         if (e->target)
@@ -684,6 +704,9 @@ namespace dcc::ast
             case StmtKind::StaticMatch:
                 visitStaticMatchStmt(node_cast<StaticMatchStmt>(stmt));
                 break;
+            case StmtKind::StaticFor:
+                visitStaticForStmt(node_cast<StaticForStmt>(stmt));
+                break;
             case StmtKind::Ambiguous:
                 visitAmbiguousStmt(node_cast<AmbiguousStmt>(stmt));
                 break;
@@ -763,6 +786,13 @@ namespace dcc::ast
             visitExpr(s->operand);
         for (auto const& arm : s->arms)
             visitMatchArm(arm);
+    }
+
+    void RecursiveAstVisitor::visitStaticForStmt(StaticForStmt const* s)
+    {
+        if (s->pack_expr)
+            visitExpr(s->pack_expr);
+        visitBlock(s->body);
     }
 
     void RecursiveAstVisitor::visitAmbiguousStmt(AmbiguousStmt const* s)

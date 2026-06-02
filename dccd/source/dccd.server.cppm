@@ -2289,6 +2289,9 @@ export namespace dccd
                     return std::format("range({})", format_dcc_type(static_cast<dcc::types::RangeType const*>(ty)->element));
                 case dcc::types::TypeKind::RangeInclusive:
                     return std::format("range_inclusive({})", format_dcc_type(static_cast<dcc::types::RangeInclusiveType const*>(ty)->element));
+                case dcc::types::TypeKind::TypePack:
+                    return std::format("type_pack({}: {})", format_dcc_type(static_cast<dcc::types::TypePackType const*>(ty)->element),
+                                       static_cast<dcc::types::TypePackType const*>(ty)->pack_index);
                 case dcc::types::TypeKind::Error:
                     return "<error>";
             }

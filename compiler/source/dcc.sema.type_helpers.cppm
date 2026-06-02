@@ -138,6 +138,8 @@ export namespace dcc::sema
                 return std::format("range_inclusive({})", format_dcc_type(static_cast<types::RangeInclusiveType const*>(ty)->element));
             case types::TypeKind::TemplateParam:
                 return std::string{static_cast<types::TemplateParamType const*>(ty)->name};
+            case types::TypeKind::TypePack:
+                return std::format("pack({})", format_dcc_type(static_cast<types::TypePackType const*>(ty)->element));
             case types::TypeKind::Error:
                 return "<error>";
         }

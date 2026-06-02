@@ -1,0 +1,15 @@
+=== FILE: main.dc ===
+module m;
+
+void test1(T...)(T x) {
+    static for item in x {
+        item;
+    }
+}
+
+=== EXPECT-BODY ===
+Module m
+  Func test1 diverging=false
+    Param x type=T storage=param offset=0 index=0
+    Body
+      StaticFor name=item

@@ -1,0 +1,13 @@
+=== FILE: main.dc ===
+module m;
+
+void test(T...)(T x) {
+    sizeof...(T);
+}
+
+=== EXPECT-BODY ===
+Module m
+  Func test diverging=false
+    Param x type=T storage=param offset=0 index=0
+    Body
+      SizeofPack name=T [type=<unresolved> const=<none>]

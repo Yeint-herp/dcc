@@ -1,0 +1,20 @@
+=== FILE: main.dc ===
+module m;
+
+void ports(u16 values...)(u8 x) {
+}
+
+=== EXPECT-AST ===
+TranslationUnit
+  Module m
+  Func name=ports
+    TemplateParams
+      Param name=values pack
+        ValueType
+          Primitive u16
+    Return
+      Primitive void
+    Params
+      Param name=x
+        Primitive u8
+    Body

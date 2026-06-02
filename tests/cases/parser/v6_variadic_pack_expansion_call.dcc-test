@@ -1,0 +1,26 @@
+=== FILE: main.dc ===
+module m;
+
+void test(T...)(T x) {
+    fn(x...);
+}
+
+=== EXPECT-AST ===
+TranslationUnit
+  Module m
+  Func name=test
+    TemplateParams
+      Param name=T pack
+    Return
+      Primitive void
+    Params
+      Param name=x
+        Named T
+    Body
+      ExprStmt
+        Call
+          Callee
+            Ident fn
+          Args
+            PackExpansion
+              Ident x

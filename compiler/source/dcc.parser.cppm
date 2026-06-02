@@ -43,6 +43,7 @@ export namespace dcc::parser
             std::string_view name;
             sm::SourceRange name_range;
             ast::TypeExpr* type{};
+            bool is_pack{};
         };
 
         class Speculation
@@ -976,11 +977,13 @@ export namespace dcc::parser
                 auto start = loc();
                 ast::TemplateParam tp;
 
-                if (check(TK::Identifier) && (check_at(1, TK::Comma) || check_at(1, TK::RParen)))
+                if (check(TK::Identifier) && (check_at(1, TK::Comma) || check_at(1, TK::RParen) || check_at(1, TK::Ellipsis)))
                 {
                     auto tok = advance();
                     tp.name = tok.interned;
                     tp.range = tok.range;
+                    if (match(TK::Ellipsis))
+                        tp.is_pack = true;
                 }
                 else
                 {
@@ -990,10 +993,22 @@ export namespace dcc::parser
                     {
                         tp.name = name.interned;
                         tp.range = range_from(start);
+                        if (match(TK::Ellipsis))
+                            tp.is_pack = true;
                     }
                 }
                 params.push_back(std::move(tp));
             } while (match(TK::Comma));
+
+            bool seen_pack = false;
+            for (auto const& p : params)
+            {
+                if (seen_pack && !p.is_pack)
+                    error_at(p.range, "non-pack template parameter after pack parameter");
+
+                if (p.is_pack) // TODO loosen.
+                    seen_pack = true;
+            }
 
             expect(TK::RParen, "to close template parameter list");
             return params;
@@ -1049,6 +1064,7 @@ export namespace dcc::parser
                         tp.name = shape.name;
                         tp.range = shape.range;
                         tp.value_type = shape.type;
+                        tp.is_pack = shape.is_pack;
                         func->template_params.push_back(std::move(tp));
                     }
 
@@ -1064,6 +1080,7 @@ export namespace dcc::parser
                         fp.name = shape.name;
                         fp.range = shape.range;
                         fp.type = shape.type;
+                        fp.is_pack = shape.is_pack;
                         func->params.push_back(std::move(fp));
                     }
                 }
@@ -1082,6 +1099,7 @@ export namespace dcc::parser
                         fp.name = shape.name;
                         fp.range = shape.range;
                         fp.type = shape.type;
+                        fp.is_pack = shape.is_pack;
                         func->params.push_back(std::move(fp));
                     }
                 }
@@ -1116,12 +1134,14 @@ export namespace dcc::parser
                 auto start = loc();
                 ParamShape shape;
 
-                if (check(TK::Identifier) && (check_at(1, TK::Comma) || check_at(1, TK::RParen)))
+                if (check(TK::Identifier) && (check_at(1, TK::Comma) || check_at(1, TK::RParen) || check_at(1, TK::Ellipsis)))
                 {
                     auto tok = advance();
                     shape.name = tok.interned;
                     shape.name_range = tok.range;
                     shape.range = tok.range;
+                    if (match(TK::Ellipsis))
+                        shape.is_pack = true;
                 }
                 else
                 {
@@ -1131,12 +1151,24 @@ export namespace dcc::parser
                     {
                         shape.name = name.interned;
                         shape.name_range = name.range;
+                        if (match(TK::Ellipsis))
+                            shape.is_pack = true;
                     }
 
                     shape.range = range_from(start);
                 }
                 result.push_back(std::move(shape));
             } while (match(TK::Comma));
+
+            bool seen_pack = false; // TODO loosen and improve deductions.
+            for (auto const& p : result)
+            {
+                if (seen_pack && !p.is_pack)
+                    error_at(p.range, "non-pack parameter after pack parameter");
+
+                if (p.is_pack)
+                    seen_pack = true;
+            }
 
             expect(TK::RParen, "to close parameter list");
             return result;
@@ -1317,7 +1349,10 @@ export namespace dcc::parser
                     if (check_at(1, TK::KwMatch))
                         return parse_static_match_stmt();
 
-                    error_at(single_range(), "'static' must be followed by 'if' or 'match'");
+                    if (check_at(1, TK::KwFor))
+                        return parse_static_for_stmt();
+
+                    error_at(single_range(), "'static' must be followed by 'if', 'match', or 'for'");
                     advance();
                     return nullptr;
                 case TK::At: {
@@ -1705,6 +1740,50 @@ export namespace dcc::parser
             return s;
         }
 
+        ast::Stmt* parse_static_for_stmt()
+        {
+            auto start = loc();
+            advance();
+            advance();
+
+            if (check(TK::Identifier) && check_at(1, TK::KwIn))
+            {
+                auto name_tok = advance();
+                advance();
+                auto* pack = parse_expr(0, true);
+                auto body = parse_block();
+                auto* s = m_ctx.make<ast::StaticForStmt>(range_from(start), std::move(body));
+                s->item_name = name_tok.interned;
+                s->name_range = name_tok.range;
+                s->pack_expr = pack;
+                return s;
+            }
+
+            if (ast::is_type_start(peek().kind))
+            {
+                Speculation spec(*this);
+                auto* type = parse_type();
+                if (type && !spec.had_suppressed_errors() && check(TK::Identifier) && check_at(1, TK::KwIn))
+                {
+                    auto name_tok = advance();
+                    advance();
+                    spec.commit();
+                    auto* pack = parse_expr(0, true);
+                    auto body = parse_block();
+                    auto* s = m_ctx.make<ast::StaticForStmt>(range_from(start), std::move(body));
+                    s->item_name = name_tok.interned;
+                    s->name_range = name_tok.range;
+                    s->pack_expr = pack;
+                    s->is_type_for = true;
+                    return s;
+                }
+            }
+
+            error_at(single_range(), "expected 'identifier in <pack>' after 'static for'");
+            auto body = parse_block();
+            return m_ctx.make<ast::StaticForStmt>(range_from(start), std::move(body));
+        }
+
         ast::Block parse_block()
         {
             auto start = loc();
@@ -1998,12 +2077,19 @@ export namespace dcc::parser
                         auto* call = m_ctx.make<ast::CallExpr>(sm::SourceRange{}, expr);
                         if (!check(TK::RParen))
                         {
-                            auto* first = parse_expr();
+                            auto parse_arg = [&]() -> ast::Expr* {
+                                auto as = loc();
+                                auto* arg = parse_expr();
+                                if (arg && match(TK::Ellipsis))
+                                    arg = m_ctx.make<ast::PackExpansionExpr>(range_from(as), arg);
+                                return arg;
+                            };
+                            auto* first = parse_arg();
                             if (first)
                                 call->args.push_back(first);
                             while (match(TK::Comma))
                             {
-                                auto* arg = parse_expr();
+                                auto* arg = parse_arg();
                                 if (arg)
                                     call->args.push_back(arg);
                                 else if (m_mode == ParseMode::Interactive)
@@ -2572,6 +2658,18 @@ export namespace dcc::parser
         {
             auto start = loc();
             advance();
+
+            if (match(TK::Ellipsis))
+            {
+                expect(TK::LParen, "after sizeof...");
+                auto name = expect(TK::Identifier, "in sizeof... pack name");
+                expect(TK::RParen, "after sizeof... pack name");
+                if (name.kind == TK::Identifier)
+                    return m_ctx.make<ast::SizeofPackExpr>(range_from(start), name.interned, name.range);
+
+                return m_ctx.make<ast::SizeofExpr>(range_from(start), nullptr);
+            }
+
             expect(TK::LParen, "after 'sizeof'");
             auto* type = parse_type();
             expect(TK::RParen, "after sizeof type");
@@ -2623,12 +2721,25 @@ export namespace dcc::parser
                         {
                             param.name = name.interned;
                             param.range = range_from(pstart);
+                            if (match(TK::Ellipsis))
+                                param.is_pack = true;
                         }
 
                         e->params.push_back(std::move(param));
                     } while (match(TK::Comma));
                 }
                 expect(TK::RParen, "to close compiles parameters");
+
+                bool seen_pack = false;
+                for (auto const& p : e->params)
+                {
+                    if (seen_pack && !p.is_pack)
+                        error_at(p.range, "non-pack compiles parameter after pack parameter");
+
+                    if (p.is_pack) // TODO losen.
+                        seen_pack = true;
+                }
+
                 e->body = parse_block();
             }
             else if (check(TK::LBrace))

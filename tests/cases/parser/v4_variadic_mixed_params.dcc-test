@@ -1,0 +1,21 @@
+=== FILE: main.dc ===
+module m;
+
+void mixed(T, U...)(T first, U second) {
+}
+
+=== EXPECT-AST ===
+TranslationUnit
+  Module m
+  Func name=mixed
+    TemplateParams
+      Param name=T
+      Param name=U pack
+    Return
+      Primitive void
+    Params
+      Param name=first
+        Named T
+      Param name=second
+        Named U
+    Body

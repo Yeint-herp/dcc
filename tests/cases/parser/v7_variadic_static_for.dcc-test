@@ -1,0 +1,27 @@
+=== FILE: main.dc ===
+module m;
+
+void test(T...)(T x) {
+    static for item in x {
+        item;
+    }
+}
+
+=== EXPECT-AST ===
+TranslationUnit
+  Module m
+  Func name=test
+    TemplateParams
+      Param name=T pack
+    Return
+      Primitive void
+    Params
+      Param name=x
+        Named T
+    Body
+      StaticFor name=item type_for=false
+        Pack
+          Ident x
+        Body
+          ExprStmt
+            Ident item
