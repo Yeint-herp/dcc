@@ -1865,6 +1865,13 @@ export namespace dcc::parser
 
             for (;;)
             {
+                if (is_block_like_expr(left))
+                {
+                    auto op = peek().kind;
+                    if (op != TK::KwAs && op != TK::AmpAmp && op != TK::PipePipe && op != TK::DotDot)
+                        break;
+                }
+
                 auto op = peek().kind;
                 int prec = binary_precedence(op);
                 if (prec < min_prec)

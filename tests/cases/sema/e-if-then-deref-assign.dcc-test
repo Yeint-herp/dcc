@@ -1,0 +1,20 @@
+=== FILE: main.dc ===
+module m;
+
+public enum status : u64 {
+    Success = 0,
+    BufferTooSmall = 0x8000000000000005,
+}
+
+public void* read_all(u64* out_size) {
+    u64 to_read = 42;
+    status st = 0 as status;
+
+    st = 1 as status;
+    if st != status::Success {
+        return null;
+    }
+
+    *out_size = to_read;
+    return null;
+}

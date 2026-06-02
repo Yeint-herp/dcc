@@ -1,0 +1,52 @@
+=== FILE: main.dc ===
+module main;
+import middle;
+
+public void main() {
+    u64 sz;
+    middle::test(&sz);
+}
+
+=== FILE: lib/status.dc ===
+module lib::status;
+public enum status : u64 {
+    Success = 0,
+    BufferTooSmall = 0x8000000000000005,
+    LoadError = 0x8000000000000001,
+}
+
+=== FILE: lib/protocols/file.dc ===
+module lib::protocols::file;
+public import lib;
+public import lib::status;
+
+public void* read_all(u64* out_size) {
+    u64 to_read = 42;
+    status::status st = 0 as status::status;
+
+    if st != status::status::BufferTooSmall && st != status::status::Success {
+        return null;
+    }
+
+    st = 1 as status::status;
+    if st != status::status::Success {
+        return null;
+    }
+
+    *out_size = to_read;
+    return null;
+}
+
+=== FILE: lib.dc ===
+module lib;
+public import lib::protocols::file;
+public import lib::status;
+
+=== FILE: middle.dc ===
+module middle;
+public import lib;
+public import lib::status;
+
+public void* test(u64* out_size) {
+    return lib::protocols::file::read_all(out_size);
+}
