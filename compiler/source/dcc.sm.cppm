@@ -227,6 +227,9 @@ export namespace dcc::sm
             if (offset > static_cast<Offset>(m_size))
                 return std::unexpected{Error::OutOfRange};
 
+            if (!m_mapping && m_size != 0)
+                return std::unexpected{Error::MmapFailed};
+
             auto const* data = static_cast<char const*>(m_mapping);
             std::uint32_t line = 0;
             std::uint32_t character = 0;
@@ -258,6 +261,9 @@ export namespace dcc::sm
 
         [[nodiscard]] std::expected<Offset, Error> offset_at_lsp_position(std::uint32_t line, std::uint32_t utf16_char) const
         {
+            if (!m_mapping && m_size != 0)
+                return std::unexpected{Error::MmapFailed};
+
             auto const* data = static_cast<char const*>(m_mapping);
             std::size_t pos = 0;
             std::uint32_t current_line = 0;

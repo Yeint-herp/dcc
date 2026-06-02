@@ -155,6 +155,7 @@ export namespace dccd
         };
 
         std::map<std::string, std::vector<CachedDiagnostic>, std::less<>> m_diagnostic_cache;
+        std::unordered_set<std::string> m_stale_uris;
 
         [[nodiscard]] std::optional<protocol::JsonValue> handle_initialize(protocol::RpcInfo const& rpc)
         {
@@ -225,6 +226,8 @@ export namespace dccd
 
             auto fid = m_session->open_in_memory(params.textDocument.uri, params.textDocument.text, params.textDocument.version);
 
+            clear_stale_marker(params.textDocument.uri);
+
             auto const* sf = m_session->source_manager().get(fid);
             if (sf)
                 std::println(m_log, "[dccd] didOpen: uri={} fid={} path=\"{}\" kind={}", params.textDocument.uri, static_cast<std::uint32_t>(fid),
@@ -258,8 +261,12 @@ export namespace dccd
             if (!result)
             {
                 std::println(m_log, "[dccd] update_in_memory failed for {}: {}", params.textDocument.uri, dcc::sm::to_string(result.error()));
+                m_stale_uris.insert(params.textDocument.uri);
+                m_diagnostic_cache.erase(params.textDocument.uri);
                 return;
             }
+
+            clear_stale_marker(params.textDocument.uri);
 
             auto fid = m_session->source_manager().find_by_uri(params.textDocument.uri);
             if (fid)
@@ -597,8 +604,6 @@ export namespace dccd
         {
             auto params = protocol::SemanticTokensParams::from_json(rpc.params.value());
 
-            auto* sema_ctx = m_session->sema_context();
-
             auto fid_opt = file_id_from_uri(params.textDocument.uri);
             if (!fid_opt)
             {
@@ -607,46 +612,44 @@ export namespace dccd
                 return protocol::build_response(rpc.id.value(), empty.to_json());
             }
 
+            auto const requested_fid = *fid_opt;
             dcc::ast::TranslationUnit const* tu = nullptr;
 
-            if (sema_ctx)
+            if (m_stale_uris.contains(params.textDocument.uri))
             {
-                auto& graph = const_cast<dcc::sema::SemaContext*>(sema_ctx)->graph();
+                std::println(m_log, "[dccd] semanticTokens/full: URI marked stale (previous update failed) for {}; returning empty", params.textDocument.uri);
+                protocol::SemanticTokens empty;
+                return protocol::build_response(rpc.id.value(), empty.to_json());
+            }
 
-                dcc::sema::ModuleInfo const* module = nullptr;
-                for (auto const& mod : graph.all())
+            {
+                auto* sema_ctx = m_session->sema_context();
+                if (sema_ctx)
                 {
-                    auto const* sf = m_session->source_manager().get(mod->file_id);
-                    if (sf && sf->uri() == params.textDocument.uri)
-                    {
-                        module = mod.get();
-                        break;
-                    }
-                }
+                    auto& graph = const_cast<dcc::sema::SemaContext*>(sema_ctx)->graph();
 
-                if (!module)
-                {
+                    dcc::sema::ModuleInfo const* module = nullptr;
                     for (auto const& mod : graph.all())
                     {
-                        if (mod->file_id == *fid_opt)
+                        if (mod->file_id == requested_fid)
                         {
                             module = mod.get();
                             break;
                         }
                     }
+
+                    if (module && module->tu)
+                        tu = module->tu;
+
+                    if (!tu)
+                        tu = graph.find_tu_for_file(requested_fid);
                 }
-
-                if (module && module->tu)
-                    tu = module->tu;
-
-                if (!tu)
-                    tu = graph.find_tu_for_file(*fid_opt);
             }
 
             if (!tu)
             {
                 std::println(m_log, "[dccd] semanticTokens/full: no resolved TU via sema for {}", params.textDocument.uri);
-                tu = m_session->parse_file(*fid_opt);
+                tu = m_session->parse_file(requested_fid);
             }
 
             if (!tu)
@@ -656,7 +659,7 @@ export namespace dccd
                 return protocol::build_response(rpc.id.value(), empty.to_json());
             }
 
-            auto data = dccd::semantic_tokens::collect_tokens(m_session->source_manager(), tu);
+            auto data = dccd::semantic_tokens::collect_tokens(m_session->source_manager(), tu, requested_fid);
 
             protocol::SemanticTokens result;
             result.data = std::move(data);
@@ -2144,6 +2147,8 @@ export namespace dccd
             auto notification = protocol::build_notification("textDocument/publishDiagnostics", params.to_json());
             send_message(notification);
         }
+
+        void clear_stale_marker(std::string const& uri) noexcept { m_stale_uris.erase(uri); }
 
         void send_message(protocol::JsonValue const& msg)
         {

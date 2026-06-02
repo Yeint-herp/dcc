@@ -9,6 +9,8 @@ import dcc.ast.visitor;
 
 export namespace dccd::semantic_tokens
 {
+    inline constexpr int kMaxSkippedLogs = 5;
+
     enum class TokenType : std::uint32_t
     {
         Namespace,
@@ -63,7 +65,8 @@ export namespace dccd::semantic_tokens
     };
 
     [[nodiscard]] std::vector<std::uint32_t> delta_encode(std::vector<RawToken> tokens);
-    [[nodiscard]] std::vector<std::uint32_t> collect_tokens(dcc::sm::SourceManager const& sm, dcc::ast::TranslationUnit const* tu);
+    [[nodiscard]] std::vector<std::uint32_t> collect_tokens(dcc::sm::SourceManager const& sm, dcc::ast::TranslationUnit const* tu,
+                                                            dcc::sm::FileId requested_file = dcc::sm::FileId::Invalid);
 
 } // namespace dccd::semantic_tokens
 
@@ -77,8 +80,10 @@ namespace dccd::semantic_tokens
         {
             dcc::sm::SourceManager const& sm;
             std::vector<RawToken> tokens;
+            dcc::sm::FileId requested_file;
+            int skipped_log_count{0};
 
-            explicit Collector(dcc::sm::SourceManager const& s) : sm{s} {}
+            explicit Collector(dcc::sm::SourceManager const& s, dcc::sm::FileId req_file = dcc::sm::FileId::Invalid) : sm{s}, requested_file{req_file} {}
 
             void emit(dcc::sm::SourceRange range, TokenType type, std::uint32_t modifiers = 0)
             {
@@ -88,10 +93,43 @@ namespace dccd::semantic_tokens
                 if (range.byte_length() == 0)
                     return;
 
-                auto start_pos = sm.location_to_lsp_position(range.begin);
-                auto end_pos = sm.location_to_lsp_position(range.end);
-                if (!start_pos || !end_pos)
+                if (requested_file != dcc::sm::FileId::Invalid)
+                    if (range.begin.fileId != requested_file || range.end.fileId != requested_file)
+                        return;
+
+                auto const* sf = sm.get(range.begin.fileId);
+                if (!sf)
+                {
+                    log_skipped("source file not found", range);
                     return;
+                }
+
+                auto const file_size = static_cast<dcc::sm::Offset>(sf->size());
+                if (range.begin.offset > file_size || range.end.offset > file_size)
+                {
+                    log_skipped("offset exceeds file size", range);
+                    return;
+                }
+
+                if (range.begin.offset > range.end.offset)
+                {
+                    log_skipped("begin offset > end offset", range);
+                    return;
+                }
+
+                auto start_pos = sm.location_to_lsp_position(range.begin);
+                if (!start_pos)
+                {
+                    log_skipped("location_to_lsp_position failed for begin", range);
+                    return;
+                }
+
+                auto end_pos = sm.location_to_lsp_position(range.end);
+                if (!end_pos)
+                {
+                    log_skipped("location_to_lsp_position failed for end", range);
+                    return;
+                }
 
                 if (start_pos->line != end_pos->line)
                     return;
@@ -106,6 +144,18 @@ namespace dccd::semantic_tokens
                 t.type = static_cast<std::uint32_t>(type);
                 t.modifiers = modifiers;
                 tokens.push_back(t);
+            }
+
+            void log_skipped(std::string_view reason, dcc::sm::SourceRange const& range)
+            {
+                if (skipped_log_count < kMaxSkippedLogs)
+                {
+                    std::cerr << "[dccd.semantic_tokens] skipping token: " << reason << " (fileId=" << static_cast<std::uint32_t>(range.begin.fileId)
+                              << ", offset=" << range.begin.offset << "-" << range.end.offset << ")" << std::endl;
+                    ++skipped_log_count;
+                    if (skipped_log_count >= kMaxSkippedLogs)
+                        std::cerr << "[dccd.semantic_tokens] (further skipped tokens suppressed)" << std::endl;
+                }
             }
 
             void log_expr_emit(dcc::sm::SourceRange range, TokenType type) const
@@ -813,12 +863,12 @@ namespace dccd::semantic_tokens
         return data;
     }
 
-    std::vector<std::uint32_t> collect_tokens(dcc::sm::SourceManager const& sm, dcc::ast::TranslationUnit const* tu)
+    std::vector<std::uint32_t> collect_tokens(dcc::sm::SourceManager const& sm, dcc::ast::TranslationUnit const* tu, dcc::sm::FileId requested_file)
     {
         if (!tu)
             return {};
 
-        Collector c{sm};
+        Collector c{sm, requested_file};
 
         if (tu->module_decl)
             c.visitDecl(tu->module_decl);
