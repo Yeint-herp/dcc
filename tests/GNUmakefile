@@ -19,8 +19,12 @@ ALL_TEST_BINS := $(patsubst $(TOPLEVEL)/tests/source/%.cc,$(BUILD_DIR)/bin/tests
 ALL_DEPS := $(ALL_TEST_OBJS:.o=.d)
 
 COMPILER_PCMS := $(wildcard $(PCM_DIR)/compiler/source/*.pcm)
+DCCD_PCMS := $(wildcard $(PCM_DIR)/dccd.*.pcm)
 
 TEST_LDFLAGS := $(LLVM_LDFLAGS)
+
+DCCD_FORMAT_OBJ := $(OBJ_DIR)/dccd.format.pcm.o
+DCCD_PROTOCOL_OBJ := $(OBJ_DIR)/dccd.protocol.pcm.o
 
 all: test
 
@@ -42,10 +46,16 @@ test: $(ALL_TEST_BINS)
 		exit 1; \
 	fi
 
+$(BUILD_DIR)/bin/tests/test_format: $(OBJ_DIR)/tests/source/test_format.cc.o $(DCCD_FORMAT_OBJ) $(DCCD_PROTOCOL_OBJ) $(COMPILER_LIB)
+	$(call link-binary,$@,$^,$(TEST_LDFLAGS))
+
 $(BUILD_DIR)/bin/tests/%: $(OBJ_DIR)/tests/source/%.cc.o $(COMPILER_LIB)
 	$(call link-binary,$@,$^,$(TEST_LDFLAGS))
 
-$(ALL_TEST_OBJS): $(OBJ_DIR)/%.o: $(TOPLEVEL)/% | $(COMPILER_PCMS)
+$(OBJ_DIR)/tests/source/test_format.cc.o: $(TOPLEVEL)/tests/source/test_format.cc | $(COMPILER_PCMS) $(DCCD_PCMS)
+	$(call compile-cxx,$<,$@,$(LOCAL_CXXFLAGS))
+
+$(filter-out $(OBJ_DIR)/tests/source/test_format.cc.o,$(ALL_TEST_OBJS)): $(OBJ_DIR)/%.o: $(TOPLEVEL)/% | $(COMPILER_PCMS)
 	$(call compile-cxx,$<,$@,$(LOCAL_CXXFLAGS))
 
 clean:
