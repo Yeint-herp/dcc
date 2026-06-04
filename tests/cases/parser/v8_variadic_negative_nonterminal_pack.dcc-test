@@ -5,4 +5,4 @@ void bad(T..., U)() {
 }
 
 === EXPECT-ERRORS ===
-main.dc:2: non-pack parameter after pack parameter
+main.dc:3: non-pack parameter after pack parameter
