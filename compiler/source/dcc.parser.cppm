@@ -269,6 +269,10 @@ export namespace dcc::parser
                     tu->imports.push_back(item);
                 else
                     tu->decls.push_back(item);
+
+                for (auto* ed : m_extra_imports)
+                    tu->imports.push_back(ed);
+                m_extra_imports.clear();
             }
 
             tu->range = range_from(start);
@@ -534,6 +538,55 @@ export namespace dcc::parser
         ast::Decl* parse_import_decl_body(bool is_public, sm::Location start)
         {
             auto path = parse_path();
+
+            if (check(TK::ColonColon) && check_at(1, TK::LBrace))
+            {
+                advance();
+                advance();
+
+                auto prefix = std::move(path);
+                std::pmr::vector<ast::Decl*> group_imports(m_ctx.allocator());
+
+                while (!check(TK::RBrace) && !eof())
+                {
+                    auto name_tok = expect(TK::Identifier, "in import group");
+                    if (name_tok.kind != TK::Identifier)
+                        break;
+
+                    ast::Path combined(m_ctx.allocator());
+                    for (auto const& seg : prefix.segments)
+                        combined.segments.push_back(seg);
+
+                    combined.segments.push_back({name_tok.interned, name_tok.range});
+                    if (!combined.segments.empty())
+                        combined.range = sm::SourceRange{combined.segments.front().range.begin, combined.segments.back().range.end};
+
+                    auto nr = name_tok.range;
+                    auto* d = m_ctx.make<ast::ImportDecl>(range_from(start), std::move(combined), nr);
+                    d->is_public = is_public;
+                    group_imports.push_back(d);
+
+                    if (!check(TK::Comma))
+                        break;
+
+                    advance();
+                }
+
+                expect(TK::RBrace, "to close import group");
+                expect(TK::Semicolon, "after import");
+
+                if (group_imports.empty())
+                {
+                    error_at(range_from(start), "empty import group is not allowed");
+                    return nullptr;
+                }
+
+                for (std::size_t i = 1; i < group_imports.size(); ++i)
+                    m_extra_imports.push_back(group_imports[i]);
+
+                return group_imports[0];
+            }
+
             expect(TK::Semicolon, "after import path");
 
             auto nr = !path.segments.empty() ? path.segments.back().range : sm::SourceRange{};
@@ -2908,6 +2961,7 @@ export namespace dcc::parser
         std::uint32_t m_suppressed_error_count{};
         std::optional<sm::SourceRange> m_last_error_range;
         ParseMode m_mode{ParseMode::Batch};
+        std::vector<ast::Decl*> m_extra_imports;
     };
 
 } // namespace dcc::parser
