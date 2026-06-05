@@ -3076,6 +3076,15 @@ export namespace dcc::ir::lower
                 return gep;
             }
 
+            if (src_ir_ty->kind == IrTypeKind::Slice && dst_ir_ty->kind == IrTypeKind::Pointer)
+            {
+                auto* ptr_extract = m_ctx.extract(dst_ir_ty, operand, 0);
+                auto name = ident_name();
+                ptr_extract->name = m_name_pool.back();
+                append_inst(ptr_extract);
+                return ptr_extract;
+            }
+
             auto* inst = m_ctx.bitcast(dst_ir_ty, operand);
             auto name = ident_name();
             inst->name = m_name_pool.back();
