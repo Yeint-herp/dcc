@@ -1370,12 +1370,24 @@ export namespace dcc::sema
             ReceiverAutoRefQualMismatch = 3,
             ReceiverAutoDeref = 4,
             ConcreteExact = 5,
-            StructContextualExact = 6,
-            ArrayContextualExact = 7,
-            SliceContextualExact = 8,
-            EnumContextualExact = 9,
-            LiteralContextualExact = 10,
-            TemplateExact = 11,
+            StringLiteralCharSliceConst = 6,
+            StringLiteralCharSliceMutable = 7,
+            StringLiteralU8SliceConst = 8,
+            StringLiteralU8SliceMutable = 9,
+            StringLiteralCharPointerConst = 10,
+            StringLiteralCharPointerMutable = 11,
+            StringLiteralU8PointerConst = 12,
+            StringLiteralU8PointerMutable = 13,
+            U16StringLiteralSliceConst = 14,
+            U16StringLiteralSliceMutable = 15,
+            U16StringLiteralPointerConst = 16,
+            U16StringLiteralPointerMutable = 17,
+            StructContextualExact = 18,
+            ArrayContextualExact = 19,
+            SliceContextualExact = 20,
+            EnumContextualExact = 21,
+            LiteralContextualExact = 22,
+            TemplateExact = 23,
         };
 
         enum class UfcsReceiverMatch : std::uint8_t
@@ -2700,6 +2712,64 @@ export namespace dcc::sema
                 return CallRank::TemplateExact;
 
             auto actual = analyzed.type;
+
+            if (actual == param)
+            {
+                if (arg.kind == ast::ExprKind::StringLiteral)
+                {
+                    if (auto const* st = types::type_cast<types::SliceType>(param))
+                    {
+                        auto const* elem = st->element;
+                        bool is_char = elem->kind == types::TypeKind::Char;
+                        bool is_u8 = elem->kind == types::TypeKind::Int && static_cast<types::IntType const*>(elem)->bits == 8 &&
+                                     !static_cast<types::IntType const*>(elem)->is_signed;
+
+                        bool is_const = types::has_qual(st->element_quals, types::Qual::Const);
+
+                        if (is_char)
+                            return is_const ? CallRank::StringLiteralCharSliceConst : CallRank::StringLiteralCharSliceMutable;
+                        if (is_u8)
+                            return is_const ? CallRank::StringLiteralU8SliceConst : CallRank::StringLiteralU8SliceMutable;
+                    }
+                    if (auto const* pt = types::type_cast<types::PointerType>(param))
+                    {
+                        auto const* pointee = pt->pointee;
+                        bool is_char = pointee->kind == types::TypeKind::Char;
+                        bool is_u8 = pointee->kind == types::TypeKind::Int && static_cast<types::IntType const*>(pointee)->bits == 8 &&
+                                     !static_cast<types::IntType const*>(pointee)->is_signed;
+                        bool is_const = types::has_qual(pt->pointee_quals, types::Qual::Const);
+
+                        if (is_char)
+                            return is_const ? CallRank::StringLiteralCharPointerConst : CallRank::StringLiteralCharPointerMutable;
+                        if (is_u8)
+                            return is_const ? CallRank::StringLiteralU8PointerConst : CallRank::StringLiteralU8PointerMutable;
+                    }
+                }
+                else if (arg.kind == ast::ExprKind::U16StringLiteral)
+                {
+                    if (auto const* st = types::type_cast<types::SliceType>(param))
+                    {
+                        auto const* elem = st->element;
+                        bool is_u16 = elem->kind == types::TypeKind::Int && static_cast<types::IntType const*>(elem)->bits == 16 &&
+                                      !static_cast<types::IntType const*>(elem)->is_signed;
+                        bool is_const = types::has_qual(st->element_quals, types::Qual::Const);
+
+                        if (is_u16)
+                            return is_const ? CallRank::U16StringLiteralSliceConst : CallRank::U16StringLiteralSliceMutable;
+                    }
+                    if (auto const* pt = types::type_cast<types::PointerType>(param))
+                    {
+                        auto const* pointee = pt->pointee;
+                        bool is_u16 = pointee->kind == types::TypeKind::Int && static_cast<types::IntType const*>(pointee)->bits == 16 &&
+                                      !static_cast<types::IntType const*>(pointee)->is_signed;
+                        bool is_const = types::has_qual(pt->pointee_quals, types::Qual::Const);
+
+                        if (is_u16)
+                            return is_const ? CallRank::U16StringLiteralPointerConst : CallRank::U16StringLiteralPointerMutable;
+                    }
+                }
+            }
+
             if (actual != param)
             {
                 if (actual && param && actual->kind == types::TypeKind::Array && param->kind == types::TypeKind::Slice)

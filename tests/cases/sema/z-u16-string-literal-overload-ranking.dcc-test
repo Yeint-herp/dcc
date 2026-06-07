@@ -1,0 +1,20 @@
+=== FILE: main.dc ===
+module m;
+
+i32 pick([]const u16 x) { return 1; }
+i64 pick(const u16* x) { return 2; }
+
+i32 test_u16_slice_beats_u16_pointer() {
+    return pick(u"hi");
+}
+
+=== EXPECT-TYPES ===
+Module m
+  Func pick
+    Return: i32
+    Param x: []const u16
+  Func pick
+    Return: i64
+    Param x: const u16*
+  Func test_u16_slice_beats_u16_pointer
+    Return: i32

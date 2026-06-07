@@ -1,0 +1,97 @@
+=== FILE: main.dc ===
+module m;
+
+i32 pick([]const char x) { return 1; }
+i64 pick([]const u8 x) { return 2; }
+
+i32 test_char_slice_beats_u8_slice() {
+    return pick("hello");
+}
+
+i32 pick2([]const char x) { return 1; }
+i64 pick2(const char* x) { return 2; }
+
+i32 test_slice_beats_pointer() {
+    return pick2("hello");
+}
+
+i32 pick3([]const char x) { return 1; }
+i64 pick3([]char x) { return 2; }
+
+i32 test_const_slice_beats_mutable() {
+    return pick3("hello");
+}
+
+i32 pick4([]const u8 x) { return 1; }
+i64 pick4(const u8* x) { return 2; }
+
+i32 test_u8_slice_beats_u8_pointer() {
+    return pick4("hello");
+}
+
+=== EXPECT-BODY ===
+Module m
+  Func pick diverging=true
+    Param x type=[]const char storage=param offset=0 index=0
+    Body
+      Return
+        IntLiteral 1 [type=i32 const=1 constant]
+  Func pick diverging=true
+    Param x type=[]const u8 storage=param offset=0 index=0
+    Body
+      Return
+        IntLiteral 2 [type=i64 const=2 constant]
+  Func test_char_slice_beats_u8_slice diverging=true
+    Body
+      Return
+        Call [type=i32 const=<none> decl=pick]
+          Ident pick [type=<unresolved> const=<none>]
+          StringLiteral hello [type=[]const char const="hello" constant]
+  Func pick2 diverging=true
+    Param x type=[]const char storage=param offset=0 index=0
+    Body
+      Return
+        IntLiteral 1 [type=i32 const=1 constant]
+  Func pick2 diverging=true
+    Param x type=const char* storage=param offset=0 index=0
+    Body
+      Return
+        IntLiteral 2 [type=i64 const=2 constant]
+  Func test_slice_beats_pointer diverging=true
+    Body
+      Return
+        Call [type=i32 const=<none> decl=pick2]
+          Ident pick2 [type=<unresolved> const=<none>]
+          StringLiteral hello [type=[]const char const="hello" constant]
+  Func pick3 diverging=true
+    Param x type=[]const char storage=param offset=0 index=0
+    Body
+      Return
+        IntLiteral 1 [type=i32 const=1 constant]
+  Func pick3 diverging=true
+    Param x type=[]char storage=param offset=0 index=0
+    Body
+      Return
+        IntLiteral 2 [type=i64 const=2 constant]
+  Func test_const_slice_beats_mutable diverging=true
+    Body
+      Return
+        Call [type=i32 const=<none> decl=pick3]
+          Ident pick3 [type=<unresolved> const=<none>]
+          StringLiteral hello [type=[]const char const="hello" constant]
+  Func pick4 diverging=true
+    Param x type=[]const u8 storage=param offset=0 index=0
+    Body
+      Return
+        IntLiteral 1 [type=i32 const=1 constant]
+  Func pick4 diverging=true
+    Param x type=const u8* storage=param offset=0 index=0
+    Body
+      Return
+        IntLiteral 2 [type=i64 const=2 constant]
+  Func test_u8_slice_beats_u8_pointer diverging=true
+    Body
+      Return
+        Call [type=i32 const=<none> decl=pick4]
+          Ident pick4 [type=<unresolved> const=<none>]
+          StringLiteral hello [type=[]const u8 const="hello" constant]
