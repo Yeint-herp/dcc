@@ -39,7 +39,7 @@ $(LIBDCEXT_A): $(ALL_OBJS) $(DCC)
 $(DC_OBJS): $(OBJ_DIR)/%.dc.o: $(TOPLEVEL)/%.dc $(DCC)
 	@mkdir -p $(dir $@)
 	$(call MSG,DCC,$<)
-	$(Q)$(DCC) -c -target $(TARGET) -o $@ $<
+	$(Q)$(DCC) -c -target $(TARGET) -I$(TOPLEVEL)/libdcext -o $@ $<
 
 $(ASM_OBJS): $(OBJ_DIR)/%.asm.o: $(TOPLEVEL)/%.asm
 	@mkdir -p $(dir $@)
