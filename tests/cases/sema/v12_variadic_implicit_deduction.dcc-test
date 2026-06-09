@@ -1,0 +1,76 @@
+=== FILE: main.dc ===
+module m;
+
+void foo(T...)(T x) {
+    sizeof...(T);
+}
+
+void bar(T, U...)(T first, U rest) {
+    sizeof...(T);
+    sizeof...(U);
+}
+
+void multi(T...)(T x) {
+    sizeof...(T);
+}
+
+void caller() {
+    foo(42);
+    foo(3.14);
+    foo(1);
+    bar(1, 2.0);
+    multi(1, 2.0);
+    foo!(i32)(42);
+    bar!(i32, f64)(1, 2.0);
+}
+
+=== EXPECT-BODY ===
+Module m
+  Func foo diverging=false
+    Param x type=T storage=param offset=0 index=0
+    Body
+      SizeofPack name=T [type=<unresolved> const=<none>]
+  Func bar diverging=false
+    Param first type=T storage=param offset=0 index=0
+    Param rest type=U storage=param offset=0 index=1
+    Body
+      SizeofPack name=T [type=<unresolved> const=<none>]
+      SizeofPack name=U [type=<unresolved> const=<none>]
+  Func multi diverging=false
+    Param x type=T storage=param offset=0 index=0
+    Body
+      SizeofPack name=T [type=<unresolved> const=<none>]
+  Func caller diverging=false
+    Body
+      Call [type=void const=<none> decl=foo spec=foo]
+        Ident foo [type=<unresolved> const=<none>]
+        IntLiteral 42 [type=i32 const=42 constant]
+      Call [type=void const=<none> decl=foo spec=foo]
+        Ident foo [type=<unresolved> const=<none>]
+        FloatLiteral 3.14 [type=f64 const=3.14 constant]
+      Call [type=void const=<none> decl=foo spec=foo]
+        Ident foo [type=<unresolved> const=<none>]
+        IntLiteral 1 [type=i32 const=1 constant]
+      Call [type=void const=<none> decl=bar spec=bar]
+        Ident bar [type=<unresolved> const=<none>]
+        IntLiteral 1 [type=i32 const=1 constant]
+        FloatLiteral 2 [type=f64 const=2 constant]
+      Call [type=void const=<none> decl=multi spec=multi]
+        Ident multi [type=<unresolved> const=<none>]
+        IntLiteral 1 [type=i32 const=1 constant]
+        FloatLiteral 2 [type=f64 const=2 constant]
+      Call [type=void const=<none> decl=foo spec=foo]
+        TemplateInst [type=void(*)(i32) const=<none> decl=foo spec=foo]
+          Ident foo [type=void(*)(T) const=<none> decl=foo]
+        IntLiteral 42 [type=i32 const=42 constant]
+      Call [type=void const=<none> decl=bar spec=bar]
+        TemplateInst [type=void(*)(i32, f64) const=<none> decl=bar spec=bar]
+          Ident bar [type=void(*)(T, U) const=<none> decl=bar]
+        IntLiteral 1 [type=i32 const=1 constant]
+        FloatLiteral 2 [type=f64 const=2 constant]
+
+=== EXPECT-REGISTRY ===
+fn=bar args=[i32, f64] state=2
+fn=foo args=[f64] state=2
+fn=foo args=[i32] state=2
+fn=multi args=[i32, f64] state=2

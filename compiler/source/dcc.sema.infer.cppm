@@ -235,21 +235,21 @@ export namespace dcc::infer
 
             std::vector<types::TypePtr> pack_elements;
             for (std::size_t i = non_pack_count; i < args.size(); ++i)
+                pack_elements.push_back(args[i]);
+
+            if (auto const* tp = types::type_cast<types::TemplateParamType>(pack_type->element))
             {
-                auto element_ty = deduce(pack_type->element, args[i]);
-                if (!element_ty)
+                if (!has_pack_binding(tp))
+                    if (!bind_pack(tp, pack_elements))
+                        return fail(DeductionError::Conflict, "conflicting pack binding");
+            }
+            else
+                for (std::size_t i = non_pack_count; i < args.size(); ++i)
                 {
                     auto r = unify(pack_type->element, args[i]);
                     if (!r)
                         return r;
                 }
-                pack_elements.push_back(args[i]);
-            }
-
-            if (auto const* tp = types::type_cast<types::TemplateParamType>(pack_type->element))
-                if (!has_pack_binding(tp))
-                    if (!bind_pack(tp, pack_elements))
-                        return fail(DeductionError::Conflict, "conflicting pack binding");
 
             return ok();
         }

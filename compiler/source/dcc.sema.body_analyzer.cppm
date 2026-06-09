@@ -8315,7 +8315,9 @@ export namespace dcc::sema
                     types::TypePtr expected_ty = nullptr;
                     if (auto const* pt = types::type_cast<types::TypePackType>(pack_param_ty))
                         expected_ty = b.substitute(pt->element);
-                    args.push_back(analyze_expr(mod, nullptr, scope, *arg_exprs[func_arg_start + i], loop_depth, next_off, expected_ty, const_env));
+                    auto r = analyze_expr(mod, nullptr, scope, *arg_exprs[func_arg_start + i], loop_depth, next_off, expected_ty, const_env);
+                    pack_arg_types.push_back(r.type);
+                    args.push_back(std::move(r));
                 }
             }
 
