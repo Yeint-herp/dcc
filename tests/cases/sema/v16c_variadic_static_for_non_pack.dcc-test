@@ -1,0 +1,11 @@
+=== FILE: main.dc ===
+module m;
+
+void static_for_not_pack() {
+    static for item in y {
+        item;
+    }
+}
+
+=== EXPECT-ERRORS ===
+main.dc:4: 'y' is not a pack

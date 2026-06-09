@@ -1,0 +1,32 @@
+=== FILE: test.dc ===
+module test;
+
+void target(i32 a) {}
+
+void forward(T...)(T x) {
+    target(x...);
+}
+
+void caller() {
+    forward!(i32)(0);
+}
+
+=== EXPECT-IR ===
+module "test"
+void@_DC0F1.4.test6.target1i32sv(i32) {
+%entry(i32 %a):
+  ret void
+}
+
+void@_DC0F1.4.test6.caller0v() {
+%entry:
+  call fn(@_DC0S1.4.test7.forward1i32svX1ti32s)(i32 #0)
+  ret void
+}
+
+linkonce_odr void@_DC0S1.4.test7.forward1i32svX1ti32s(i32) {
+%entry(i32 %x):
+  call fn(@_DC0F1.4.test6.target1i32sv)(i32 %x)
+  ret void
+}
+

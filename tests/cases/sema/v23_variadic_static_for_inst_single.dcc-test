@@ -1,0 +1,21 @@
+=== FILE: main.dc ===
+module m;
+
+void sf_inst(T...)(T x) {
+    static for item in x {
+        item;
+    }
+}
+
+void caller() {
+    sf_inst!(i32)(0);
+}
+
+=== EXPECT-REGISTRY ===
+fn=sf_inst args=[i32] state=2
+
+=== EXPECT-INSTANTIATED-BODY FOR: m ===
+Func sf_inst diverging=false
+  Param x type=i32 storage=param offset=0 index=0
+  Body
+    Ident item [type=i32 const=<none>]

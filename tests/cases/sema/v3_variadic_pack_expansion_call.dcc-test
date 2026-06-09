@@ -1,15 +1,15 @@
 === FILE: main.dc ===
 module m;
 
+void fn(i32 a) {}
+
 void test(T...)(T x) {
     fn(x...);
 }
 
-=== EXPECT-BODY ===
-Module m
-  Func test diverging=false
-    Param x type=T storage=param offset=0 index=0
-    Body
-      Call [type=<unresolved> const=<none>]
-        Ident fn [type=<unresolved> const=<none>]
-        PackExpansion [type=<unresolved> const=<none>]
+void caller() {
+    test!(i32)(0);
+}
+
+=== EXPECT-REGISTRY ===
+fn=test args=[i32] state=2

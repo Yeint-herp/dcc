@@ -1,0 +1,14 @@
+=== FILE: main.dc ===
+module m;
+
+void zlen(T...)(i32 x) {
+    sizeof...(T);
+}
+
+void caller() {
+    // explicit zero-length: T = []
+    zlen!()(42);
+}
+
+=== EXPECT-REGISTRY ===
+fn=zlen args=[] state=2

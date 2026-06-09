@@ -5,9 +5,28 @@ void test(T...)(T x) {
     sizeof...(T);
 }
 
+void caller() {
+    test!(i32)(0);
+}
+
 === EXPECT-BODY ===
 Module m
   Func test diverging=false
     Param x type=T storage=param offset=0 index=0
     Body
       SizeofPack name=T [type=<unresolved> const=<none>]
+  Func caller diverging=false
+    Body
+      Call [type=void const=<none> decl=test spec=test]
+        TemplateInst [type=void(*)(i32) const=<none> decl=test spec=test]
+          Ident test [type=void(*)(T) const=<none> decl=test]
+        IntLiteral 0 [type=i32 const=0 constant]
+
+=== EXPECT-REGISTRY ===
+fn=test args=[i32] state=2
+
+=== EXPECT-INSTANTIATED-BODY FOR: m ===
+Func test diverging=false
+  Param x type=i32 storage=param offset=0 index=0
+  Body
+    IntLiteral 1 [type=u64 const=1 constant]

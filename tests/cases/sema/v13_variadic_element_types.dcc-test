@@ -1,0 +1,47 @@
+=== FILE: main.dc ===
+module m;
+
+struct Point {
+    i32 x;
+    i32 y;
+}
+
+void struct_test(T...)(T x) {
+    sizeof...(T);
+}
+
+void mixed_test(T...)(i32 dummy) {
+    sizeof...(T);
+}
+
+void caller() {
+    struct_test!(Point)(Point{10, 20});
+    mixed_test!(i32*, Point)(0);
+}
+
+=== EXPECT-BODY ===
+Module m
+  Func struct_test diverging=false
+    Param x type=T storage=param offset=0 index=0
+    Body
+      SizeofPack name=T [type=<unresolved> const=<none>]
+  Func mixed_test diverging=false
+    Param dummy type=i32 storage=param offset=0 index=0
+    Body
+      SizeofPack name=T [type=<unresolved> const=<none>]
+  Func caller diverging=false
+    Body
+      Call [type=void const=<none> decl=struct_test spec=struct_test]
+        TemplateInst [type=void(*)(Point) const=<none> decl=struct_test spec=struct_test]
+          Ident struct_test [type=void(*)(T) const=<none> decl=struct_test]
+        StructLiteral [type=Point const=agg(10, 20) constant]
+          IntLiteral 10 [type=i32 const=10 constant]
+          IntLiteral 20 [type=i32 const=20 constant]
+      Call [type=void const=<none> decl=mixed_test spec=mixed_test]
+        TemplateInst [type=void(*)(i32) const=<none> decl=mixed_test spec=mixed_test]
+          Ident mixed_test [type=void(*)(i32) const=<none> decl=mixed_test]
+        IntLiteral 0 [type=i32 const=0 constant]
+
+=== EXPECT-REGISTRY ===
+fn=mixed_test args=[<type>, Point] state=2
+fn=struct_test args=[Point] state=2

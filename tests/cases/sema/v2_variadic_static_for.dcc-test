@@ -7,9 +7,22 @@ void test1(T...)(T x) {
     }
 }
 
+void caller() {
+    test1!(i32)(0);
+}
+
 === EXPECT-BODY ===
 Module m
   Func test1 diverging=false
     Param x type=T storage=param offset=0 index=0
     Body
       StaticFor name=item
+  Func caller diverging=false
+    Body
+      Call [type=void const=<none> decl=test1 spec=test1]
+        TemplateInst [type=void(*)(i32) const=<none> decl=test1 spec=test1]
+          Ident test1 [type=void(*)(T) const=<none> decl=test1]
+        IntLiteral 0 [type=i32 const=0 constant]
+
+=== EXPECT-REGISTRY ===
+fn=test1 args=[i32] state=2

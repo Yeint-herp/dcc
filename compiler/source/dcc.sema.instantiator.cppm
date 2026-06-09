@@ -1453,48 +1453,105 @@ export namespace dcc::sema
         types::FuncPtrType* type;
     };
 
-    [[nodiscard]] ast::TypeExpr* clone_type_as_primitive(types::TypePtr ty, ast::AstContext& ast_ctx, types::TypeContext&)
+    [[nodiscard]] ast::TypeExpr* clone_type_from_canonical(types::TypePtr ty, ast::AstContext& ast_ctx, types::TypeContext& type_ctx)
     {
         if (!ty)
             return nullptr;
 
-        ast::TypeExpr* result = nullptr;
+        auto const make_primitive = [&](lex::TokenKind tk) -> ast::PrimitiveType* {
+            auto* r = ast_ctx.make<ast::PrimitiveType>(sm::SourceRange{}, tk);
+            set_canonical(r->sema, ty);
+            return r;
+        };
 
         switch (ty->kind)
         {
             case types::TypeKind::Void:
-                result = ast_ctx.make<ast::PrimitiveType>(sm::SourceRange{}, lex::TokenKind::KwVoid);
-                break;
+                return make_primitive(lex::TokenKind::KwVoid);
             case types::TypeKind::Bool:
-                result = ast_ctx.make<ast::PrimitiveType>(sm::SourceRange{}, lex::TokenKind::KwBool);
-                break;
+                return make_primitive(lex::TokenKind::KwBool);
             case types::TypeKind::Char:
-                result = ast_ctx.make<ast::PrimitiveType>(sm::SourceRange{}, lex::TokenKind::KwChar);
-                break;
+                return make_primitive(lex::TokenKind::KwChar);
             case types::TypeKind::Int: {
                 auto const* it = static_cast<types::IntType const*>(ty);
                 auto tk = it->bits == 8    ? (it->is_signed ? lex::TokenKind::Kwi8 : lex::TokenKind::Kwu8)
                           : it->bits == 16 ? (it->is_signed ? lex::TokenKind::Kwi16 : lex::TokenKind::Kwu16)
                           : it->bits == 32 ? (it->is_signed ? lex::TokenKind::Kwi32 : lex::TokenKind::Kwu32)
                                            : (it->is_signed ? lex::TokenKind::Kwi64 : lex::TokenKind::Kwu64);
-
-                result = ast_ctx.make<ast::PrimitiveType>(sm::SourceRange{}, tk);
-                break;
+                return make_primitive(tk);
             }
             case types::TypeKind::Float: {
                 auto const* ft = static_cast<types::FloatType const*>(ty);
                 auto tk = ft->bits == 32 ? lex::TokenKind::Kwf32 : lex::TokenKind::Kwf64;
-                result = ast_ctx.make<ast::PrimitiveType>(sm::SourceRange{}, tk);
-                break;
+                return make_primitive(tk);
+            }
+            case types::TypeKind::Pointer: {
+                auto const* pt = static_cast<types::PointerType const*>(ty);
+                auto* pointee = clone_type_from_canonical(pt->pointee, ast_ctx, type_ctx);
+                auto* r = ast_ctx.make<ast::PointerType>(sm::SourceRange{}, pointee);
+                set_canonical(r->sema, ty);
+                return r;
+            }
+            case types::TypeKind::Slice: {
+                auto const* st = static_cast<types::SliceType const*>(ty);
+                auto* elem = clone_type_from_canonical(st->element, ast_ctx, type_ctx);
+                auto* r = ast_ctx.make<ast::SliceType>(sm::SourceRange{}, elem);
+                set_canonical(r->sema, ty);
+                return r;
+            }
+            case types::TypeKind::Array: {
+                auto const* at = static_cast<types::ArrayType const*>(ty);
+                auto* elem = clone_type_from_canonical(at->element, ast_ctx, type_ctx);
+                auto* size = ast_ctx.make<ast::IntLiteralExpr>(sm::SourceRange{}, static_cast<std::int64_t>(at->count), std::to_string(at->count));
+                auto* r = ast_ctx.make<ast::ArrayType>(sm::SourceRange{}, elem, size);
+                set_canonical(r->sema, ty);
+                return r;
+            }
+            case types::TypeKind::FuncPtr: {
+                auto const* ft = static_cast<types::FuncPtrType const*>(ty);
+                auto* ret = clone_type_from_canonical(ft->return_type, ast_ctx, type_ctx);
+                auto* r = ast_ctx.make<ast::FuncPtrType>(sm::SourceRange{}, ret, ast_ctx.allocator());
+                for (auto const* p : ft->params)
+                    r->params.push_back(clone_type_from_canonical(p, ast_ctx, type_ctx));
+                set_canonical(r->sema, ty);
+                return r;
+            }
+            case types::TypeKind::Struct: {
+                auto const* ut = static_cast<types::UserType const*>(ty);
+                auto const* sd = reinterpret_cast<ast::StructDecl const*>(ut->decl);
+                ast::Path path(sm::SourceRange{}, ast_ctx.allocator());
+                path.segments.push_back({sd->name, sm::SourceRange{}});
+                auto* nt = ast_ctx.make<ast::NamedType>(sm::SourceRange{}, std::move(path), ast_ctx.allocator());
+                for (auto const& ta : ut->template_args)
+                    nt->template_args.push_back(ast::TemplateArg{sm::SourceRange{}, clone_type_from_canonical(ta, ast_ctx, type_ctx), nullptr});
+                set_canonical(nt->sema, ty);
+                return nt;
+            }
+            case types::TypeKind::Union: {
+                auto const* ut = static_cast<types::UserType const*>(ty);
+                auto const* ud = reinterpret_cast<ast::UnionDecl const*>(ut->decl);
+                ast::Path path(sm::SourceRange{}, ast_ctx.allocator());
+                path.segments.push_back({ud->name, sm::SourceRange{}});
+                auto* nt = ast_ctx.make<ast::NamedType>(sm::SourceRange{}, std::move(path), ast_ctx.allocator());
+                for (auto const& ta : ut->template_args)
+                    nt->template_args.push_back(ast::TemplateArg{sm::SourceRange{}, clone_type_from_canonical(ta, ast_ctx, type_ctx), nullptr});
+                set_canonical(nt->sema, ty);
+                return nt;
+            }
+            case types::TypeKind::Enum: {
+                auto const* ut = static_cast<types::UserType const*>(ty);
+                auto const* ed = reinterpret_cast<ast::EnumDecl const*>(ut->decl);
+                ast::Path path(sm::SourceRange{}, ast_ctx.allocator());
+                path.segments.push_back({ed->name, sm::SourceRange{}});
+                auto* nt = ast_ctx.make<ast::NamedType>(sm::SourceRange{}, std::move(path), ast_ctx.allocator());
+                for (auto const& ta : ut->template_args)
+                    nt->template_args.push_back(ast::TemplateArg{sm::SourceRange{}, clone_type_from_canonical(ta, ast_ctx, type_ctx), nullptr});
+                set_canonical(nt->sema, ty);
+                return nt;
             }
             default:
                 return nullptr;
         }
-
-        if (result)
-            set_canonical(result->sema, ty);
-
-        return result;
     }
 
     [[nodiscard]] std::vector<ast::FuncParam> expand_func_params(ast::FuncDecl const& template_fn, infer::TemplateBindings const& bindings,
@@ -1504,7 +1561,7 @@ export namespace dcc::sema
 
         bool has_pack = false;
         std::size_t non_pack_count = template_fn.params.size();
-        if (!template_fn.params.empty() && template_fn.params.back().is_pack)
+        if (!template_fn.params.empty() && is_func_param_sema_pack(template_fn.params.back(), template_fn))
         {
             has_pack = true;
             non_pack_count = template_fn.params.size() - 1;
@@ -1531,6 +1588,7 @@ export namespace dcc::sema
 
             std::size_t pack_count = 0;
             types::TypePtr elem_type = nullptr;
+            bool is_pack_binding = false;
 
             if (auto const* pack_type = types::type_cast<types::TypePackType>(sub_pack_ty))
             {
@@ -1538,7 +1596,11 @@ export namespace dcc::sema
                 if (auto const* tp = types::type_cast<types::TemplateParamType>(elem_type))
                 {
                     auto* p = bindings.lookup_pack(tp);
-                    pack_count = p ? p->size() : 0;
+                    if (p)
+                    {
+                        pack_count = p->size();
+                        is_pack_binding = true;
+                    }
                 }
             }
             else if (auto const* tp = types::type_cast<types::TemplateParamType>(sub_pack_ty))
@@ -1548,6 +1610,33 @@ export namespace dcc::sema
                 {
                     pack_count = p->size();
                     elem_type = tp;
+                    is_pack_binding = true;
+                }
+            }
+
+            if (pack_count == 0 && sub_pack_ty)
+            {
+                if (auto const* pack_type = types::type_cast<types::TypePackType>(sub_pack_ty))
+                {
+                    if (auto const* inner_tp = types::type_cast<types::TemplateParamType>(pack_type->element))
+                    {
+                        auto single = bindings.lookup(inner_tp);
+                        if (single)
+                        {
+                            pack_count = 1;
+                            elem_type = single;
+                        }
+                    }
+                    else
+                    {
+                        pack_count = 1;
+                        elem_type = pack_type->element;
+                    }
+                }
+                else
+                {
+                    pack_count = 1;
+                    elem_type = sub_pack_ty;
                 }
             }
 
@@ -1557,20 +1646,34 @@ export namespace dcc::sema
             for (std::size_t i = 0; i < pack_count; ++i)
             {
                 ast::FuncParam new_param;
-                new_param.name = pack_param.name;
+                if (pack_count == 1)
+                    new_param.name = pack_param.name;
+                else
+                {
+                    auto name_str = std::format("{}_{}", pack_param.name, i);
+                    auto* buf = static_cast<char*>(ast_ctx.resource()->allocate(name_str.size() + 1, alignof(char)));
+                    std::memcpy(buf, name_str.data(), name_str.size() + 1);
+                    new_param.name = std::string_view{buf, name_str.size()};
+                }
                 new_param.range = pack_param.range;
                 new_param.sema = pack_param.sema;
                 new_param.sema.param_index = static_cast<std::uint32_t>(non_pack_count + i);
                 new_param.is_pack = false;
+                new_param.type = nullptr;
 
-                if (auto const* pack = bindings.lookup_pack(static_cast<types::TemplateParamType const*>(elem_type)))
+                if (is_pack_binding)
                 {
-                    if (i < pack->size())
+                    if (auto const* pack = bindings.lookup_pack(static_cast<types::TemplateParamType const*>(elem_type)))
                     {
-                        auto elem = (*pack)[i];
-                        new_param.type = clone_type_as_primitive(elem, ast_ctx, type_ctx);
+                        if (i < pack->size())
+                        {
+                            auto elem = (*pack)[i];
+                            new_param.type = clone_type_from_canonical(elem, ast_ctx, type_ctx);
+                        }
                     }
                 }
+                else
+                    new_param.type = clone_type_from_canonical(elem_type, ast_ctx, type_ctx);
 
                 result.push_back(std::move(new_param));
             }
@@ -1586,7 +1689,7 @@ export namespace dcc::sema
 
         bool has_pack = false;
         std::size_t non_pack_count = template_fn.params.size();
-        if (!template_fn.params.empty() && template_fn.params.back().is_pack)
+        if (!template_fn.params.empty() && is_func_param_sema_pack(template_fn.params.back(), template_fn))
         {
             has_pack = true;
             non_pack_count = template_fn.params.size() - 1;
@@ -1622,7 +1725,13 @@ export namespace dcc::sema
                             param_types.push_back(pt);
                     }
                     else
-                        param_types.push_back(type_ctx.m_errort());
+                    {
+                        auto single = bindings.lookup(tp);
+                        if (single)
+                            param_types.push_back(single);
+                        else
+                            param_types.push_back(type_ctx.m_errort());
+                    }
                 }
                 else
                     param_types.push_back(bindings.substitute(elem_type));
@@ -1899,26 +2008,68 @@ export namespace dcc::sema
                 }
             }
 
-            if (has_pack)
+            for (auto const& tp : template_fn.template_params)
             {
-                for (auto const& tp : template_fn.template_params)
+                if (tp.is_pack && !pack_lookup.count(tp.name))
                 {
-                    if (tp.is_pack)
-                    {
-                        auto* param_ty = type_ctx.template_param_t(const_cast<ast::TemplateParam*>(&tp), tp.name,
-                                                                   static_cast<std::uint32_t>(&tp - template_fn.template_params.data()));
-                        if (!param_ty)
-                            continue;
+                    auto* param_ty = type_ctx.template_param_t(const_cast<ast::TemplateParam*>(&tp), tp.name,
+                                                               static_cast<std::uint32_t>(&tp - template_fn.template_params.data()));
+                    if (!param_ty)
+                        continue;
 
-                        auto const* tp_ptr = static_cast<types::TemplateParamType const*>(param_ty);
-                        auto* p = const_cast<infer::TemplateBindings&>(bindings).lookup_pack(tp_ptr);
-                        if (p && !pack_lookup.count(tp.name))
+                    auto const* tp_ptr = static_cast<types::TemplateParamType const*>(param_ty);
+                    auto* p = const_cast<infer::TemplateBindings&>(bindings).lookup_pack(tp_ptr);
+                    if (p)
+                    {
+                        PackInfo pi;
+                        pi.types = *p;
+                        pack_lookup[tp.name] = std::move(pi);
+                    }
+                    else
+                    {
+                        auto bound = bindings.lookup(tp_ptr);
+                        if (bound)
                         {
                             PackInfo pi;
-                            pi.types = *p;
+                            pi.types.push_back(bound);
                             pack_lookup[tp.name] = std::move(pi);
                         }
-                        break;
+                    }
+                }
+            }
+
+            for (auto const& p : template_fn.params)
+            {
+                if (!pack_lookup.count(p.name))
+                {
+                    auto canon = p.type && p.type->sema.canonical ? get_canonical(p.type->sema) : nullptr;
+                    if (!canon)
+                        continue;
+
+                    bool param_is_pack = p.is_pack || types::type_cast<types::TypePackType>(canon) != nullptr;
+                    if (!param_is_pack)
+                    {
+                        if (auto const* tpt = types::type_cast<types::TemplateParamType>(canon))
+                        {
+                            for (auto const& tp : template_fn.template_params)
+                                if (tp.name == tpt->name && tp.is_pack)
+                                {
+                                    param_is_pack = true;
+                                    break;
+                                }
+                        }
+                    }
+                    if (!param_is_pack)
+                        continue;
+
+                    types::TypePtr inner = canon;
+                    if (auto const* pt = types::type_cast<types::TypePackType>(canon))
+                        inner = pt->element;
+                    if (auto const* tp = types::type_cast<types::TemplateParamType>(inner))
+                    {
+                        auto it = pack_lookup.find(tp->name);
+                        if (it != pack_lookup.end())
+                            pack_lookup[p.name] = it->second;
                     }
                 }
             }
@@ -2108,6 +2259,7 @@ export namespace dcc::sema
                                         auto it = pack_info.find(ident->name);
                                         if (it != pack_info.end() && !it->second.types.empty())
                                         {
+                                            bool multi = it->second.types.size() > 1;
                                             for (std::size_t pi = 0; pi < it->second.types.size(); ++pi)
                                             {
                                                 AstCloner cloner{ast_ctx};
@@ -2117,6 +2269,13 @@ export namespace dcc::sema
                                                 auto* elem_ident = ast::node_cast<ast::IdentExpr>(cloned);
                                                 if (elem_ident)
                                                 {
+                                                    if (multi)
+                                                    {
+                                                        auto name_str = std::format("{}_{}", ident->name, pi);
+                                                        auto* buf = static_cast<char*>(ast_ctx.resource()->allocate(name_str.size() + 1, alignof(char)));
+                                                        std::memcpy(buf, name_str.data(), name_str.size() + 1);
+                                                        elem_ident->name = std::string_view{buf, name_str.size()};
+                                                    }
                                                     if (it->second.is_value_pack && pi < it->second.values.size())
                                                     {
                                                         auto const& v = it->second.values[pi];
@@ -2681,6 +2840,24 @@ export namespace dcc::sema
                                 case types::TypeKind::Void:
                                     args += "void";
                                     break;
+                                case types::TypeKind::Struct: {
+                                    auto const* ut = static_cast<types::UserType const*>(arg.type_ptr);
+                                    auto const* sd = reinterpret_cast<ast::StructDecl const*>(ut->decl);
+                                    args += sd ? std::string{sd->name} : "struct";
+                                    break;
+                                }
+                                case types::TypeKind::Union: {
+                                    auto const* ut = static_cast<types::UserType const*>(arg.type_ptr);
+                                    auto const* ud = reinterpret_cast<ast::UnionDecl const*>(ut->decl);
+                                    args += ud ? std::string{ud->name} : "union";
+                                    break;
+                                }
+                                case types::TypeKind::Enum: {
+                                    auto const* ut = static_cast<types::UserType const*>(arg.type_ptr);
+                                    auto const* ed = reinterpret_cast<ast::EnumDecl const*>(ut->decl);
+                                    args += ed ? std::string{ed->name} : "enum";
+                                    break;
+                                }
                                 default:
                                     args += "<type>";
                                     break;
@@ -2773,7 +2950,11 @@ export namespace dcc::sema
                                     args.push_back(CanonicalArg::make_type(pt));
                             }
                             else
-                                args.push_back(CanonicalArg::make_type(type_ctx.m_errort()));
+                            {
+                                auto single = bindings.lookup(static_cast<types::TemplateParamType const*>(param_ty));
+                                if (single)
+                                    args.push_back(CanonicalArg::make_type(single));
+                            }
                         }
                     }
                     else
@@ -2785,7 +2966,11 @@ export namespace dcc::sema
                                 args.push_back(CanonicalArg::make_type(pt));
                         }
                         else
-                            args.push_back(CanonicalArg::make_type(type_ctx.m_errort()));
+                        {
+                            auto single = bindings.lookup(static_cast<types::TemplateParamType const*>(param_ty));
+                            if (single)
+                                args.push_back(CanonicalArg::make_type(single));
+                        }
                     }
                 }
                 else if (tp.value_type)

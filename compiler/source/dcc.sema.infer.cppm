@@ -647,9 +647,16 @@ export namespace dcc::infer
                 case types::TypeKind::Char:
                 case types::TypeKind::NullT:
                 case types::TypeKind::TemplateParam:
-                case types::TypeKind::TypePack:
                 case types::TypeKind::Error:
                     break;
+
+                case types::TypeKind::TypePack: {
+                    auto const* t = static_cast<types::TypePackType const*>(type);
+                    auto element = substitute_impl(t->element, memo);
+                    if (element != t->element)
+                        out = m_types.type_pack_t(element);
+                    break;
+                }
 
                 case types::TypeKind::Pointer: {
                     auto const* t = static_cast<types::PointerType const*>(type);

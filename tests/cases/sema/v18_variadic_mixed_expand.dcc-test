@@ -1,0 +1,39 @@
+=== FILE: main.dc ===
+module m;
+
+void target(i32 first, i32 a, i32 b, i32 last) {}
+
+void test(T...)(T x) {
+    target(100, x..., 200);
+}
+
+void caller() {
+    test!(i32, i32)(10, 20);
+}
+
+=== EXPECT-BODY ===
+Module m
+  Func target diverging=false
+    Param first type=i32 storage=param offset=0 index=0
+    Param a type=i32 storage=param offset=4 index=1
+    Param b type=i32 storage=param offset=8 index=2
+    Param last type=i32 storage=param offset=12 index=3
+    Body
+  Func test diverging=false
+    Param x type=T storage=param offset=0 index=0
+    Body
+      Call [type=<unresolved> const=<none>]
+        Ident target [type=<unresolved> const=<none>]
+        IntLiteral 100 [type=<unresolved> const=<none>]
+        PackExpansion [type=<unresolved> const=<none>]
+        IntLiteral 200 [type=<unresolved> const=<none>]
+  Func caller diverging=false
+    Body
+      Call [type=void const=<none> decl=test spec=test]
+        TemplateInst [type=void(*)(i32, i32) const=<none> decl=test spec=test]
+          Ident test [type=void(*)(T) const=<none> decl=test]
+        IntLiteral 10 [type=i32 const=10 constant]
+        IntLiteral 20 [type=i32 const=20 constant]
+
+=== EXPECT-REGISTRY ===
+fn=test args=[i32, i32] state=2

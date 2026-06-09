@@ -1,0 +1,9 @@
+=== FILE: main.dc ===
+module m;
+
+void sizeof_not_pack() {
+    sizeof...(X);
+}
+
+=== EXPECT-ERRORS ===
+main.dc:4: 'X' is not a pack

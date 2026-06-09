@@ -1,0 +1,23 @@
+=== FILE: main.dc ===
+module m;
+
+void foo(T...)(i32 x) {
+    sizeof...(T);
+}
+
+void test() {
+    foo!(i32, i64)(0);
+}
+
+=== EXPECT-BODY ===
+Module m
+  Func foo diverging=false
+    Param x type=i32 storage=param offset=0 index=0
+    Body
+      SizeofPack name=T [type=<unresolved> const=<none>]
+  Func test diverging=false
+    Body
+      Call [type=void const=<none> decl=foo spec=foo]
+        TemplateInst [type=void(*)(i32) const=<none> decl=foo spec=foo]
+          Ident foo [type=void(*)(i32) const=<none> decl=foo]
+        IntLiteral 0 [type=i32 const=0 constant]

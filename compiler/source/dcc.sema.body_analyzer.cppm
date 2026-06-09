@@ -2383,9 +2383,23 @@ export namespace dcc::sema
 
             if (template_args.empty())
             {
-                if (failure)
-                    *failure = f.template_params.empty() ? ExplicitInstFailure::NotTemplate : ExplicitInstFailure::CountMismatch;
-                return std::nullopt;
+                bool all_pack = !f.template_params.empty();
+                for (auto const& tp : f.template_params)
+                {
+                    if (!tp.is_pack)
+                    {
+                        all_pack = false;
+                        break;
+                    }
+                }
+                if (all_pack)
+                    ;
+                else
+                {
+                    if (failure)
+                        *failure = f.template_params.empty() ? ExplicitInstFailure::NotTemplate : ExplicitInstFailure::CountMismatch;
+                    return std::nullopt;
+                }
             }
 
             if (f.template_params.empty())
@@ -2560,7 +2574,7 @@ export namespace dcc::sema
             for (auto const& p : f.params)
             {
                 auto ty = p.type && p.type->sema.canonical ? get_canonical(p.type->sema) : m_types.m_errort();
-                if (p.is_pack)
+                if (is_func_param_sema_pack(p, f))
                 {
                     auto expanded = expand_pack_param_type(ty, bindings);
                     for (auto const& et : expanded)
@@ -3036,6 +3050,7 @@ export namespace dcc::sema
                 auto param_ty = b.substitute(params[i]);
                 actual_param_types.push_back(param_ty);
                 auto r = analyze_expr(mod, nullptr, *probe_scope, *arg_exprs[func_arg_start + i], loop_depth, probe_off, param_ty, const_env);
+
                 if (has_error(r.type))
                 {
                     if (had_suppressed_errors)
@@ -4139,7 +4154,9 @@ export namespace dcc::sema
                 check_type_valid_for_value(p.range, type, "parameter type");
                 p.sema.frame_offset = allocate_frame_slot(frame_off, type);
                 auto* synthetic = make_param_decl(p);
-                define_local(*root, synthetic);
+
+                if (i == 0 || fn.params[i - 1].name != p.name)
+                    define_local(*root, synthetic);
             }
 
             if (!fn.template_params.empty())
@@ -5506,209 +5523,223 @@ export namespace dcc::sema
         {
             detail::ExprResult out{};
 
-            if (expr.kind == ast::ExprKind::Ident && expr.sema.const_value)
+            if (expr.kind == ast::ExprKind::Ident && expr.sema.resolved_type && !expr.sema.resolved_decl && !has_error(get_resolved_type(expr.sema)))
             {
-                if (expr.sema.resolved_type)
+                auto* ident = static_cast<ast::IdentExpr const*>(&expr);
+                auto const* sym = lookup_name(mod, scope, ident->name);
+                if (sym && sym->decl)
                 {
-                    out.type = get_resolved_type(expr.sema);
-                    out.constant = expr.sema.const_value;
-                    out.is_constant = true;
-                    out.is_lvalue = expr.sema.is_lvalue;
-                    return out;
+                    out.resolved_decl = sym->decl;
+                    track_decl_read(sym->decl);
+                    out.is_lvalue = (sym->kind == SymbolKind::Variable);
                 }
+
+                out.type = get_resolved_type(expr.sema);
+                out.constant = expr.sema.const_value;
+                out.is_constant = expr.sema.is_constant;
             }
-
-            switch (expr.kind)
+            else
             {
-                case ast::ExprKind::IntLiteral: {
-                    auto& e = static_cast<ast::IntLiteralExpr&>(expr);
-                    out.type = default_int_type(e.value, expected_type);
-                    out.constant = make_int_const(e.value, out.type);
-                    out.is_constant = true;
-                    break;
-                }
-                case ast::ExprKind::FloatLiteral: {
-                    if (auto const* ft = types::type_cast<types::FloatType>(expected_type))
-                        out.type = m_types.float_t(ft->bits);
-                    else
-                        out.type = m_types.float_t(64);
+                switch (expr.kind)
+                {
+                    case ast::ExprKind::IntLiteral: {
+                        auto& e = static_cast<ast::IntLiteralExpr&>(expr);
 
-                    out.constant = make_float_const(static_cast<ast::FloatLiteralExpr&>(expr).value, out.type);
-                    out.is_constant = true;
-
-                    break;
-                }
-                case ast::ExprKind::StringLiteral: {
-                    auto& e = static_cast<ast::StringLiteralExpr&>(expr);
-                    if (auto const* st = types::type_cast<types::SliceType>(expected_type))
-                    {
-                        auto const* el = st->element;
-                        if (el &&
-                            (el->kind == types::TypeKind::Char || (types::type_cast<types::IntType>(el) && static_cast<types::IntType const*>(el)->bits == 8)))
-                        {
-                            out.type = m_types.slice_t(el, st->element_quals);
-                            out.constant = make_str_const(std::string_view{e.value}, out.type);
-                            out.is_constant = true;
-                            break;
-                        }
-                    }
-
-                    out.type = m_types.pointer_to(m_types.m_chart(), types::Qual::Const);
-                    out.constant = make_str_const(std::string_view{e.value}, out.type);
-                    out.is_constant = true;
-                    break;
-                }
-                case ast::ExprKind::U16StringLiteral: {
-                    auto& e = static_cast<ast::U16StringLiteralExpr&>(expr);
-                    auto* u16_type = m_types.int_t(16, false);
-                    if (auto const* st = types::type_cast<types::SliceType>(expected_type))
-                    {
-                        auto const* el = st->element;
-                        if (el && types::type_cast<types::IntType>(el) && static_cast<types::IntType const*>(el)->bits == 16 &&
-                            !static_cast<types::IntType const*>(el)->is_signed)
-                        {
-                            out.type = m_types.slice_t(el, st->element_quals);
-                            out.constant = make_u16_str_const(e.value, out.type);
-                            out.is_constant = true;
-                            break;
-                        }
-                    }
-
-                    out.type = m_types.pointer_to(u16_type, types::Qual::Const);
-                    out.constant = make_u16_str_const(e.value, out.type);
-                    out.is_constant = true;
-                    break;
-                }
-                case ast::ExprKind::CharLiteral: {
-                    auto& e = static_cast<ast::CharLiteralExpr&>(expr);
-                    out.type = m_types.m_chart();
-                    out.constant = make_char_const(e.codepoint, out.type);
-                    out.is_constant = true;
-                    break;
-                }
-                case ast::ExprKind::U16CharLiteral: {
-                    auto& e = static_cast<ast::U16CharLiteralExpr&>(expr);
-                    out.type = m_types.int_t(16, false);
-                    out.constant = make_int_const(e.value, out.type);
-                    out.is_constant = true;
-                    break;
-                }
-                case ast::ExprKind::BoolLiteral: {
-                    auto& e = static_cast<ast::BoolLiteralExpr&>(expr);
-                    out.type = m_types.m_boolt();
-                    out.constant = make_bool_const(e.value, out.type);
-                    out.is_constant = true;
-                    break;
-                }
-                case ast::ExprKind::NullLiteral:
-                    if (types::type_cast<types::PointerType>(expected_type))
-                        out.type = expected_type;
-                    else
-                        out.type = m_types.m_nullt();
-
-                    out.constant = make_null_const(out.type);
-                    out.is_constant = true;
-                    break;
-                case ast::ExprKind::Ident:
-                    out = analyze_name(mod, scope, static_cast<ast::IdentExpr&>(expr).name, static_cast<ast::IdentExpr&>(expr).range, const_env);
-                    break;
-                case ast::ExprKind::PathExpr:
-                    out = analyze_path_expr(mod, scope, static_cast<ast::PathExpr&>(expr), expected_type, const_env);
-                    break;
-                case ast::ExprKind::Unary:
-                    out = analyze_unary(mod, fn, scope, static_cast<ast::UnaryExpr&>(expr), loop_depth, next_off, expected_type, const_env);
-                    break;
-                case ast::ExprKind::Postfix:
-                    out = analyze_postfix(mod, fn, scope, static_cast<ast::PostfixExpr&>(expr), loop_depth, next_off, expected_type, const_env);
-                    break;
-                case ast::ExprKind::Binary:
-                    out = analyze_binary(mod, fn, scope, static_cast<ast::BinaryExpr&>(expr), loop_depth, next_off, expected_type, const_env);
-                    break;
-                case ast::ExprKind::Call:
-                    out = analyze_call(mod, fn, scope, static_cast<ast::CallExpr&>(expr), loop_depth, next_off, expected_type, const_env);
-                    break;
-                case ast::ExprKind::FieldAccess:
-                    out = analyze_field_access(mod, fn, scope, static_cast<ast::FieldAccessExpr&>(expr), loop_depth, next_off, expected_type, const_env);
-                    break;
-                case ast::ExprKind::Index:
-                    out = analyze_index(mod, fn, scope, static_cast<ast::IndexExpr&>(expr), loop_depth, next_off, expected_type, const_env);
-                    break;
-                case ast::ExprKind::Cast:
-                    out = analyze_cast(mod, fn, scope, static_cast<ast::CastExpr&>(expr), loop_depth, next_off, expected_type, const_env);
-                    break;
-                case ast::ExprKind::Block:
-                    out = analyze_block_expr(mod, fn, scope, static_cast<ast::BlockExpr&>(expr), loop_depth, next_off, expected_type, const_env);
-                    break;
-                case ast::ExprKind::If:
-                    out = analyze_if_expr(mod, fn, scope, static_cast<ast::IfExpr&>(expr), loop_depth, next_off, expected_type, const_env);
-                    break;
-                case ast::ExprKind::Match:
-                    out = analyze_match_expr(mod, fn, scope, static_cast<ast::MatchExpr&>(expr), loop_depth, next_off, expected_type, const_env);
-                    break;
-                case ast::ExprKind::StructLiteral:
-                    out = analyze_struct_literal(mod, fn, scope, static_cast<ast::StructLiteralExpr&>(expr), loop_depth, next_off, expected_type, const_env);
-                    break;
-                case ast::ExprKind::Sizeof:
-                    out = analyze_sizeof(mod, scope, static_cast<ast::SizeofExpr&>(expr));
-                    break;
-                case ast::ExprKind::Alignof:
-                    out = analyze_alignof(mod, scope, static_cast<ast::AlignofExpr&>(expr));
-                    break;
-                case ast::ExprKind::Offsetof:
-                    out = analyze_offsetof(mod, scope, static_cast<ast::OffsetofExpr&>(expr));
-                    break;
-                case ast::ExprKind::Compiles:
-                    out = analyze_compiles(mod, fn, scope, static_cast<ast::CompilesExpr&>(expr), loop_depth, next_off, expected_type, const_env);
-                    break;
-                case ast::ExprKind::Range: {
-                    auto& r = static_cast<ast::RangeExpr&>(expr);
-                    auto start_result = r.start ? analyze_expr(mod, fn, scope, *r.start, loop_depth, next_off, nullptr, const_env) : detail::ExprResult{};
-                    auto end_result = r.end ? analyze_expr(mod, fn, scope, *r.end, loop_depth, next_off, nullptr, const_env) : detail::ExprResult{};
-                    auto common = start_result.type ? start_result.type : end_result.type;
-                    if (start_result.type && end_result.type && start_result.type != end_result.type)
-                    {
-                        out.type = m_types.m_errort();
-                        error(r.range, "range bounds must have the same type");
-                    }
-                    else if (common && !is_ordered_scalar(common))
-                    {
-                        out.type = m_types.m_errort();
-                        error(r.range, "range bounds must be integer or char type");
-                    }
-                    else if (common)
-                        out.type = r.inclusive ? m_types.range_inclusive_t(common) : m_types.range_t(common);
-                    else
-                        out.type = m_types.m_errort();
-                    break;
-                }
-                case ast::ExprKind::TypeAST: {
-                    auto& t = static_cast<ast::TypeASTExpr&>(expr);
-                    out.type = resolve_type_node(mod, scope, t.type_node);
-                    break;
-                }
-                case ast::ExprKind::TemplateInst:
-                    out = analyze_template_inst(mod, fn, scope, static_cast<ast::TemplateInstExpr&>(expr), loop_depth, next_off, expected_type, const_env);
-                    break;
-                case ast::ExprKind::SizeofPack:
-                    out = analyze_sizeof_pack(mod, scope, static_cast<ast::SizeofPackExpr&>(expr));
-                    break;
-                case ast::ExprKind::PackExpansion: {
-                    auto& pe = static_cast<ast::PackExpansionExpr&>(expr);
-                    if (pe.operand)
-                    {
-                        auto* ident = ast::node_cast<ast::IdentExpr>(pe.operand);
-                        if (ident)
-                        {
-                            auto pack_result = resolve_pack_info(mod, scope, ident->name, ident->range);
-                            if (pack_result.has_value())
-                                out.type = m_types.int_t(64, false);
-                            else
-                                error(ident->range, "cannot expand '{}': not a pack", ident->name);
-                        }
+                        if (expected_type && types::type_cast<types::IntType>(expected_type))
+                            out.type = expected_type;
+                        else if (e.sema.const_value)
+                            out.type = e.sema.const_value->type;
                         else
-                            error(pe.range, "pack expansion requires an identifier");
+                            out.type = default_int_type(e.value, expected_type);
+
+                        out.constant = make_int_const(e.value, out.type);
+                        out.is_constant = true;
+                        break;
                     }
-                    break;
+                    case ast::ExprKind::FloatLiteral: {
+                        if (auto const* ft = types::type_cast<types::FloatType>(expected_type))
+                            out.type = m_types.float_t(ft->bits);
+                        else
+                            out.type = m_types.float_t(64);
+
+                        out.constant = make_float_const(static_cast<ast::FloatLiteralExpr&>(expr).value, out.type);
+                        out.is_constant = true;
+
+                        break;
+                    }
+                    case ast::ExprKind::StringLiteral: {
+                        auto& e = static_cast<ast::StringLiteralExpr&>(expr);
+                        if (auto const* st = types::type_cast<types::SliceType>(expected_type))
+                        {
+                            auto const* el = st->element;
+                            if (el && (el->kind == types::TypeKind::Char ||
+                                       (types::type_cast<types::IntType>(el) && static_cast<types::IntType const*>(el)->bits == 8)))
+                            {
+                                out.type = m_types.slice_t(el, st->element_quals);
+                                out.constant = make_str_const(std::string_view{e.value}, out.type);
+                                out.is_constant = true;
+                                break;
+                            }
+                        }
+
+                        out.type = m_types.pointer_to(m_types.m_chart(), types::Qual::Const);
+                        out.constant = make_str_const(std::string_view{e.value}, out.type);
+                        out.is_constant = true;
+                        break;
+                    }
+                    case ast::ExprKind::U16StringLiteral: {
+                        auto& e = static_cast<ast::U16StringLiteralExpr&>(expr);
+                        auto* u16_type = m_types.int_t(16, false);
+                        if (auto const* st = types::type_cast<types::SliceType>(expected_type))
+                        {
+                            auto const* el = st->element;
+                            if (el && types::type_cast<types::IntType>(el) && static_cast<types::IntType const*>(el)->bits == 16 &&
+                                !static_cast<types::IntType const*>(el)->is_signed)
+                            {
+                                out.type = m_types.slice_t(el, st->element_quals);
+                                out.constant = make_u16_str_const(e.value, out.type);
+                                out.is_constant = true;
+                                break;
+                            }
+                        }
+
+                        out.type = m_types.pointer_to(u16_type, types::Qual::Const);
+                        out.constant = make_u16_str_const(e.value, out.type);
+                        out.is_constant = true;
+                        break;
+                    }
+                    case ast::ExprKind::CharLiteral: {
+                        auto& e = static_cast<ast::CharLiteralExpr&>(expr);
+                        out.type = m_types.m_chart();
+                        out.constant = make_char_const(e.codepoint, out.type);
+                        out.is_constant = true;
+                        break;
+                    }
+                    case ast::ExprKind::U16CharLiteral: {
+                        auto& e = static_cast<ast::U16CharLiteralExpr&>(expr);
+                        out.type = m_types.int_t(16, false);
+                        out.constant = make_int_const(e.value, out.type);
+                        out.is_constant = true;
+                        break;
+                    }
+                    case ast::ExprKind::BoolLiteral: {
+                        auto& e = static_cast<ast::BoolLiteralExpr&>(expr);
+                        out.type = m_types.m_boolt();
+                        out.constant = make_bool_const(e.value, out.type);
+                        out.is_constant = true;
+                        break;
+                    }
+                    case ast::ExprKind::NullLiteral:
+                        if (types::type_cast<types::PointerType>(expected_type))
+                            out.type = expected_type;
+                        else
+                            out.type = m_types.m_nullt();
+
+                        out.constant = make_null_const(out.type);
+                        out.is_constant = true;
+                        break;
+                    case ast::ExprKind::Ident:
+                        out = analyze_name(mod, scope, static_cast<ast::IdentExpr&>(expr).name, static_cast<ast::IdentExpr&>(expr).range, const_env);
+                        break;
+                    case ast::ExprKind::PathExpr:
+                        out = analyze_path_expr(mod, scope, static_cast<ast::PathExpr&>(expr), expected_type, const_env);
+                        break;
+                    case ast::ExprKind::Unary:
+                        out = analyze_unary(mod, fn, scope, static_cast<ast::UnaryExpr&>(expr), loop_depth, next_off, expected_type, const_env);
+                        break;
+                    case ast::ExprKind::Postfix:
+                        out = analyze_postfix(mod, fn, scope, static_cast<ast::PostfixExpr&>(expr), loop_depth, next_off, expected_type, const_env);
+                        break;
+                    case ast::ExprKind::Binary:
+                        out = analyze_binary(mod, fn, scope, static_cast<ast::BinaryExpr&>(expr), loop_depth, next_off, expected_type, const_env);
+                        break;
+                    case ast::ExprKind::Call:
+                        out = analyze_call(mod, fn, scope, static_cast<ast::CallExpr&>(expr), loop_depth, next_off, expected_type, const_env);
+                        break;
+                    case ast::ExprKind::FieldAccess:
+                        out = analyze_field_access(mod, fn, scope, static_cast<ast::FieldAccessExpr&>(expr), loop_depth, next_off, expected_type, const_env);
+                        break;
+                    case ast::ExprKind::Index:
+                        out = analyze_index(mod, fn, scope, static_cast<ast::IndexExpr&>(expr), loop_depth, next_off, expected_type, const_env);
+                        break;
+                    case ast::ExprKind::Cast:
+                        out = analyze_cast(mod, fn, scope, static_cast<ast::CastExpr&>(expr), loop_depth, next_off, expected_type, const_env);
+                        break;
+                    case ast::ExprKind::Block:
+                        out = analyze_block_expr(mod, fn, scope, static_cast<ast::BlockExpr&>(expr), loop_depth, next_off, expected_type, const_env);
+                        break;
+                    case ast::ExprKind::If:
+                        out = analyze_if_expr(mod, fn, scope, static_cast<ast::IfExpr&>(expr), loop_depth, next_off, expected_type, const_env);
+                        break;
+                    case ast::ExprKind::Match:
+                        out = analyze_match_expr(mod, fn, scope, static_cast<ast::MatchExpr&>(expr), loop_depth, next_off, expected_type, const_env);
+                        break;
+                    case ast::ExprKind::StructLiteral:
+                        out =
+                            analyze_struct_literal(mod, fn, scope, static_cast<ast::StructLiteralExpr&>(expr), loop_depth, next_off, expected_type, const_env);
+                        break;
+                    case ast::ExprKind::Sizeof:
+                        out = analyze_sizeof(mod, scope, static_cast<ast::SizeofExpr&>(expr));
+                        break;
+                    case ast::ExprKind::Alignof:
+                        out = analyze_alignof(mod, scope, static_cast<ast::AlignofExpr&>(expr));
+                        break;
+                    case ast::ExprKind::Offsetof:
+                        out = analyze_offsetof(mod, scope, static_cast<ast::OffsetofExpr&>(expr));
+                        break;
+                    case ast::ExprKind::Compiles:
+                        out = analyze_compiles(mod, fn, scope, static_cast<ast::CompilesExpr&>(expr), loop_depth, next_off, expected_type, const_env);
+                        break;
+                    case ast::ExprKind::Range: {
+                        auto& r = static_cast<ast::RangeExpr&>(expr);
+                        auto start_result = r.start ? analyze_expr(mod, fn, scope, *r.start, loop_depth, next_off, nullptr, const_env) : detail::ExprResult{};
+                        auto end_result = r.end ? analyze_expr(mod, fn, scope, *r.end, loop_depth, next_off, nullptr, const_env) : detail::ExprResult{};
+                        auto common = start_result.type ? start_result.type : end_result.type;
+                        if (start_result.type && end_result.type && start_result.type != end_result.type)
+                        {
+                            out.type = m_types.m_errort();
+                            error(r.range, "range bounds must have the same type");
+                        }
+                        else if (common && !is_ordered_scalar(common))
+                        {
+                            out.type = m_types.m_errort();
+                            error(r.range, "range bounds must be integer or char type");
+                        }
+                        else if (common)
+                            out.type = r.inclusive ? m_types.range_inclusive_t(common) : m_types.range_t(common);
+                        else
+                            out.type = m_types.m_errort();
+                        break;
+                    }
+                    case ast::ExprKind::TypeAST: {
+                        auto& t = static_cast<ast::TypeASTExpr&>(expr);
+                        out.type = resolve_type_node(mod, scope, t.type_node);
+                        break;
+                    }
+                    case ast::ExprKind::TemplateInst:
+                        out = analyze_template_inst(mod, fn, scope, static_cast<ast::TemplateInstExpr&>(expr), loop_depth, next_off, expected_type, const_env);
+                        break;
+                    case ast::ExprKind::SizeofPack:
+                        out = analyze_sizeof_pack(mod, scope, static_cast<ast::SizeofPackExpr&>(expr));
+                        break;
+                    case ast::ExprKind::PackExpansion: {
+                        auto& pe = static_cast<ast::PackExpansionExpr&>(expr);
+                        if (pe.operand)
+                        {
+                            auto* ident = ast::node_cast<ast::IdentExpr>(pe.operand);
+                            if (ident)
+                            {
+                                auto pack_result = resolve_pack_info(mod, scope, ident->name, ident->range);
+                                if (pack_result.has_value())
+                                    out.type = m_types.int_t(64, false);
+                                else
+                                    error(ident->range, "cannot expand '{}': not a pack", ident->name);
+                            }
+                            else
+                                error(pe.range, "pack expansion requires an identifier");
+                        }
+                        break;
+                    }
                 }
             }
 

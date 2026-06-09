@@ -1,0 +1,70 @@
+=== FILE: main.dc ===
+module m;
+
+struct Point { i32 x; i32 y; }
+
+void fnptr_test(T...)(i32 dummy) {
+    sizeof...(T);
+}
+
+void slice_test(T...)(i32 dummy) {
+    sizeof...(T);
+}
+
+void array_test(T...)(i32 dummy) {
+    sizeof...(T);
+}
+
+void mixed_test(T...)(i32 dummy) {
+    sizeof...(T);
+}
+
+void caller() {
+    fnptr_test!(i32(*)(i32, i32))(0);
+    slice_test!(i32[])(0);
+    array_test!(i32[4])(0);
+    mixed_test!(Point, i32[], i32(*)(i32))(0);
+}
+
+=== EXPECT-BODY ===
+Module m
+  Func fnptr_test diverging=false
+    Param dummy type=i32 storage=param offset=0 index=0
+    Body
+      SizeofPack name=T [type=<unresolved> const=<none>]
+  Func slice_test diverging=false
+    Param dummy type=i32 storage=param offset=0 index=0
+    Body
+      SizeofPack name=T [type=<unresolved> const=<none>]
+  Func array_test diverging=false
+    Param dummy type=i32 storage=param offset=0 index=0
+    Body
+      SizeofPack name=T [type=<unresolved> const=<none>]
+  Func mixed_test diverging=false
+    Param dummy type=i32 storage=param offset=0 index=0
+    Body
+      SizeofPack name=T [type=<unresolved> const=<none>]
+  Func caller diverging=false
+    Body
+      Call [type=void const=<none> decl=fnptr_test spec=fnptr_test]
+        TemplateInst [type=void(*)(i32) const=<none> decl=fnptr_test spec=fnptr_test]
+          Ident fnptr_test [type=void(*)(i32) const=<none> decl=fnptr_test]
+        IntLiteral 0 [type=i32 const=0 constant]
+      Call [type=void const=<none> decl=slice_test spec=slice_test]
+        TemplateInst [type=void(*)(i32) const=<none> decl=slice_test spec=slice_test]
+          Ident slice_test [type=void(*)(i32) const=<none> decl=slice_test]
+        IntLiteral 0 [type=i32 const=0 constant]
+      Call [type=void const=<none> decl=array_test spec=array_test]
+        TemplateInst [type=void(*)(i32) const=<none> decl=array_test spec=array_test]
+          Ident array_test [type=void(*)(i32) const=<none> decl=array_test]
+        IntLiteral 0 [type=i32 const=0 constant]
+      Call [type=void const=<none> decl=mixed_test spec=mixed_test]
+        TemplateInst [type=void(*)(i32) const=<none> decl=mixed_test spec=mixed_test]
+          Ident mixed_test [type=void(*)(i32) const=<none> decl=mixed_test]
+        IntLiteral 0 [type=i32 const=0 constant]
+
+=== EXPECT-REGISTRY ===
+fn=array_test args=[<type>] state=2
+fn=fnptr_test args=[<type>] state=2
+fn=mixed_test args=[Point, <type>, <type>] state=2
+fn=slice_test args=[<type>] state=2

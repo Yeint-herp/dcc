@@ -1,0 +1,79 @@
+=== FILE: main.dc ===
+module m;
+
+u64 sz_return(T...)(T x) {
+    return sizeof...(T);
+}
+
+void sz_expr(T...)(T x) {
+    sizeof...(T);
+}
+
+bool sz_cmp(T...)(T x) {
+    return sizeof...(T) == 1;
+}
+
+void sf_multi(T...)(T x) {
+    static for item in x {
+        item;
+    }
+}
+
+void caller() {
+    sz_return!(i32)(42);
+    sz_expr!(i32, i64)(0, 1);
+    sz_cmp!(i32, i64, f64)(0, 1, 2.0);
+    sf_multi!(i32, i64, f64)(0, 1, 2.0);
+}
+
+=== EXPECT-BODY ===
+Module m
+  Func sz_return diverging=false
+    Param x type=T storage=param offset=0 index=0
+    Body
+      Return
+        SizeofPack name=T [type=<unresolved> const=<none>]
+  Func sz_expr diverging=false
+    Param x type=T storage=param offset=0 index=0
+    Body
+      SizeofPack name=T [type=<unresolved> const=<none>]
+  Func sz_cmp diverging=false
+    Param x type=T storage=param offset=0 index=0
+    Body
+      Return
+        Binary == [type=<unresolved> const=<none>]
+          SizeofPack name=T [type=<unresolved> const=<none>]
+          IntLiteral 1 [type=<unresolved> const=<none>]
+  Func sf_multi diverging=false
+    Param x type=T storage=param offset=0 index=0
+    Body
+      StaticFor name=item
+  Func caller diverging=false
+    Body
+      Call [type=u64 const=<none> decl=sz_return spec=sz_return]
+        TemplateInst [type=u64(*)(i32) const=<none> decl=sz_return spec=sz_return]
+          Ident sz_return [type=u64(*)(T) const=<none> decl=sz_return]
+        IntLiteral 42 [type=i32 const=42 constant]
+      Call [type=void const=<none> decl=sz_expr spec=sz_expr]
+        TemplateInst [type=void(*)(i32, i64) const=<none> decl=sz_expr spec=sz_expr]
+          Ident sz_expr [type=void(*)(T) const=<none> decl=sz_expr]
+        IntLiteral 0 [type=i32 const=0 constant]
+        IntLiteral 1 [type=i64 const=1 constant]
+      Call [type=bool const=<none> decl=sz_cmp spec=sz_cmp]
+        TemplateInst [type=bool(*)(i32, i64, f64) const=<none> decl=sz_cmp spec=sz_cmp]
+          Ident sz_cmp [type=bool(*)(T) const=<none> decl=sz_cmp]
+        IntLiteral 0 [type=i32 const=0 constant]
+        IntLiteral 1 [type=i64 const=1 constant]
+        FloatLiteral 2 [type=f64 const=2 constant]
+      Call [type=void const=<none> decl=sf_multi spec=sf_multi]
+        TemplateInst [type=void(*)(i32, i64, f64) const=<none> decl=sf_multi spec=sf_multi]
+          Ident sf_multi [type=void(*)(T) const=<none> decl=sf_multi]
+        IntLiteral 0 [type=i32 const=0 constant]
+        IntLiteral 1 [type=i64 const=1 constant]
+        FloatLiteral 2 [type=f64 const=2 constant]
+
+=== EXPECT-REGISTRY ===
+fn=sf_multi args=[i32, i64, f64] state=2
+fn=sz_cmp args=[i32, i64, f64] state=2
+fn=sz_expr args=[i32, i64] state=2
+fn=sz_return args=[i32] state=2

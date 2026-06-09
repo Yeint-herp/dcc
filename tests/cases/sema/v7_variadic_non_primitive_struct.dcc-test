@@ -1,0 +1,30 @@
+=== FILE: main.dc ===
+module m;
+
+struct Point {
+    i32 x;
+    i32 y;
+}
+
+void foo(T...)(T x) {}
+
+void test() {
+    foo!(Point)(Point{10, 20});
+}
+
+=== EXPECT-BODY ===
+Module m
+  Func foo diverging=false
+    Param x type=T storage=param offset=0 index=0
+    Body
+  Func test diverging=false
+    Body
+      Call [type=void const=<none> decl=foo spec=foo]
+        TemplateInst [type=void(*)(Point) const=<none> decl=foo spec=foo]
+          Ident foo [type=void(*)(T) const=<none> decl=foo]
+        StructLiteral [type=Point const=agg(10, 20) constant]
+          IntLiteral 10 [type=i32 const=10 constant]
+          IntLiteral 20 [type=i32 const=20 constant]
+
+=== EXPECT-REGISTRY ===
+fn=foo args=[Point] state=2

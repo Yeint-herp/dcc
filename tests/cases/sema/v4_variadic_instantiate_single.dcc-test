@@ -9,3 +9,8 @@ void test() {
 
 === EXPECT-REGISTRY ===
 fn=foo args=[i32] state=2
+
+=== EXPECT-INSTANTIATED-BODY FOR: m ===
+Func foo diverging=false
+  Param x type=i32 storage=param offset=0 index=0
+  Body

@@ -146,4 +146,24 @@ export namespace dcc::sema
         return "<type>";
     }
 
+    [[nodiscard]] inline bool is_func_param_sema_pack(ast::FuncParam const& p, ast::FuncDecl const& fn)
+    {
+        if (p.is_pack)
+            return true;
+
+        auto type = p.type && p.type->sema.canonical ? get_canonical(p.type->sema) : nullptr;
+        if (!type)
+            return false;
+
+        if (types::type_cast<types::TypePackType>(type))
+            return true;
+
+        if (auto const* tpt = types::type_cast<types::TemplateParamType>(type))
+            for (auto const& tp : fn.template_params)
+                if (tp.name == tpt->name && tp.is_pack)
+                    return true;
+
+        return false;
+    }
+
 } // namespace dcc::sema

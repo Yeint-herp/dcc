@@ -1,0 +1,61 @@
+=== FILE: main.dc ===
+module m;
+
+void sf_empty(T...)(T x) {
+    static for item in x {
+        item;
+    }
+}
+
+void sf_single(T...)(T x) {
+    static for item in x {
+        item;
+    }
+}
+
+void sf_multi(T...)(T x) {
+    static for item in x {
+        item;
+    }
+}
+
+void caller() {
+    sf_empty!()();
+    sf_single!(i32)(0);
+    sf_multi!(i32, i64, f64)(0, 1, 2.0);
+}
+
+=== EXPECT-BODY ===
+Module m
+  Func sf_empty diverging=false
+    Param x type=T storage=param offset=0 index=0
+    Body
+      StaticFor name=item
+  Func sf_single diverging=false
+    Param x type=T storage=param offset=0 index=0
+    Body
+      StaticFor name=item
+  Func sf_multi diverging=false
+    Param x type=T storage=param offset=0 index=0
+    Body
+      StaticFor name=item
+  Func caller diverging=false
+    Body
+      Call [type=void const=<none> decl=sf_empty spec=sf_empty]
+        TemplateInst [type=void(*)() const=<none> decl=sf_empty spec=sf_empty]
+          Ident sf_empty [type=void(*)(T) const=<none> decl=sf_empty]
+      Call [type=void const=<none> decl=sf_single spec=sf_single]
+        TemplateInst [type=void(*)(i32) const=<none> decl=sf_single spec=sf_single]
+          Ident sf_single [type=void(*)(T) const=<none> decl=sf_single]
+        IntLiteral 0 [type=i32 const=0 constant]
+      Call [type=void const=<none> decl=sf_multi spec=sf_multi]
+        TemplateInst [type=void(*)(i32, i64, f64) const=<none> decl=sf_multi spec=sf_multi]
+          Ident sf_multi [type=void(*)(T) const=<none> decl=sf_multi]
+        IntLiteral 0 [type=i32 const=0 constant]
+        IntLiteral 1 [type=i64 const=1 constant]
+        FloatLiteral 2 [type=f64 const=2 constant]
+
+=== EXPECT-REGISTRY ===
+fn=sf_empty args=[] state=2
+fn=sf_multi args=[i32, i64, f64] state=2
+fn=sf_single args=[i32] state=2

@@ -1,0 +1,24 @@
+=== FILE: test.dc ===
+module test;
+
+// sizeof constant for multi-element pack (no forward/expansion)
+u64 sz_multi(T...)(T x) {
+    return sizeof...(T);
+}
+
+void caller() {
+    sz_multi!(i32, i64)(0, 1);
+}
+
+=== EXPECT-IR ===
+module "test"
+void@_DC0F1.4.test6.caller0v() {
+%entry:
+  %0 = call fn(@_DC0S1.4.test8.sz_multi2i32si64si64uX2ti32sti64s)(i32 #0, i64 #1) -> u64
+  ret void
+}
+
+linkonce_odr u64@_DC0S1.4.test8.sz_multi2i32si64si64uX2ti32sti64s(i32, i64) {
+%entry(i32 %x_0, i64 %x_1):
+  ret u64 #2
+}
