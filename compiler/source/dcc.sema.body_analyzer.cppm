@@ -2914,12 +2914,18 @@ export namespace dcc::sema
 
             bool has_func_pack = false;
             std::size_t non_pack_func_params = params.size();
-            if (func)
+            std::size_t min_required = non_pack_func_params;
+            if (func && !nttps_already_resolved)
             {
-                if (!func->params.empty() && func->params.back().is_pack)
+                if (!func->params.empty() && is_func_param_sema_pack(func->params.back(), *func))
                 {
                     has_func_pack = true;
                     non_pack_func_params = params.size() - 1;
+
+                    if (!func->params.back().is_pack)
+                        min_required = params.size();
+                    else
+                        min_required = non_pack_func_params;
                 }
             }
 
@@ -2938,14 +2944,14 @@ export namespace dcc::sema
             }
             else
             {
-                if (arg_exprs.size() < non_pack_func_params + num_value_tparams)
+                if (arg_exprs.size() < min_required + num_value_tparams)
                 {
-                    if (had_non_constraint_failure)
-                        *had_non_constraint_failure = true;
+                    if (had_suppressed_errors)
+                        *had_suppressed_errors = true;
 
                     if (rejection_reason)
-                        *rejection_reason = std::format("argument count mismatch: expected at least {} (with pack), got {}",
-                                                        non_pack_func_params + num_value_tparams, arg_exprs.size());
+                        *rejection_reason = std::format("argument count mismatch: expected at least {} (with pack), got {}", min_required + num_value_tparams,
+                                                        arg_exprs.size());
 
                     return std::nullopt;
                 }
@@ -8205,10 +8211,16 @@ export namespace dcc::sema
 
             bool has_func_pack = false;
             std::size_t non_pack_func_params = params.size();
-            if (!f.params.empty() && f.params.back().is_pack)
+            std::size_t min_required = non_pack_func_params;
+            if (!f.params.empty() && is_func_param_sema_pack(f.params.back(), f))
             {
                 has_func_pack = true;
                 non_pack_func_params = params.size() - 1;
+
+                if (!f.params.back().is_pack)
+                    min_required = params.size();
+                else
+                    min_required = non_pack_func_params;
             }
 
             if (!has_func_pack)
@@ -8226,13 +8238,13 @@ export namespace dcc::sema
             }
             else
             {
-                if (arg_exprs.size() < non_pack_func_params + num_value_tparams)
+                if (arg_exprs.size() < min_required + num_value_tparams)
                 {
                     if (!quiet)
                     {
                         auto loc = format_source_location(f.range);
-                        error(range, "argument count mismatch for `{}`: expected at least {} (with pack), got {}", f.name,
-                              non_pack_func_params + num_value_tparams, arg_exprs.size());
+                        error(range, "argument count mismatch for `{}`: expected at least {} (with pack), got {}", f.name, min_required + num_value_tparams,
+                              arg_exprs.size());
                         m_diag.note(f.range, "declared at {}", loc);
                     }
                     return {m_types.m_errort()};

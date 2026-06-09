@@ -1,0 +1,11 @@
+=== FILE: main.dc ===
+module m;
+
+void foo(T, U...)(T a, U b) {}
+
+void caller() {
+    foo();
+}
+
+=== EXPECT-ERRORS ===
+main.dc:6: argument count mismatch for `foo`: expected at least 2 (with pack), got 0
