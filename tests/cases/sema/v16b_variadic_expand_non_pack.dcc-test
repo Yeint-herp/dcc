@@ -1,0 +1,12 @@
+=== FILE: main.dc ===
+module m;
+
+void target_i32(i32 a) {}
+
+void expand_non_pack_var() {
+    i32 x = 0;
+    target_i32(x...);
+}
+
+=== EXPECT-ERRORS ===
+main.dc:7: cannot expand 'x': not a pack

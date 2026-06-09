@@ -7262,13 +7262,6 @@ export namespace dcc::sema
                 return info;
             }
 
-            if (sym->kind == SymbolKind::Variable && sym->decl)
-            {
-                PackInfo info;
-                info.count = 1;
-                return info;
-            }
-
             return std::nullopt;
         }
 
