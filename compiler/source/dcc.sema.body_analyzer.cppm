@@ -460,9 +460,14 @@ export namespace dcc::sema
                     }
                     m_indent--;
                     break;
-                case ast::StmtKind::StaticFor:
-                    line_fmt("StaticFor name={}", static_cast<ast::StaticForStmt const&>(s).item_name);
+                case ast::StmtKind::StaticFor: {
+                    auto& sf = static_cast<ast::StaticForStmt const&>(s);
+                    if (sf.is_range_for)
+                        line_fmt("StaticFor name={} range_for=true", sf.item_name);
+                    else
+                        line_fmt("StaticFor name={}", sf.item_name);
                     break;
+                }
                 case ast::StmtKind::Ambiguous:
                     line_fmt("Ambiguous {}", static_cast<int>(static_cast<ast::AmbiguousStmt const&>(s).resolution));
                     break;
@@ -2347,7 +2352,7 @@ export namespace dcc::sema
             if (f.template_params.empty())
                 return {};
 
-            auto spec = m_spec_registry.get_or_instantiate(f, bindings, range, m_ast_ctx, m_types);
+            auto spec = m_spec_registry.get_or_instantiate(f, bindings, range, m_ast_ctx, m_types, &m_diag);
             if (spec.is_new)
             {
                 m_spec_registry.mark_analyzing(spec.decl);
@@ -4239,6 +4244,12 @@ export namespace dcc::sema
 
         ast::VarDecl* make_param_decl(ast::FuncParam& p)
         {
+            if (p.synthetic_decl)
+            {
+                const_cast<ast::VarDecl*>(p.synthetic_decl)->sema.frame_offset = p.sema.frame_offset;
+                const_cast<ast::VarDecl*>(p.synthetic_decl)->sema.param_index = p.sema.param_index;
+                return const_cast<ast::VarDecl*>(p.synthetic_decl);
+            }
             auto* v = m_ast_ctx.make<ast::VarDecl>(p.range, p.name, p.range);
             v->type = p.type;
             v->sema.storage = ast::StorageClass::Param;
@@ -5741,6 +5752,8 @@ export namespace dcc::sema
                                 else
                                     error(ident->range, "cannot expand '{}': not a pack", ident->name);
                             }
+                            else if (ast::node_cast<ast::IndexExpr>(pe.operand))
+                                error(pe.range, "pack-index expression cannot be expanded");
                             else
                                 error(pe.range, "pack expansion requires an identifier");
                         }
@@ -6552,6 +6565,10 @@ export namespace dcc::sema
                 out.type = p->pointee;
             else if (types::is_fam_type(obj.type))
                 out.type = types::fam_element(obj.type);
+            else if (types::type_cast<types::TemplateParamType>(obj.type))
+                ;
+            else if (types::type_cast<types::TypePackType>(obj.type))
+                ;
             else
             {
                 out.type = m_types.m_errort();
@@ -8914,18 +8931,38 @@ export namespace dcc::sema
                 case ast::StmtKind::StaticFor: {
                     auto& sf = static_cast<ast::StaticForStmt&>(s);
 
-                    if (sf.pack_expr)
+                    if (sf.is_range_for)
                     {
-                        std::ignore = analyze_expr(mod, fn, scope, *sf.pack_expr, loop_depth, next_off, nullptr, const_env);
-                        if (auto* ident = ast::node_cast<ast::IdentExpr>(sf.pack_expr))
+                        if (sf.pack_expr)
+                            std::ignore = analyze_expr(mod, fn, scope, *sf.pack_expr, loop_depth, next_off, nullptr, const_env);
+
+                        auto* inner = make_scope(ScopeKind::Block, &scope);
+                        auto* inner_consts = make_const_env(const_env);
+                        auto* v = make_local_decl(sf.item_name, sf.name_range, nullptr, ast::StorageClass::Local,
+                                                  allocate_frame_slot(next_off, m_types.int_t(64, false)));
+                        define_local(*inner, v);
+                        std::ignore = analyze_block(mod, fn, *inner, sf.body, loop_depth, next_off, nullptr, inner_consts);
+                    }
+                    else if (sf.pack_expr)
+                    {
+                        if (ast::node_cast<ast::IndexExpr>(sf.pack_expr))
                         {
-                            auto pack_info = resolve_pack_info(mod, scope, ident->name, ident->range);
-                            if (!pack_info.has_value())
-                                error(sf.pack_expr->range, "'{}' is not a pack", ident->name);
+                            auto src = extract_source_text(sf.pack_expr->range);
+                            error(sf.pack_expr->range, "'{}' is not a pack", src.empty() ? "<expr>" : src);
+                        }
+                        else
+                        {
+                            std::ignore = analyze_expr(mod, fn, scope, *sf.pack_expr, loop_depth, next_off, nullptr, const_env);
+                            if (auto* ident = ast::node_cast<ast::IdentExpr>(sf.pack_expr))
+                            {
+                                auto pack_info = resolve_pack_info(mod, scope, ident->name, ident->range);
+                                if (!pack_info.has_value())
+                                    error(sf.pack_expr->range, "'{}' is not a pack", ident->name);
+                            }
                         }
                     }
 
-                    if (ast::node_cast<ast::IdentExpr>(sf.pack_expr))
+                    if (!sf.is_range_for && ast::node_cast<ast::IdentExpr>(sf.pack_expr))
                     {
                         auto* inner = make_scope(ScopeKind::Block, &scope);
                         auto* inner_consts = make_const_env(const_env);

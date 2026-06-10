@@ -1,0 +1,34 @@
+=== FILE: main.dc ===
+module m;
+
+void sf_range(T...)(T x) {
+    static for i in 0..sizeof...(T) {
+        i;
+    }
+}
+
+void caller() {
+    sf_range!(i32)(0);
+}
+
+=== EXPECT-BODY ===
+Module m
+  Func sf_range diverging=false
+    Param x type=T storage=param offset=0 index=0
+    Body
+      StaticFor name=i range_for=true
+  Func caller diverging=false
+    Body
+      Call [type=void const=<none> decl=sf_range spec=sf_range]
+        TemplateInst [type=void(*)(i32) const=<none> decl=sf_range spec=sf_range]
+          Ident sf_range [type=void(*)(T) const=<none> decl=sf_range]
+        IntLiteral 0 [type=i32 const=0 constant]
+
+=== EXPECT-REGISTRY ===
+fn=sf_range args=[i32] state=2
+
+=== EXPECT-INSTANTIATED-BODY FOR: m ===
+Func sf_range diverging=false
+  Param x type=i32 storage=param offset=0 index=0
+  Body
+    IntLiteral 0 [type=u64 const=0 constant]

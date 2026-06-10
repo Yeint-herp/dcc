@@ -6,7 +6,6 @@ void zlen(T...)(i32 x) {
 }
 
 void caller() {
-    // explicit zero-length: T = []
     zlen!()(42);
 }
 

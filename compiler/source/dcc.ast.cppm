@@ -909,6 +909,7 @@ export namespace dcc::ast
         ExprPtr pack_expr{};
         Block body;
 
+        bool is_range_for : 1 {};
         bool is_type_for : 1 {};
         types::Type const* resolved_pack_type{};
 

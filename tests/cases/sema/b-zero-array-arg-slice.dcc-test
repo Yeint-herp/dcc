@@ -1,7 +1,6 @@
 === FILE: main.dc ===
 module main;
 
-// Test 1: zero-length fixed array passed to slice param (non-generic)
 enum FormatArg {
     Str([]const char),
 }
@@ -13,7 +12,6 @@ void test_zero_array_to_slice() {
     f(empty);
 }
 
-// Test 2: zero-length fixed array passed to slice param via generic UFCS
 using WritableInto(T) = compiles(T x) {
     x.write("H");
     x.write('H');
@@ -36,13 +34,11 @@ void test_generic_ufcs_zero_array() {
     out.println("hello");
 }
 
-// Test 3: verify non-zero arrays still work
 void test_nonzero_array_to_slice() {
     FormatArg[1] one;
     f(one);
 }
 
-// Test 4: zero-length builtin array to slice
 void test_zero_builtin_array_to_slice() {
     i32[0] empty;
     []const i32 s = empty;

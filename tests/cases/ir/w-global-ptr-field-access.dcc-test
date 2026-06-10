@@ -11,15 +11,12 @@ using PtrPoint = Point*;
 Point gp;
 Point* gpp;
 
-// 1. local struct .field (read + write)
 public i64 local_struct_field(i64 a) {
     Point p = {x = a, y = 2};
     p.x = 42;
     return p.x;
 }
 
-// 2. local pointer-to-struct .field (read + write)
-//    Must load the pointer from the local variable before GEP
 public i64 local_ptr_field(i64 a) {
     Point p = {x = a, y = 2};
     PtrPoint pp = &p;
@@ -27,14 +24,10 @@ public i64 local_ptr_field(i64 a) {
     return pp.x;
 }
 
-// 3. global struct .field (read)
-//    GEP directly on global storage, no spurious load
 public i64 global_struct_read() {
     return gp.x;
 }
 
-// 4. global pointer-to-struct .field (read + write)
-//    Must load the pointer from the global before GEP
 public i64 global_ptr_read() {
     return gpp.x;
 }

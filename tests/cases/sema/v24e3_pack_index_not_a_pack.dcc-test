@@ -1,0 +1,12 @@
+=== FILE: main.dc ===
+module m;
+
+void not_a_pack() {
+    i32 x = 0;
+    static for item in x[0] {
+        item;
+    }
+}
+
+=== EXPECT-ERRORS ===
+main.dc:5: 'x[0]' is not a pack

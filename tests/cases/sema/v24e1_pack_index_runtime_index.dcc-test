@@ -1,0 +1,15 @@
+=== FILE: main.dc ===
+module m;
+
+void fn(i32 x) {}
+
+void runtime_index(T...)(T args, u64 i) {
+    fn(args[i]);
+}
+
+void caller() {
+    runtime_index!(i32, f64)(0, 1.0, 0);
+}
+
+=== EXPECT-ERRORS ===
+main.dc:6: pack index must be a compile-time integer

@@ -44,3 +44,21 @@ Module m
 === EXPECT-REGISTRY ===
 fn=inner args=[i32, i64] state=2
 fn=outer args=[i32, i64] state=2
+
+=== EXPECT-INSTANTIATED-BODY FOR: m ===
+Func inner diverging=false
+  Param x_0 type=i32 storage=param offset=0 index=0
+  Param x_1 type=i64 storage=param offset=8 index=1
+  Body
+    Call [type=void const=<none> decl=target]
+      Ident target [type=<unresolved> const=<none>]
+      Ident x_0 [type=i32 const=<none>]
+      Ident x_1 [type=i64 const=<none>]
+Func outer diverging=false
+  Param x_0 type=i32 storage=param offset=0 index=0
+  Param x_1 type=i64 storage=param offset=8 index=1
+  Body
+    Call [type=void const=<none> decl=inner spec=inner]
+      Ident inner [type=<unresolved> const=<none>]
+      Ident x_0 [type=i32 const=<none>]
+      Ident x_1 [type=i64 const=<none>]

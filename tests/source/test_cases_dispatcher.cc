@@ -1162,19 +1162,38 @@ namespace
                         if (fd->body)
                             collector.collect_block(*fd->body);
 
+                bool tpl_has_pack = false;
+                std::size_t tpl_non_pack_count = template_fn->template_params.size();
+                if (!template_fn->template_params.empty())
+                {
+                    auto const& last = template_fn->template_params.back();
+                    tpl_has_pack = last.is_pack;
+                    if (tpl_has_pack)
+                        tpl_non_pack_count = template_fn->template_params.size() - 1;
+                }
+
                 std::set<std::vector<dcc::types::TypePtr>> seen;
                 for (auto const& args : collector.instantiations)
                 {
-                    if (args.size() != template_fn->template_params.size())
-                        continue;
+                    if (tpl_has_pack)
+                    {
+                        if (args.size() < tpl_non_pack_count)
+                            continue;
+                    }
+                    else
+                    {
+                        if (args.size() != template_fn->template_params.size())
+                            continue;
+                    }
 
                     dcc::infer::TemplateBindings bindings{type_ctx};
                     bool valid = true;
-                    for (std::size_t i = 0; i < args.size() && i < template_fn->template_params.size(); ++i)
+
+                    for (std::size_t i = 0; i < tpl_non_pack_count; ++i)
                     {
                         auto const& tp = template_fn->template_params[i];
-                        auto param_ty =
-                            type_ctx.template_param_t(const_cast<dcc::ast::TemplateParam*>(std::addressof(tp)), tp.name, static_cast<std::uint32_t>(i));
+                        auto param_ty = type_ctx.template_param_t(
+                            const_cast<dcc::ast::TemplateParam*>(std::addressof(tp)), tp.name, static_cast<std::uint32_t>(i));
 
                         dcc::types::TypePtr actual_type = resolve_arg_type(args[i].type);
 
@@ -1191,6 +1210,31 @@ namespace
                     }
                     if (!valid)
                         continue;
+
+                    if (tpl_has_pack)
+                    {
+                        auto const& tp = template_fn->template_params.back();
+                        auto* param_ty_ptr = type_ctx.template_param_t(
+                            const_cast<dcc::ast::TemplateParam*>(std::addressof(tp)), tp.name, static_cast<std::uint32_t>(tpl_non_pack_count));
+                        auto const* pack_param_ty = static_cast<dcc::types::TemplateParamType const*>(param_ty_ptr);
+
+                        std::vector<dcc::types::TypePtr> pack_types;
+                        for (std::size_t i = tpl_non_pack_count; i < args.size(); ++i)
+                        {
+                            auto ty = resolve_arg_type(args[i].type);
+                            if (!ty)
+                            {
+                                valid = false;
+                                break;
+                            }
+                            pack_types.push_back(ty);
+                        }
+                        if (!valid)
+                            continue;
+
+                        if (!bindings.bind_pack(pack_param_ty, pack_types))
+                            continue;
+                    }
 
                     std::vector<dcc::types::TypePtr> key;
                     for (auto& a : args)

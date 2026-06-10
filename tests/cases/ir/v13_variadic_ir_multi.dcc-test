@@ -1,7 +1,6 @@
 === FILE: test.dc ===
 module test;
 
-// sizeof constant for multi-element pack (no forward/expansion)
 u64 sz_multi(T...)(T x) {
     return sizeof...(T);
 }

@@ -1,0 +1,15 @@
+=== FILE: main.dc ===
+module m;
+
+void fn(i32 x) {}
+
+void out_of_bounds(T...)(T args) {
+    fn(args[5]);
+}
+
+void caller() {
+    out_of_bounds!(i32, f64)(0, 1.0);
+}
+
+=== EXPECT-ERRORS ===
+main.dc:6: pack index 5 out of bounds for pack 'args' of length 2

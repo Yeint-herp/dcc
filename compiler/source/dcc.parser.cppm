@@ -1809,6 +1809,8 @@ export namespace dcc::parser
                 s->item_name = name_tok.interned;
                 s->name_range = name_tok.range;
                 s->pack_expr = pack;
+                if (ast::node_cast<ast::RangeExpr>(pack))
+                    s->is_range_for = true;
                 return s;
             }
 

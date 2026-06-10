@@ -1,0 +1,60 @@
+=== FILE: main.dc ===
+module m;
+
+void take_i32(i32 a) {}
+
+void array_first(T)(T x) {
+    take_i32(x[0]);
+}
+
+void pack_first(T...)(T args) {
+    take_i32(args[0]);
+}
+
+void caller() {
+    i32[3] arr_val = {1, 2, 3};
+    array_first!(i32[3])(arr_val);
+    pack_first!(i32, f64)(0, 1.0);
+}
+
+=== EXPECT-BODY ===
+Module m
+  Func take_i32 diverging=false
+    Param a type=i32 storage=param offset=0 index=0
+    Body
+  Func array_first diverging=false
+    Param x type=T storage=param offset=0 index=0
+    Body
+      Call [type=<unresolved> const=<none>]
+        Ident take_i32 [type=<unresolved> const=<none>]
+        Index [type=<unresolved> const=<none>]
+          Ident x [type=<unresolved> const=<none>]
+          IntLiteral 0 [type=<unresolved> const=<none>]
+  Func pack_first diverging=false
+    Param args type=T storage=param offset=0 index=0
+    Body
+      Call [type=<unresolved> const=<none>]
+        Ident take_i32 [type=<unresolved> const=<none>]
+        Index [type=<unresolved> const=<none>]
+          Ident args [type=<unresolved> const=<none>]
+          IntLiteral 0 [type=<unresolved> const=<none>]
+  Func caller diverging=false
+    Body
+      Var arr_val type=i32[3] storage=local offset=0
+        StructLiteral [type=i32[3] const=agg(1, 2, 3) constant]
+          IntLiteral 1 [type=i32 const=1 constant]
+          IntLiteral 2 [type=i32 const=2 constant]
+          IntLiteral 3 [type=i32 const=3 constant]
+      Call [type=void const=<none> decl=array_first spec=array_first]
+        TemplateInst [type=void(*)(i32[3]) const=<none> decl=array_first spec=array_first]
+          Ident array_first [type=void(*)(T) const=<none> decl=array_first]
+        Ident arr_val [type=i32[3] const=agg(1, 2, 3) lvalue constant decl=arr_val]
+      Call [type=void const=<none> decl=pack_first spec=pack_first]
+        TemplateInst [type=void(*)(i32, f64) const=<none> decl=pack_first spec=pack_first]
+          Ident pack_first [type=void(*)(T) const=<none> decl=pack_first]
+        IntLiteral 0 [type=i32 const=0 constant]
+        FloatLiteral 1 [type=f64 const=1 constant]
+
+=== EXPECT-REGISTRY ===
+fn=array_first args=[<type>] state=2
+fn=pack_first args=[i32, f64] state=2

@@ -1,12 +1,10 @@
 === FILE: test.dc ===
 module test;
 
-// sizeof... as real constant in instantiated body (single element)
 u64 sz_of(T...)(T x) {
     return sizeof...(T);
 }
 
-// Forwarding single element
 void target(i32 a) {}
 
 void forward(T...)(T x) {
