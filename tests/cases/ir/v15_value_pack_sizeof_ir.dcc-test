@@ -1,17 +1,6 @@
 === FILE: test.dc ===
 module test;
 
-// RED-BY-DESIGN: sizeof...(values) currently lowers the right constant through
-// the type-pack fallback, but the specialization key encodes element *types*
-// (X3ti16uti16uti16u) instead of *values* (X3vIi16u1vIi16u2vIi16u3).
-// Once explicit value-pack binding is wired, the lowered body should still
-// return #3 and the spec name should encode the actual value elements.
-//
-// A direct IR test for vals... expansion was attempted first, but today's
-// type-pack fallback leaves synthetic vals_N identifiers without constants or
-// resolved declarations and IR lowering panics before producing comparable IR.
-// The sema vals... test documents the intended expanded constant arguments.
-
 u64 sz_three(u16 vals...)(u8 x) {
     return sizeof...(vals);
 }
