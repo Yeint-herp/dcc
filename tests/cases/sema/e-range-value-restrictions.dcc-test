@@ -1,0 +1,65 @@
+=== FILE: main.dc ===
+module m;
+
+i32 use_range(i32 x) { return x; }
+
+void test_var_init() {
+    auto r = 0..10;
+}
+
+i32 test_return() {
+    return 0..10;
+}
+
+void test_call_arg() {
+    use_range(0..10);
+}
+
+void test_if_result(i32 x) {
+    0..10;
+    if x > 0 { 0..10; } else { 0..5; }
+}
+
+void test_block_result() {
+    { 0..10 };
+}
+
+void test_match_result(i32 x) {
+    auto r = match x {
+        0 => 0..10,
+        _ => 0..5,
+    };
+}
+
+void test_expr_stmt() {
+    0..10;
+}
+
+void test_assign_rhs() {
+    auto r = 0..5;
+}
+
+void test_forin_valued_if(i32 x) {
+    i32 total = 0;
+    for i in if x > 0 { 0..10 } else { 0..5 } {
+        total += i;
+    }
+}
+
+=== ENTRY: main.dc ===
+
+=== EXPECT-ERRORS ===
+main.dc:6: a range can only be used in a slice index, a for-in, or a match pattern
+main.dc:10: a range can only be used in a slice index, a for-in, or a match pattern
+main.dc:14: a range can only be used in a slice index, a for-in, or a match pattern
+main.dc:18: a range can only be used in a slice index, a for-in, or a match pattern
+main.dc:19: a range can only be used in a slice index, a for-in, or a match pattern
+main.dc:19: a range can only be used in a slice index, a for-in, or a match pattern
+main.dc:23: a range can only be used in a slice index, a for-in, or a match pattern
+main.dc:28: a range can only be used in a slice index, a for-in, or a match pattern
+main.dc:29: a range can only be used in a slice index, a for-in, or a match pattern
+main.dc:34: a range can only be used in a slice index, a for-in, or a match pattern
+main.dc:38: a range can only be used in a slice index, a for-in, or a match pattern
+main.dc:43: a range can only be used in a slice index, a for-in, or a match pattern
+main.dc:43: a range can only be used in a slice index, a for-in, or a match pattern
+main.dc:43: cannot iterate a range value; iterate an array or slice, or use a literal range

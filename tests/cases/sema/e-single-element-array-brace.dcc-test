@@ -41,7 +41,7 @@ Module m
       Return
         Index [type=i32 const=77 constant decl=arr]
           Ident arr [type=i32[1] const=agg(77) lvalue constant decl=arr]
-          IntLiteral 0 [type=i32 const=0 constant]
+          IntLiteral 0 [type=usize const=0 constant]
   Func test_single_slice_var diverging=true
     Body
       Var sl type=[]i32 storage=local offset=0

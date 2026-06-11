@@ -23,36 +23,9 @@ void test_range_expr() {
 
 === ENTRY: main.dc ===
 
-=== EXPECT-BODY ===
-Module m
-  Func test_range_int diverging=false
-    Body
-      Range [type=range(i32) const=<none>]
-        IntLiteral 1 [type=i32 const=1 constant]
-        IntLiteral 10 [type=i32 const=10 constant]
-  Func test_range_inclusive_int diverging=false
-    Body
-      Range [type=range_inclusive(i32) const=<none>]
-        IntLiteral 1 [type=i32 const=1 constant]
-        IntLiteral 10 [type=i32 const=10 constant]
-  Func test_range_char diverging=false
-    Body
-      Range [type=range(char) const=<none>]
-        CharLiteral 97 [type=char const=97 constant]
-        CharLiteral 122 [type=char const=122 constant]
-  Func test_range_variable diverging=false
-    Param lo type=i32 storage=param offset=0 index=0
-    Param hi type=i32 storage=param offset=4 index=1
-    Body
-      Range [type=range(i32) const=<none>]
-        Ident lo [type=i32 const=<none> lvalue decl=lo]
-        Ident hi [type=i32 const=<none> lvalue decl=hi]
-  Func test_range_expr diverging=false
-    Body
-      Range [type=range(i32) const=<none>]
-        Binary + [type=i32 const=3 constant]
-          IntLiteral 1 [type=i32 const=1 constant]
-          IntLiteral 2 [type=i32 const=2 constant]
-        Binary * [type=i32 const=12 constant]
-          IntLiteral 3 [type=i32 const=3 constant]
-          IntLiteral 4 [type=i32 const=4 constant]
+=== EXPECT-ERRORS ===
+main.dc:4: a range can only be used in a slice index, a for-in, or a match pattern
+main.dc:8: a range can only be used in a slice index, a for-in, or a match pattern
+main.dc:12: a range can only be used in a slice index, a for-in, or a match pattern
+main.dc:16: a range can only be used in a slice index, a for-in, or a match pattern
+main.dc:20: a range can only be used in a slice index, a for-in, or a match pattern

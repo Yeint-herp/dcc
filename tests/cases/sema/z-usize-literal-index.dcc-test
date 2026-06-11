@@ -1,0 +1,136 @@
+=== FILE: main.dc ===
+module m;
+
+void test_array_literal_index(i32[10] arr) {
+    arr[0];
+    arr[1];
+}
+
+void test_slice_literal_index([]i32 s) {
+    s[0];
+}
+
+void test_pointer_literal_index(i32* p) {
+    p[0];
+}
+
+void test_range_literal_bounds(i32[10] arr) {
+    arr[0..5];
+}
+
+void test_range_var_start(i32[10] arr, usize n) {
+    arr[0..n];
+}
+
+void test_range_var_end(i32[10] arr, usize n) {
+    arr[n..10];
+}
+
+void test_standalone_range_expr(i32[10] arr, usize n) {
+    0..n;
+}
+
+void test_for_in_range_with_len([]i32 s) {
+    for i in 0..s.len {
+        usize x = i;
+    }
+}
+
+void test_const_range_slice(i32[10] arr) {
+    arr[0..10];
+}
+
+void test_mismatched_non_literal_bounds(i32[10] arr, i32 a, u64 b) {
+    arr[a..b];
+}
+
+=== ENTRY: main.dc ===
+
+=== EXPECT-BODY ===
+Module m
+  Func test_array_literal_index diverging=false
+    Param arr type=i32[10] storage=param offset=0 index=0
+    Body
+      Index [type=i32 const=<none> lvalue decl=arr]
+        Ident arr [type=i32[10] const=<none> lvalue decl=arr]
+        IntLiteral 0 [type=usize const=0 constant]
+      Index [type=i32 const=<none> lvalue decl=arr]
+        Ident arr [type=i32[10] const=<none> lvalue decl=arr]
+        IntLiteral 1 [type=usize const=1 constant]
+  Func test_slice_literal_index diverging=false
+    Param s type=[]i32 storage=param offset=0 index=0
+    Body
+      Index [type=i32 const=<none> lvalue decl=s]
+        Ident s [type=[]i32 const=<none> lvalue decl=s]
+        IntLiteral 0 [type=usize const=0 constant]
+  Func test_pointer_literal_index diverging=false
+    Param p type=i32* storage=param offset=0 index=0
+    Body
+      Index [type=i32 const=<none> lvalue decl=p]
+        Ident p [type=i32* const=<none> lvalue decl=p]
+        IntLiteral 0 [type=usize const=0 constant]
+  Func test_range_literal_bounds diverging=false
+    Param arr type=i32[10] storage=param offset=0 index=0
+    Body
+      Index [type=[]i32 const=<none>]
+        Ident arr [type=i32[10] const=<none> lvalue decl=arr]
+        Range [type=range(usize) const=<none>]
+          IntLiteral 0 [type=usize const=0 constant]
+          IntLiteral 5 [type=usize const=5 constant]
+  Func test_range_var_start diverging=false
+    Param arr type=i32[10] storage=param offset=0 index=0
+    Param n type=usize storage=param offset=40 index=1
+    Body
+      Index [type=[]i32 const=<none>]
+        Ident arr [type=i32[10] const=<none> lvalue decl=arr]
+        Range [type=range(usize) const=<none>]
+          IntLiteral 0 [type=usize const=0 constant]
+          Ident n [type=usize const=<none> lvalue decl=n]
+  Func test_range_var_end diverging=false
+    Param arr type=i32[10] storage=param offset=0 index=0
+    Param n type=usize storage=param offset=40 index=1
+    Body
+      Index [type=[]i32 const=<none>]
+        Ident arr [type=i32[10] const=<none> lvalue decl=arr]
+        Range [type=range(usize) const=<none>]
+          Ident n [type=usize const=<none> lvalue decl=n]
+          IntLiteral 10 [type=usize const=10 constant]
+  Func test_standalone_range_expr diverging=false
+    Param arr type=i32[10] storage=param offset=0 index=0
+    Param n type=usize storage=param offset=40 index=1
+    Body
+      Range [type=range(usize) const=<none>]
+        IntLiteral 0 [type=usize const=0 constant]
+        Ident n [type=usize const=<none> lvalue decl=n]
+  Func test_for_in_range_with_len diverging=false
+    Param s type=[]i32 storage=param offset=0 index=0
+    Body
+      ForIn i
+        Range [type=range(usize) const=<none>]
+          IntLiteral 0 [type=usize const=0 constant]
+          FieldAccess len [type=usize const=<none> lvalue]
+            Ident s [type=[]i32 const=<none> lvalue decl=s]
+        Body
+          Var x type=usize storage=local offset=24
+            Ident i [type=usize const=<none> lvalue decl=i]
+  Func test_const_range_slice diverging=false
+    Param arr type=i32[10] storage=param offset=0 index=0
+    Body
+      Index [type=[]i32 const=<none>]
+        Ident arr [type=i32[10] const=<none> lvalue decl=arr]
+        Range [type=range(usize) const=<none>]
+          IntLiteral 0 [type=usize const=0 constant]
+          IntLiteral 10 [type=usize const=10 constant]
+  Func test_mismatched_non_literal_bounds diverging=false
+    Param arr type=i32[10] storage=param offset=0 index=0
+    Param a type=i32 storage=param offset=40 index=1
+    Param b type=u64 storage=param offset=48 index=2
+    Body
+      Index [type=[]i32 const=<none>]
+        Ident arr [type=i32[10] const=<none> lvalue decl=arr]
+        Range [type=range(i32) const=<none>]
+          Ident a [type=i32 const=<none> lvalue decl=a]
+          Ident b [type=u64 const=<none> lvalue decl=b]
+
+=== EXPECT-ERRORS ===
+main.dc:43: range bounds must have the same type

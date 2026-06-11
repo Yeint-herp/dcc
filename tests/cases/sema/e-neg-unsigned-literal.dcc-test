@@ -1,0 +1,88 @@
+=== FILE: main.dc ===
+module m;
+
+void test_neg_usize_literal() {
+    usize x = -1;
+}
+
+void test_neg_u64_literal() {
+    u64 x = -1;
+}
+
+void test_neg_usize_var() {
+    usize x;
+    -x;
+}
+
+void test_neg_u64_var() {
+    u64 x;
+    -x;
+}
+
+void test_neg_usize_expr() {
+    usize x;
+    -(x + 1);
+}
+
+void test_neg_u64_expr() {
+    u64 x;
+    -(x + 1);
+}
+
+void test_neg_array_index(i32[10] arr) {
+    arr[-1];
+}
+
+void test_neg_slice_index([]i32 s) {
+    s[-1];
+}
+
+void test_neg_pointer_index(i32* p) {
+    p[-1];
+}
+
+void test_neg_range_start(i32[10] arr) {
+    arr[-1..3];
+}
+
+void test_neg_range_end(i32[10] arr) {
+    arr[0..-1];
+}
+
+void test_neg_slice_range_start([]i32 s) {
+    s[-1..3];
+}
+
+void test_neg_slice_range_end([]i32 s) {
+    s[0..-1];
+}
+
+void test_pos_index([]i32 s) {
+    s[0];
+    s[1];
+    s[0..5];
+}
+
+void test_pos_u64_var() {
+    u64 x = 0;
+    u64 y = 1;
+}
+
+void test_pos_usize_var() {
+    usize x = 0;
+}
+
+=== EXPECT-ERRORS ===
+main.dc:4: cannot negate unsigned integer
+main.dc:8: cannot negate unsigned integer
+main.dc:13: cannot negate unsigned integer
+main.dc:18: cannot negate unsigned integer
+main.dc:23: cannot negate unsigned integer
+main.dc:28: cannot negate unsigned integer
+main.dc:32: cannot negate unsigned integer
+main.dc:36: cannot negate unsigned integer
+main.dc:40: cannot negate unsigned integer
+main.dc:44: cannot negate unsigned integer
+main.dc:48: cannot negate unsigned integer
+main.dc:52: cannot negate unsigned integer
+main.dc:56: cannot negate unsigned integer

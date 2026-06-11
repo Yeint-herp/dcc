@@ -47,23 +47,23 @@ Module m
     Body
       Index [type=[]i32 const=<none>]
         Ident arr [type=i32[10] const=<none> lvalue decl=arr]
-        Range [type=range(i32) const=<none>]
-          IntLiteral 1 [type=i32 const=1 constant]
-          IntLiteral 3 [type=i32 const=3 constant]
+        Range [type=range(usize) const=<none>]
+          IntLiteral 1 [type=usize const=1 constant]
+          IntLiteral 3 [type=usize const=3 constant]
   Func test_omitted_start diverging=false
     Param arr type=i32[10] storage=param offset=0 index=0
     Body
       Index [type=[]i32 const=<none>]
         Ident arr [type=i32[10] const=<none> lvalue decl=arr]
-        Range [type=range(i32) const=<none>]
-          IntLiteral 5 [type=i32 const=5 constant]
+        Range [type=range(usize) const=<none>]
+          IntLiteral 5 [type=usize const=5 constant]
   Func test_omitted_end diverging=false
     Param arr type=i32[10] storage=param offset=0 index=0
     Body
       Index [type=[]i32 const=<none>]
         Ident arr [type=i32[10] const=<none> lvalue decl=arr]
-        Range [type=range(i32) const=<none>]
-          IntLiteral 2 [type=i32 const=2 constant]
+        Range [type=range(usize) const=<none>]
+          IntLiteral 2 [type=usize const=2 constant]
   Func test_omitted_both diverging=false
     Param arr type=i32[10] storage=param offset=0 index=0
     Body
@@ -75,16 +75,16 @@ Module m
     Body
       Index [type=[]i32 const=<none>]
         Ident arr [type=i32[10] const=<none> lvalue decl=arr]
-        Range [type=range_inclusive(i32) const=<none>]
-          IntLiteral 1 [type=i32 const=1 constant]
-          IntLiteral 3 [type=i32 const=3 constant]
+        Range [type=range_inclusive(usize) const=<none>]
+          IntLiteral 1 [type=usize const=1 constant]
+          IntLiteral 3 [type=usize const=3 constant]
   Func test_inclusive_omitted_start diverging=false
     Param arr type=i32[10] storage=param offset=0 index=0
     Body
       Index [type=[]i32 const=<none>]
         Ident arr [type=i32[10] const=<none> lvalue decl=arr]
-        Range [type=range_inclusive(i32) const=<none>]
-          IntLiteral 5 [type=i32 const=5 constant]
+        Range [type=range_inclusive(usize) const=<none>]
+          IntLiteral 5 [type=usize const=5 constant]
   Func test_variable_bounds diverging=false
     Param arr type=i32[10] storage=param offset=0 index=0
     Param start type=i32 storage=param offset=40 index=1
@@ -114,7 +114,7 @@ Module m
         Ident idx [type=i32 const=<none> lvalue decl=idx]
       Index [type=i32 const=<none> lvalue decl=arr]
         Ident arr [type=i32[10] const=<none> lvalue decl=arr]
-        IntLiteral 0 [type=i32 const=0 constant]
+        IntLiteral 0 [type=usize const=0 constant]
 
 === EXPECT-ERRORS ===
 

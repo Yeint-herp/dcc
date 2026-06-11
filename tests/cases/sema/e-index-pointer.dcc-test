@@ -12,4 +12,4 @@ Module m
     Body
       Index [type=i64 const=<none> lvalue decl=p]
         Ident p [type=i64* const=<none> lvalue decl=p]
-        IntLiteral 0 [type=i32 const=0 constant]
+        IntLiteral 0 [type=usize const=0 constant]

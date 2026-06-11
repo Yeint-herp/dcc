@@ -40,4 +40,4 @@ Module m
         Index [type=Point const=<none> lvalue decl=Holder]
           FieldAccess points [type=Point[3] const=<none> lvalue decl=Holder]
             Ident h [type=Holder const=<none> lvalue decl=h]
-          IntLiteral 0 [type=i32 const=0 constant]
+          IntLiteral 0 [type=usize const=0 constant]

@@ -842,6 +842,7 @@ export namespace dcc::sema
         bool m_allow_implicit_enum{true};
         bool m_disallow_nested_implicit_enum{};
         bool m_analyzing_call_callee{};
+        bool m_allow_range_expr{};
         std::pmr::unordered_map<ast::Decl const*, types::TypePtr> m_inferred_local_types{};
         std::pmr::unordered_map<ast::Decl const*, std::uint32_t> m_decl_reads{};
         std::pmr::unordered_map<ast::Decl const*, std::uint32_t> m_decl_writes{};
@@ -1234,10 +1235,10 @@ export namespace dcc::sema
                 return value >= min && value <= max;
             }
 
-            if (bits >= 64)
-                return true;
             if (value < 0)
                 return false;
+            if (bits >= 64)
+                return true;
             auto const max = (std::uint64_t(1) << bits) - 1;
             return static_cast<std::uint64_t>(value) <= max;
         }
@@ -5740,8 +5741,23 @@ export namespace dcc::sema
                         break;
                     case ast::ExprKind::Range: {
                         auto& r = static_cast<ast::RangeExpr&>(expr);
+
+                        if (!m_allow_range_expr)
+                            error(r.range, "a range can only be used in a slice index, a for-in, or a match pattern");
+
                         auto start_result = r.start ? analyze_expr(mod, fn, scope, *r.start, loop_depth, next_off, nullptr, const_env) : detail::ExprResult{};
                         auto end_result = r.end ? analyze_expr(mod, fn, scope, *r.end, loop_depth, next_off, nullptr, const_env) : detail::ExprResult{};
+
+                        if (start_result.type && end_result.type && start_result.type != end_result.type)
+                        {
+                            if (types::type_cast<types::IntType>(start_result.type) && types::type_cast<types::IntType>(end_result.type))
+                            {
+                                if (r.start && r.start->kind == ast::ExprKind::IntLiteral)
+                                    start_result = analyze_expr(mod, fn, scope, *r.start, loop_depth, next_off, end_result.type, const_env);
+                                else if (r.end && r.end->kind == ast::ExprKind::IntLiteral)
+                                    end_result = analyze_expr(mod, fn, scope, *r.end, loop_depth, next_off, start_result.type, const_env);
+                            }
+                        }
                         auto common = start_result.type ? start_result.type : end_result.type;
                         if (start_result.type && end_result.type && start_result.type != end_result.type)
                         {
@@ -6011,6 +6027,15 @@ export namespace dcc::sema
                 case lex::TokenKind::Plus:
                 case lex::TokenKind::Minus:
                 case lex::TokenKind::Tilde:
+                    if (u.op == lex::TokenKind::Minus)
+                    {
+                        if (auto const* it = types::type_cast<types::IntType>(op.type); it && !it->is_signed)
+                        {
+                            out.type = m_types.m_errort();
+                            error(u.range, "cannot negate unsigned integer");
+                            break;
+                        }
+                    }
                     if (!types::type_cast<types::IntType>(op.type) && !types::type_cast<types::FloatType>(op.type))
                     {
                         out.type = m_types.m_errort();
@@ -6527,16 +6552,31 @@ export namespace dcc::sema
             {
                 auto& r = static_cast<ast::RangeExpr&>(*i.index);
 
+                types::TypePtr range_expected = nullptr;
+                if (obj.type)
+                {
+                    switch (obj.type->kind)
+                    {
+                        case types::TypeKind::Array:
+                        case types::TypeKind::RuntimeArray:
+                        case types::TypeKind::Slice:
+                            range_expected = m_types.usize_t();
+                            break;
+                        default:
+                            break;
+                    }
+                }
+
                 types::TypePtr common = nullptr;
                 if (r.start)
                 {
-                    auto sr = analyze_expr(mod, fn, scope, *r.start, loop_depth, next_off, nullptr, const_env);
+                    auto sr = analyze_expr(mod, fn, scope, *r.start, loop_depth, next_off, range_expected, const_env);
                     if (!has_error(sr.type))
                         common = sr.type;
                 }
                 if (r.end)
                 {
-                    auto er = analyze_expr(mod, fn, scope, *r.end, loop_depth, next_off, nullptr, const_env);
+                    auto er = analyze_expr(mod, fn, scope, *r.end, loop_depth, next_off, range_expected, const_env);
                     if (!has_error(er.type))
                         common = common ? common : er.type;
                 }
@@ -6546,7 +6586,36 @@ export namespace dcc::sema
                     auto st = get_resolved_type(r.start->sema);
                     auto et = get_resolved_type(r.end->sema);
                     if (st && et && st != et && !has_error(st) && !has_error(et))
-                        error(r.range, "range bounds must have the same type");
+                    {
+                        if (types::type_cast<types::IntType>(st) && types::type_cast<types::IntType>(et))
+                        {
+                            bool unified = false;
+                            if (r.start->kind == ast::ExprKind::IntLiteral)
+                            {
+                                auto sr2 = analyze_expr(mod, fn, scope, *r.start, loop_depth, next_off, et, const_env);
+                                if (!has_error(sr2.type))
+                                {
+                                    common = sr2.type;
+                                    unified = true;
+                                }
+                            }
+                            else if (r.end->kind == ast::ExprKind::IntLiteral)
+                            {
+                                auto er2 = analyze_expr(mod, fn, scope, *r.end, loop_depth, next_off, st, const_env);
+                                if (!has_error(er2.type))
+                                {
+                                    common = er2.type;
+                                    unified = true;
+                                }
+                            }
+                            if (!unified)
+                                error(r.range, "range bounds must have the same type");
+                        }
+                        else
+                        {
+                            error(r.range, "range bounds must have the same type");
+                        }
+                    }
                 }
 
                 if (r.inclusive && !r.end)
@@ -6584,7 +6653,23 @@ export namespace dcc::sema
                 return slice_out;
             }
 
-            auto index_result = analyze_expr_or_error(mod, fn, scope, i.index, loop_depth, next_off, nullptr, const_env);
+            types::TypePtr index_expected = nullptr;
+            if (obj.type)
+            {
+                switch (obj.type->kind)
+                {
+                    case types::TypeKind::Array:
+                    case types::TypeKind::RuntimeArray:
+                    case types::TypeKind::Slice:
+                    case types::TypeKind::Pointer:
+                    case types::TypeKind::Fam:
+                        index_expected = m_types.usize_t();
+                        break;
+                    default:
+                        break;
+                }
+            }
+            auto index_result = analyze_expr_or_error(mod, fn, scope, i.index, loop_depth, next_off, index_expected, const_env);
 
             if (auto const* a = types::type_cast<types::ArrayType>(obj.type))
                 out.type = a->element;
@@ -8832,7 +8917,23 @@ export namespace dcc::sema
                 }
                 case ast::StmtKind::ForIn: {
                     auto& f = static_cast<ast::ForInStmt&>(s);
+
+                    bool const is_direct_range = f.iterable && f.iterable->kind == ast::ExprKind::Range;
+                    bool const saved_allow_range = m_allow_range_expr;
+                    if (is_direct_range)
+                        m_allow_range_expr = true;
+
                     auto iterable_result = analyze_expr_or_error(mod, fn, scope, f.iterable, loop_depth, next_off, nullptr, const_env);
+
+                    m_allow_range_expr = saved_allow_range;
+
+                    if (!has_error(iterable_result.type) && iterable_result.type &&
+                        (iterable_result.type->kind == types::TypeKind::Range || iterable_result.type->kind == types::TypeKind::RangeInclusive) &&
+                        !is_direct_range)
+                    {
+                        error(f.iterable->range, "cannot iterate a range value; iterate an array or slice, or use a literal range");
+                    }
+
                     auto* inner = make_scope(ScopeKind::Block, &scope);
                     auto* inner_consts = make_const_env(const_env);
                     if (!f.item_name.empty())

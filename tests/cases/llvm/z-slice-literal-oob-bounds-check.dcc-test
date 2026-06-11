@@ -27,13 +27,13 @@ entry:
   %"7" = load { ptr, i64 }, ptr %"0", align 8
   %"8" = extractvalue { ptr, i64 } %"7", 0
   %"9" = extractvalue { ptr, i64 } %"7", 1
-  %"11" = icmp ult i64 100, %"9"
-  br i1 %"11", label %bounds.ok1, label %bounds.fail2
+  %"10" = icmp ult i64 100, %"9"
+  br i1 %"10", label %bounds.ok1, label %bounds.fail2
 
 bounds.ok1:                                       ; preds = %entry
-  %"12" = getelementptr i32, ptr %"8", i32 100
-  %"13" = load i32, ptr %"12", align 4
-  store i32 %"13", ptr %"6", align 4
+  %"11" = getelementptr i32, ptr %"8", i64 100
+  %"12" = load i32, ptr %"11", align 4
+  store i32 %"12", ptr %"6", align 4
   ret void
 
 bounds.fail2:                                     ; preds = %entry

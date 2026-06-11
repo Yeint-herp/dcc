@@ -1027,6 +1027,9 @@ export namespace dcc::ir::lower
                 return m_ctx.array_t(ir_el, 0);
             }
 
+            if (dcc::types::type_cast<dcc::types::RangeType>(type) || dcc::types::type_cast<dcc::types::RangeInclusiveType>(type))
+                lower_panic("RangeType/RangeInclusiveType must not reach IR type lowering");
+
             std::string reason = std::format("unsupported type kind: {}", static_cast<int>(type->kind));
             lower_panic(reason);
         }
@@ -1191,7 +1194,22 @@ export namespace dcc::ir::lower
 
             dcc::types::TypePtr element_sema_type = nullptr;
             dcc::types::Qual element_quals = dcc::types::Qual::None;
-            if (auto const* st = types::type_cast<types::SliceType>(iter_sema_type))
+
+            bool is_range = false;
+            bool is_inclusive = false;
+            if (auto const* rt = types::type_cast<types::RangeType>(iter_sema_type))
+            {
+                element_sema_type = rt->element;
+                is_range = true;
+                is_inclusive = false;
+            }
+            else if (auto const* rit = types::type_cast<types::RangeInclusiveType>(iter_sema_type))
+            {
+                element_sema_type = rit->element;
+                is_range = true;
+                is_inclusive = true;
+            }
+            else if (auto const* st = types::type_cast<types::SliceType>(iter_sema_type))
             {
                 element_sema_type = st->element;
                 element_quals = st->element_quals;
@@ -1203,12 +1221,149 @@ export namespace dcc::ir::lower
 
             auto* ir_element_type = lower_type(element_sema_type);
 
+            auto* usize_type = m_ctx.usize_t();
+
+            if (is_range)
+            {
+                IrValue* start_val = nullptr;
+                IrValue* end_val = nullptr;
+
+                auto* range_expr = ast::node_cast<ast::RangeExpr>(iter_expr);
+                if (!range_expr)
+                    lower_panic(fs, "valued-range for-in must be sema-rejected; only literal RangeExpr allowed");
+
+                if (range_expr->start)
+                    start_val = lower_expr(range_expr->start);
+                else
+                    start_val = m_ctx.int_const(ir_element_type, 0);
+
+                if (range_expr->end)
+                    end_val = lower_expr(range_expr->end);
+                else
+                    lower_panic(fs, "for-in range must have an end bound");
+
+                auto* counter_alloca = m_ctx.alloca(m_ctx.pointer_to(ir_element_type), ir_element_type);
+                auto cnt_name = ident_name();
+                counter_alloca->name = m_name_pool.back();
+                append_inst(counter_alloca);
+                append_inst(m_ctx.store(start_val, counter_alloca));
+
+                auto* header_bb = create_block("forin.header");
+                auto* body_bb = create_block("forin.body");
+                auto* step_bb = create_block("forin.step");
+                auto* exit_bb = create_block("forin.exit");
+
+                emit_br(header_bb);
+
+                bool is_signed_range = false;
+                if (auto* int_ty = types::type_cast<types::IntType>(element_sema_type))
+                    is_signed_range = int_ty->is_signed;
+
+                set_current_block(header_bb);
+                auto* cur_val = m_ctx.load(ir_element_type, counter_alloca);
+                auto cur_name = ident_name();
+                cur_val->name = m_name_pool.back();
+                append_inst(cur_val);
+
+                IrValue* cond = nullptr;
+                if (is_inclusive)
+                {
+                    if (is_signed_range)
+                        cond = m_ctx.cmp_le(cur_val, end_val);
+                    else
+                        cond = m_ctx.cmp_ule(cur_val, end_val);
+                }
+                else
+                {
+                    if (is_signed_range)
+                        cond = m_ctx.cmp_lt(cur_val, end_val);
+                    else
+                        cond = m_ctx.cmp_ult(cur_val, end_val);
+                }
+                auto cond_name = ident_name();
+                cond->name = m_name_pool.back();
+                append_inst(cond);
+
+                emit_br_cond(cond, body_bb, exit_bb);
+
+                set_current_block(body_bb);
+                push_loop(step_bb, exit_bb);
+
+                {
+                    push_scope();
+
+                    auto* cur_val2 = m_ctx.load(ir_element_type, counter_alloca);
+                    auto cur2_name = ident_name();
+                    cur_val2->name = m_name_pool.back();
+                    append_inst(cur_val2);
+
+                    if (fs->item_type || !fs->item_name.empty())
+                    {
+                        if (fs->by_reference)
+                        {
+                            if (!fs->item_name.empty())
+                            {
+                                auto* ptr_sema_ty = make_ptr_sema_type(element_sema_type, element_quals);
+                                m_named_values[fs->item_name] = MapEntry{counter_alloca, false, ptr_sema_ty, false};
+                            }
+                        }
+                        else
+                        {
+                            auto* item_alloca = m_ctx.alloca(m_ctx.pointer_to(ir_element_type), ir_element_type);
+                            auto item_name = ident_name();
+                            item_alloca->name = m_name_pool.back();
+                            append_inst(item_alloca);
+                            append_inst(m_ctx.store(cur_val2, item_alloca));
+
+                            if (!fs->item_name.empty())
+                            {
+                                auto* canon = get_canonical_type(fs->item_type && fs->item_type->sema.canonical ? fs->item_type : nullptr);
+                                if (!canon)
+                                    canon = element_sema_type;
+
+                                m_named_values[fs->item_name] = MapEntry{item_alloca, true, canon, false};
+                            }
+                        }
+                    }
+
+                    for (auto* stmt : fs->body.stmts)
+                        lower_stmt(stmt);
+
+                    if (fs->body.tail && !current_block_terminated())
+                        lower_expr(fs->body.tail);
+
+                    pop_scope();
+                }
+
+                pop_loop();
+
+                if (!current_block_terminated())
+                    emit_br(step_bb);
+
+                set_current_block(step_bb);
+
+                auto* cur_val3 = m_ctx.load(ir_element_type, counter_alloca);
+                auto cur3_name = ident_name();
+                cur_val3->name = m_name_pool.back();
+                append_inst(cur_val3);
+
+                auto* one = m_ctx.int_const(ir_element_type, 1);
+                auto* next_val = m_ctx.add(ir_element_type, cur_val3, one);
+                auto next_name = ident_name();
+                next_val->name = m_name_pool.back();
+                append_inst(next_val);
+
+                append_inst(m_ctx.store(next_val, counter_alloca));
+                emit_br(header_bb);
+
+                set_current_block(exit_bb);
+                return;
+            }
+
             auto* iter_val = lower_expr(iter_expr);
 
             IrValue* len_val = nullptr;
             IrValue* ptr_val = nullptr;
-
-            auto* usize_type = m_ctx.usize_t();
 
             if (iter_val->type && iter_val->type->kind == IrTypeKind::Slice)
             {
@@ -1953,6 +2108,10 @@ export namespace dcc::ir::lower
 
                 case ast::ExprKind::Offsetof: {
                     lower_panic(expr, "Offsetof reached switch without a const_value");
+                }
+
+                case ast::ExprKind::Range: {
+                    lower_panic(expr, "RangeExpr must not reach IR expression lowering as runtime value");
                 }
 
                 default: {

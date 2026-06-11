@@ -1,0 +1,96 @@
+=== FILE: test.dc ===
+module test;
+
+public i32 slice_idx([]i32 s) {
+    return s[0];
+}
+
+public []i32 slice_prefix([]i32 s, usize n) {
+    return s[0..n];
+}
+
+public []i32 const_sub([]i32 s) {
+    return s[0..10];
+}
+
+=== EXPECT-IR FLAGS: -fbounds-check ===
+module "test"
+
+const global @.str.0 : [7 x u8] = aggregate [7 x u8], #116, #101, #115, #116, #46, #100, #99
+
+const global @.str.1 : [9 x u8] = aggregate [9 x u8], #99, #111, #110, #115, #116, #95, #115, #117, #98
+
+const global @.str.2 : [25 x u8] = aggregate [25 x u8], #115, #108, #105, #99, #101, #32, #114, #97, #110, #103, #101, #32, #111, #117, #116, #32, #111, #102, #32, #98, #111, #117, #110, #100, #115
+
+const global @.str.3 : [12 x u8] = aggregate [12 x u8], #115, #108, #105, #99, #101, #95, #112, #114, #101, #102, #105, #120
+
+const global @.str.4 : [9 x u8] = aggregate [9 x u8], #115, #108, #105, #99, #101, #95, #105, #100, #120
+
+const global @.str.5 : [25 x u8] = aggregate [25 x u8], #115, #108, #105, #99, #101, #32, #105, #110, #100, #101, #120, #32, #111, #117, #116, #32, #111, #102, #32, #98, #111, #117, #110, #100, #115
+
+
+i32@_DC0F1.4.test9.slice_idx1Sqi32si32s([]i32) {
+%entry([]i32 %s):
+  %0 = alloca []i32
+  store []i32 %s, ptr<[]i32> %0
+  %1 = load []i32, ptr<[]i32> %0
+  %2 = extract []i32 %1, field #0
+  %3 = extract []i32 %1, field #1
+  %4 = cmp.ult usize #0, %3
+  br.cond %4, label %bounds.ok1, label %bounds.fail2
+%bounds.ok1:
+  %5 = gep ptr<i32> %2, #0
+  %6 = load i32, ptr<i32> %5
+  ret i32 %6
+%bounds.fail2:
+  call fn(@_DC0F1.6.assert8.__assert4SCqci32sSCqcSCqcv)([]u8 aggregate []u8, @.str.0, #7, i32 #4, []u8 aggregate []u8, @.str.4, #9, []u8 aggregate []u8, @.str.5, #25)
+  unreachable
+}
+
+[]i32@_DC0F1.4.test12.slice_prefix2Sqi32sIuSqi32s([]i32, usize) {
+%entry([]i32 %s, usize %n):
+  %0 = alloca []i32
+  store []i32 %s, ptr<[]i32> %0
+  %1 = load []i32, ptr<[]i32> %0
+  %2 = extract []i32 %1, field #0
+  %3 = extract []i32 %1, field #1
+  %4 = cmp.ule usize #0, %n
+  br.cond %4, label %slice.oka1, label %slice.faila2
+%slice.oka1:
+  %5 = cmp.ule usize %n, %3
+  br.cond %5, label %slice.okb3, label %slice.failb4
+%slice.faila2:
+  call fn(@_DC0F1.6.assert8.__assert4SCqci32sSCqcSCqcv)([]u8 aggregate []u8, @.str.0, #7, i32 #8, []u8 aggregate []u8, @.str.3, #12, []u8 aggregate []u8, @.str.2, #25)
+  unreachable
+%slice.okb3:
+  %6 = sub usize %n, usize #0
+  %7 = gep ptr<i32> %2, #0
+  %8 = aggregate []i32, %7, %6
+  ret []i32 %8
+%slice.failb4:
+  call fn(@_DC0F1.6.assert8.__assert4SCqci32sSCqcSCqcv)([]u8 aggregate []u8, @.str.0, #7, i32 #8, []u8 aggregate []u8, @.str.3, #12, []u8 aggregate []u8, @.str.2, #25)
+  unreachable
+}
+
+[]i32@_DC0F1.4.test9.const_sub1Sqi32sSqi32s([]i32) {
+%entry([]i32 %s):
+  %0 = alloca []i32
+  store []i32 %s, ptr<[]i32> %0
+  %1 = load []i32, ptr<[]i32> %0
+  %2 = extract []i32 %1, field #0
+  %3 = extract []i32 %1, field #1
+  %4 = cmp.ule usize #10, %3
+  br.cond %4, label %slice.okb1, label %slice.failb2
+%slice.okb1:
+  %5 = sub usize #10, usize #0
+  %6 = gep ptr<i32> %2, #0
+  %7 = aggregate []i32, %6, %5
+  ret []i32 %7
+%slice.failb2:
+  call fn(@_DC0F1.6.assert8.__assert4SCqci32sSCqcSCqcv)([]u8 aggregate []u8, @.str.0, #7, i32 #12, []u8 aggregate []u8, @.str.1, #9, []u8 aggregate []u8, @.str.2, #25)
+  unreachable
+}
+
+import void@_DC0F1.6.assert8.__assert4SCqci32sSCqcSCqcv([]u8, i32, []u8, []u8) {
+}
+

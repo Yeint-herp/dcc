@@ -19,6 +19,9 @@ void test_bool_range(bool a, bool b) {
 }
 
 === EXPECT-ERRORS ===
+main.dc:9: a range can only be used in a slice index, a for-in, or a match pattern
 main.dc:9: range bounds must have the same type
+main.dc:13: a range can only be used in a slice index, a for-in, or a match pattern
 main.dc:13: range bounds must be integer or char type
+main.dc:17: a range can only be used in a slice index, a for-in, or a match pattern
 main.dc:17: range bounds must be integer or char type
