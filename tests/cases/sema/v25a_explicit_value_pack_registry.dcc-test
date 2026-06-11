@@ -1,0 +1,17 @@
+=== FILE: main.dc ===
+module m;
+
+void multi_val(u16 vals...)(u8 x) {}
+
+void single_val(u64 N...)(i32 x) {}
+
+void caller() {
+    multi_val!(1, 2, 3)(0);
+    single_val!7(0);
+}
+
+=== ENTRY: main.dc ===
+
+=== EXPECT-REGISTRY ===
+fn=multi_val args=[1, 2, 3] state=2
+fn=single_val args=[7] state=2

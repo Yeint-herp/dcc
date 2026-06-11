@@ -2511,12 +2511,12 @@ export namespace dcc::sema
             if (has_pack)
             {
                 auto const& tp = f.template_params.back();
-                std::vector<types::TypePtr> pack_types;
-                for (; i < template_args.size(); ++i)
+                if (tp.value_type)
                 {
-                    auto const& arg = template_args[i];
-                    if (tp.value_type)
+                    std::vector<comptime::Value> pack_values;
+                    for (; i < template_args.size(); ++i)
                     {
+                        auto const& arg = template_args[i];
                         auto vt_type = tp.value_type->sema.canonical ? get_canonical(tp.value_type->sema) : nullptr;
                         if (!vt_type)
                         {
@@ -2540,11 +2540,20 @@ export namespace dcc::sema
                             return std::nullopt;
                         }
 
-                        std::ignore = analyzed;
-                        pack_types.push_back(analyzed.type);
+                        pack_values.push_back(*analyzed.constant);
                     }
-                    else
+
+                    auto pack_param_ty =
+                        m_types.template_param_t(const_cast<ast::TemplateParam*>(std::addressof(tp)), tp.name, static_cast<std::uint32_t>(non_pack_count));
+
+                    std::ignore = bindings.bind_value_pack(static_cast<types::TemplateParamType const*>(pack_param_ty), std::move(pack_values));
+                }
+                else
+                {
+                    std::vector<types::TypePtr> pack_types;
+                    for (; i < template_args.size(); ++i)
                     {
+                        auto const& arg = template_args[i];
                         if (arg.expr)
                         {
                             if (failure)
@@ -2560,12 +2569,12 @@ export namespace dcc::sema
                         }
                         pack_types.push_back(actual);
                     }
+
+                    auto pack_param_ty =
+                        m_types.template_param_t(const_cast<ast::TemplateParam*>(std::addressof(tp)), tp.name, static_cast<std::uint32_t>(non_pack_count));
+
+                    std::ignore = bindings.bind_pack(static_cast<types::TemplateParamType const*>(pack_param_ty), pack_types);
                 }
-
-                auto pack_param_ty =
-                    m_types.template_param_t(const_cast<ast::TemplateParam*>(std::addressof(tp)), tp.name, static_cast<std::uint32_t>(non_pack_count));
-
-                std::ignore = bindings.bind_pack(static_cast<types::TemplateParamType const*>(pack_param_ty), pack_types);
             }
 
             if (!check_template_constraint(mod, scope, f, bindings))

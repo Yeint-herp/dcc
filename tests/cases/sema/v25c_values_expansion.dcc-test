@@ -1,0 +1,27 @@
+=== FILE: main.dc ===
+module m;
+
+void target(u16 a, u16 b, u16 c) {}
+
+void expand_three(u16 vals...)(u8 x) {
+    target(vals...);
+}
+
+void caller() {
+    expand_three!(1, 2, 3)(0);
+}
+
+=== ENTRY: main.dc ===
+
+=== EXPECT-REGISTRY ===
+fn=expand_three args=[1, 2, 3] state=2
+
+=== EXPECT-INSTANTIATED-BODY FOR: m ===
+Func expand_three diverging=false
+  Param x type=u8 storage=param offset=0 index=0
+  Body
+    Call [type=void const=<none> decl=target]
+      Ident target [type=<unresolved> const=<none>]
+      Ident vals_0 [type=u16 const=1 constant]
+      Ident vals_1 [type=u16 const=2 constant]
+      Ident vals_2 [type=u16 const=3 constant]

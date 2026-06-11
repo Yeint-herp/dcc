@@ -14,6 +14,7 @@ import dcc.sema.scope_dumper;
 import dcc.sema.body_analyzer;
 import dcc.sema.type_dumper;
 import dcc.sema.instantiator;
+import dcc.comptime;
 import dcc.sema.infer;
 import dcc.types;
 import dcc.ir;
@@ -993,6 +994,39 @@ namespace
                 return nullptr;
             };
 
+            auto value_from_arg = [&](dcc::ast::TemplateArg const& arg, dcc::types::TypePtr canonical_type) -> std::optional<dcc::comptime::Value> {
+                if (!arg.expr || !canonical_type)
+                    return std::nullopt;
+
+                if (auto* lit = dcc::ast::node_cast<dcc::ast::IntLiteralExpr>(arg.expr))
+                {
+                    if (canonical_type->kind == dcc::types::TypeKind::Int)
+                        return dcc::comptime::Value::make_int(lit->value, canonical_type);
+                    return std::nullopt;
+                }
+                if (auto* blit = dcc::ast::node_cast<dcc::ast::BoolLiteralExpr>(arg.expr))
+                {
+                    if (canonical_type->kind == dcc::types::TypeKind::Bool)
+                        return dcc::comptime::Value::make_bool(blit->value, canonical_type);
+                    if (canonical_type->kind == dcc::types::TypeKind::Int)
+                        return dcc::comptime::Value::make_int(blit->value ? 1 : 0, canonical_type);
+                    return std::nullopt;
+                }
+                if (auto* clit = dcc::ast::node_cast<dcc::ast::CharLiteralExpr>(arg.expr))
+                {
+                    if (canonical_type->kind == dcc::types::TypeKind::Char)
+                        return dcc::comptime::Value::make_char(clit->codepoint, canonical_type);
+                    if (canonical_type->kind == dcc::types::TypeKind::Int)
+                        return dcc::comptime::Value::make_int(static_cast<std::int64_t>(clit->codepoint), canonical_type);
+                    return std::nullopt;
+                }
+                if (auto* slit = dcc::ast::node_cast<dcc::ast::StringLiteralExpr>(arg.expr))
+                {
+                    return dcc::comptime::Value::make_string(std::string{slit->value}, canonical_type);
+                }
+                return std::nullopt;
+            };
+
             for (auto* d : mod->tu->decls)
             {
                 auto const* template_fn = dcc::ast::node_cast<dcc::ast::FuncDecl>(d);
@@ -1001,7 +1035,12 @@ namespace
 
                 struct InstCollector
                 {
-                    std::vector<std::span<dcc::ast::TemplateArg const>> instantiations;
+                    struct Instantiation
+                    {
+                        std::string_view callee_name;
+                        std::span<dcc::ast::TemplateArg const> args;
+                    };
+                    std::vector<Instantiation> instantiations;
 
                     void collect_expr(dcc::ast::Expr const* e)
                     {
@@ -1009,8 +1048,10 @@ namespace
                             return;
                         if (auto* ti = dcc::ast::node_cast<dcc::ast::TemplateInstExpr>(e))
                         {
-                            if (!ti->template_args.empty())
-                                instantiations.push_back(ti->template_args);
+                            std::string_view callee;
+                            if (auto* ident = dcc::ast::node_cast<dcc::ast::IdentExpr>(ti->callee))
+                                callee = ident->name;
+                            instantiations.push_back({callee, ti->template_args});
                         }
 
                         switch (e->kind)
@@ -1163,18 +1204,28 @@ namespace
                             collector.collect_block(*fd->body);
 
                 bool tpl_has_pack = false;
+                bool tpl_value_pack = false;
                 std::size_t tpl_non_pack_count = template_fn->template_params.size();
                 if (!template_fn->template_params.empty())
                 {
                     auto const& last = template_fn->template_params.back();
                     tpl_has_pack = last.is_pack;
                     if (tpl_has_pack)
+                    {
                         tpl_non_pack_count = template_fn->template_params.size() - 1;
+                        tpl_value_pack = (last.value_type != nullptr);
+                    }
                 }
 
                 std::set<std::vector<dcc::types::TypePtr>> seen;
-                for (auto const& args : collector.instantiations)
+                for (auto const& inst : collector.instantiations)
                 {
+                    auto const& args = inst.args;
+
+                    if (tpl_value_pack)
+                        if (!inst.callee_name.empty() && inst.callee_name != template_fn->name)
+                            continue;
+
                     if (tpl_has_pack)
                     {
                         if (args.size() < tpl_non_pack_count)
@@ -1192,20 +1243,39 @@ namespace
                     for (std::size_t i = 0; i < tpl_non_pack_count; ++i)
                     {
                         auto const& tp = template_fn->template_params[i];
-                        auto param_ty = type_ctx.template_param_t(
-                            const_cast<dcc::ast::TemplateParam*>(std::addressof(tp)), tp.name, static_cast<std::uint32_t>(i));
+                        auto param_ty =
+                            type_ctx.template_param_t(const_cast<dcc::ast::TemplateParam*>(std::addressof(tp)), tp.name, static_cast<std::uint32_t>(i));
 
-                        dcc::types::TypePtr actual_type = resolve_arg_type(args[i].type);
-
-                        if (!param_ty || !actual_type)
+                        if (tp.value_type)
                         {
-                            valid = false;
-                            break;
+                            auto canonical_type = resolve_arg_type(tp.value_type);
+                            if (!canonical_type || !param_ty)
+                            {
+                                valid = false;
+                                break;
+                            }
+                            auto val = value_from_arg(args[i], canonical_type);
+                            if (!val)
+                            {
+                                valid = false;
+                                break;
+                            }
+                            bindings.bind_value(static_cast<dcc::types::TemplateParamType const*>(param_ty), *val);
                         }
-                        if (!bindings.deduce(param_ty, actual_type))
+                        else
                         {
-                            valid = false;
-                            break;
+                            dcc::types::TypePtr actual_type = resolve_arg_type(args[i].type);
+
+                            if (!param_ty || !actual_type)
+                            {
+                                valid = false;
+                                break;
+                            }
+                            if (!bindings.deduce(param_ty, actual_type))
+                            {
+                                valid = false;
+                                break;
+                            }
                         }
                     }
                     if (!valid)
@@ -1214,31 +1284,64 @@ namespace
                     if (tpl_has_pack)
                     {
                         auto const& tp = template_fn->template_params.back();
-                        auto* param_ty_ptr = type_ctx.template_param_t(
-                            const_cast<dcc::ast::TemplateParam*>(std::addressof(tp)), tp.name, static_cast<std::uint32_t>(tpl_non_pack_count));
+                        auto* param_ty_ptr = type_ctx.template_param_t(const_cast<dcc::ast::TemplateParam*>(std::addressof(tp)), tp.name,
+                                                                       static_cast<std::uint32_t>(tpl_non_pack_count));
                         auto const* pack_param_ty = static_cast<dcc::types::TemplateParamType const*>(param_ty_ptr);
 
-                        std::vector<dcc::types::TypePtr> pack_types;
-                        for (std::size_t i = tpl_non_pack_count; i < args.size(); ++i)
+                        if (tp.value_type)
                         {
-                            auto ty = resolve_arg_type(args[i].type);
-                            if (!ty)
+                            auto canonical_type = resolve_arg_type(tp.value_type);
+                            if (!canonical_type)
                             {
                                 valid = false;
-                                break;
+                                continue;
                             }
-                            pack_types.push_back(ty);
-                        }
-                        if (!valid)
-                            continue;
+                            std::vector<dcc::comptime::Value> pack_values;
+                            for (std::size_t i = tpl_non_pack_count; i < args.size(); ++i)
+                            {
+                                auto val = value_from_arg(args[i], canonical_type);
+                                if (!val)
+                                {
+                                    valid = false;
+                                    break;
+                                }
+                                pack_values.push_back(*val);
+                            }
+                            if (!valid)
+                                continue;
 
-                        if (!bindings.bind_pack(pack_param_ty, pack_types))
-                            continue;
+                            if (!bindings.bind_value_pack(pack_param_ty, std::move(pack_values)))
+                                continue;
+                        }
+                        else
+                        {
+                            std::vector<dcc::types::TypePtr> pack_types;
+                            for (std::size_t i = tpl_non_pack_count; i < args.size(); ++i)
+                            {
+                                auto ty = resolve_arg_type(args[i].type);
+                                if (!ty)
+                                {
+                                    valid = false;
+                                    break;
+                                }
+                                pack_types.push_back(ty);
+                            }
+                            if (!valid)
+                                continue;
+
+                            if (!bindings.bind_pack(pack_param_ty, pack_types))
+                                continue;
+                        }
                     }
 
                     std::vector<dcc::types::TypePtr> key;
                     for (auto& a : args)
-                        key.push_back(resolve_arg_type(a.type));
+                    {
+                        if (a.expr && !a.type)
+                            key.push_back(reinterpret_cast<dcc::types::TypePtr>(a.expr));
+                        else
+                            key.push_back(resolve_arg_type(a.type));
+                    }
 
                     if (!seen.insert(key).second)
                         continue;

@@ -1,0 +1,25 @@
+=== FILE: main.dc ===
+module m;
+
+void sf_vals(u64 vals...)(i32 x) {
+    static for item in vals {
+        item;
+    }
+}
+
+void caller() {
+    sf_vals!(10, 20, 30)(0);
+}
+
+=== ENTRY: main.dc ===
+
+=== EXPECT-REGISTRY ===
+fn=sf_vals args=[10, 20, 30] state=2
+
+=== EXPECT-INSTANTIATED-BODY FOR: m ===
+Func sf_vals diverging=false
+  Param x type=i32 storage=param offset=0 index=0
+  Body
+    Ident item [type=u64 const=10 constant]
+    Ident item [type=u64 const=20 constant]
+    Ident item [type=u64 const=30 constant]

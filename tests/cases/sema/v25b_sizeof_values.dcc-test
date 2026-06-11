@@ -1,0 +1,44 @@
+=== FILE: main.dc ===
+module m;
+
+u64 sz_zero(u16 values...)(u8 x) {
+    return sizeof...(values);
+}
+
+u64 sz_one(u16 values...)(u8 x) {
+    return sizeof...(values);
+}
+
+u64 sz_three(u16 values...)(u8 x) {
+    return sizeof...(values);
+}
+
+void caller() {
+    sz_zero!()(0);
+    sz_one!42(0);
+    sz_three!(1, 2, 3)(0);
+}
+
+=== ENTRY: main.dc ===
+
+=== EXPECT-REGISTRY ===
+fn=sz_one args=[42] state=2
+fn=sz_three args=[1, 2, 3] state=2
+fn=sz_zero args=[] state=2
+
+=== EXPECT-INSTANTIATED-BODY FOR: m ===
+Func sz_zero diverging=true
+  Param x type=u8 storage=param offset=0 index=0
+  Body
+    Return
+      IntLiteral 0 [type=u64 const=0 constant]
+Func sz_one diverging=true
+  Param x type=u8 storage=param offset=0 index=0
+  Body
+    Return
+      IntLiteral 1 [type=u64 const=1 constant]
+Func sz_three diverging=true
+  Param x type=u8 storage=param offset=0 index=0
+  Body
+    Return
+      IntLiteral 3 [type=u64 const=3 constant]
