@@ -2,6 +2,7 @@ export module dcc.ir;
 
 import std;
 import dcc.sm;
+import dcc.target;
 
 export namespace dcc::ir
 {
@@ -67,8 +68,9 @@ export namespace dcc::ir
 
         std::uint8_t bits;
         bool is_signed;
+        bool is_pointer_sized;
 
-        IrIntType(std::uint8_t b, bool s) : IrType(Kind), bits(b), is_signed(s)
+        IrIntType(std::uint8_t b, bool s, bool ps = false) : IrType(Kind), bits(b), is_signed(s), is_pointer_sized(ps)
         {
             byte_size = b / 8;
             byte_align = byte_size;
@@ -95,10 +97,10 @@ export namespace dcc::ir
         IrType const* pointee;
         Segment seg{Segment::None};
 
-        IrPointerType(IrType const* p, Segment s = Segment::None) : IrType(Kind), pointee(p), seg(s)
+        IrPointerType(IrType const* p, Segment s = Segment::None, std::uint8_t pb = 64, std::uint8_t pa = 8) : IrType(Kind), pointee(p), seg(s)
         {
-            byte_size = 8;
-            byte_align = 8;
+            byte_size = pb / 8;
+            byte_align = pa;
         }
     };
 
@@ -1088,7 +1090,17 @@ export namespace dcc::ir
     class IrContext
     {
     public:
-        explicit IrContext(std::size_t initial = 256 * 1024) : m_buffer(initial), m_arena(&m_buffer) {}
+        explicit IrContext(std::size_t initial = 256 * 1024, target::TargetConfig const* target = nullptr) : m_buffer(initial), m_arena(&m_buffer)
+        {
+            if (target)
+            {
+                m_pointer_bits = target->pointer_bits;
+                m_pointer_align = target->pointer_align;
+            }
+        }
+
+        [[nodiscard]] std::uint8_t pointer_bits() const noexcept { return m_pointer_bits; }
+        [[nodiscard]] std::uint8_t pointer_align() const noexcept { return m_pointer_align; }
 
         IrContext(IrContext const&) = delete;
         IrContext& operator=(IrContext const&) = delete;
@@ -1107,16 +1119,19 @@ export namespace dcc::ir
             return ensure_singleton(m_bool, [&] { return make<IrBoolType>(); });
         }
 
-        [[nodiscard]] IrType const* int_t(std::uint8_t bits, bool is_signed)
+        [[nodiscard]] IrType const* int_t(std::uint8_t bits, bool is_signed, bool is_pointer_sized = false)
         {
             for (auto const* t : m_ints)
-                if (t->bits == bits && t->is_signed == is_signed)
+                if (t->bits == bits && t->is_signed == is_signed && t->is_pointer_sized == is_pointer_sized)
                     return t;
 
-            auto* t = make<IrIntType>(bits, is_signed);
+            auto* t = make<IrIntType>(bits, is_signed, is_pointer_sized);
             m_ints.push_back(t);
             return t;
         }
+
+        [[nodiscard]] IrType const* usize_t() { return int_t(m_pointer_bits, false, true); }
+        [[nodiscard]] IrType const* isize_t() { return int_t(m_pointer_bits, true, true); }
 
         [[nodiscard]] IrType const* float_t(std::uint8_t bits)
         {
@@ -1135,7 +1150,7 @@ export namespace dcc::ir
                 if (t->pointee == pointee && t->seg == seg)
                     return t;
 
-            auto* t = make<IrPointerType>(pointee, seg);
+            auto* t = make<IrPointerType>(pointee, seg, m_pointer_bits, m_pointer_align);
             m_pointers.push_back(t);
             return t;
         }
@@ -1320,6 +1335,9 @@ export namespace dcc::ir
         IrVoidType const* m_void{};
         IrBoolType const* m_bool{};
 
+        std::uint8_t m_pointer_bits{64};
+        std::uint8_t m_pointer_align{8};
+
         std::vector<IrIntType const*> m_ints;
         std::vector<IrFloatType const*> m_floats;
         std::vector<IrPointerType const*> m_pointers;
@@ -1487,7 +1505,10 @@ export namespace dcc::ir
                     break;
                 case IrTypeKind::Int: {
                     auto* it = static_cast<IrIntType const*>(t);
-                    std::format_to(std::back_inserter(m_out), "{}{}", it->is_signed ? 'i' : 'u', it->bits);
+                    if (it->is_pointer_sized)
+                        write(it->is_signed ? "isize" : "usize");
+                    else
+                        std::format_to(std::back_inserter(m_out), "{}{}", it->is_signed ? 'i' : 'u', it->bits);
                     break;
                 }
                 case IrTypeKind::Float: {

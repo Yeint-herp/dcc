@@ -716,6 +716,10 @@ export namespace dcc::sema
                     return m_types.m_chart();
                 case lex::TokenKind::KwNullT:
                     return m_types.m_nullt();
+                case lex::TokenKind::KwUsize:
+                    return m_types.usize_t();
+                case lex::TokenKind::KwIsize:
+                    return m_types.isize_t();
                 default:
                     return m_types.m_errort();
             }

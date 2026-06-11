@@ -58,6 +58,7 @@ export namespace dcc::ir::mangle
         std::vector<DemangledType> template_args;
         std::uint8_t bits{8};
         bool is_signed{true};
+        bool is_pointer_sized{false};
         std::string quals;
         std::shared_ptr<DemangledType> pointee;
         std::shared_ptr<DemangledType> element;
@@ -458,9 +459,17 @@ namespace dcc::ir::mangle
                     return;
                 case dcc::types::TypeKind::Int: {
                     auto* it = static_cast<dcc::types::IntType const*>(type);
-                    out += 'i';
-                    out += to_dec(it->bits);
-                    out += (it->is_signed ? 's' : 'u');
+                    if (it->is_pointer_sized)
+                    {
+                        out += 'I';
+                        out += (it->is_signed ? 's' : 'u');
+                    }
+                    else
+                    {
+                        out += 'i';
+                        out += to_dec(it->bits);
+                        out += (it->is_signed ? 's' : 'u');
+                    }
                     return;
                 }
                 case dcc::types::TypeKind::Float: {
@@ -708,6 +717,23 @@ namespace dcc::ir::mangle
                         return false;
 
                     dt.bits = static_cast<std::uint8_t>(bits);
+                    dt.is_pointer_sized = false;
+                    if (pos >= sv.size())
+                        return false;
+
+                    char sgn = sv[pos++];
+                    if (sgn == 's')
+                        dt.is_signed = true;
+                    else if (sgn == 'u')
+                        dt.is_signed = false;
+                    else
+                        return false;
+
+                    return true;
+                }
+                case 'I': {
+                    dt.tag = DemangledType::Tag::Int;
+                    dt.is_pointer_sized = true;
                     if (pos >= sv.size())
                         return false;
 

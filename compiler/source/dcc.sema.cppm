@@ -17,6 +17,7 @@ import dcc.ast;
 import dcc.sm;
 import dcc.si;
 import dcc.diag;
+import dcc.target;
 
 export namespace dcc::sema
 {
@@ -25,14 +26,15 @@ export namespace dcc::sema
         std::vector<std::filesystem::path> import_roots;
         std::size_t arena_initial_size{256 * 1024};
         dcc::si::string_interner* interner{nullptr};
+        dcc::target::TargetConfig target{dcc::target::TargetConfig::host_default()};
     };
 
     class SemaContext
     {
     public:
         SemaContext(sm::SourceManager& sm, diag::DiagnosticEngine& diag, ast::AstContext& ast_ctx, ParseFn parse, SemaOptions opts)
-            : m_sm{sm}, m_diag{diag}, m_ast_ctx{ast_ctx}, m_opts{std::move(opts)}, m_buffer{m_opts.arena_initial_size}, m_alloc{&m_buffer}, m_graph{},
-              m_importer{m_graph, m_sm, diag, m_ast_ctx, std::move(parse), m_opts.interner}
+            : m_sm{sm}, m_diag{diag}, m_ast_ctx{ast_ctx}, m_opts{std::move(opts)}, m_buffer{m_opts.arena_initial_size}, m_alloc{&m_buffer},
+              m_types{256 * 1024, &m_opts.target}, m_graph{}, m_importer{m_graph, m_sm, diag, m_ast_ctx, std::move(parse), m_opts.interner}
         {
             for (auto const& root : m_opts.import_roots)
                 m_graph.add_root(root);

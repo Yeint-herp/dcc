@@ -1,0 +1,34 @@
+=== FILE: main.dc ===
+module m;
+
+u64 make_u64() { return 0; }
+usize make_usize() { return 0; }
+
+void take_usize(usize x) {}
+void take_u64(u64 x) {}
+
+void test_assign_usize_from_u64() {
+    usize a = make_u64();
+}
+
+void test_assign_u64_from_usize() {
+    u64 b = make_usize();
+}
+
+void test_pass_u64_to_usize() {
+    take_usize(make_u64());
+}
+
+void test_pass_usize_to_u64() {
+    take_u64(make_usize());
+}
+
+=== EXPECT-ERRORS ===
+main.dc:10: initializer type mismatch
+main.dc:14: initializer type mismatch
+main.dc:18: no matching call for `take_usize`
+main.dc:6: = note: candidate `take_usize(usize)`
+main.dc:6: = note: reason: cannot convert argument 1: expected `usize`, found `u64`
+main.dc:22: no matching call for `take_u64`
+main.dc:7: = note: candidate `take_u64(u64)`
+main.dc:7: = note: reason: cannot convert argument 1: expected `u64`, found `usize`

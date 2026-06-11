@@ -636,6 +636,18 @@ auto main(int argc, char** argv) -> int
     dcc::session::CompileOptions compile_opts;
     compile_opts.arena_initial_size = 256 * 1024;
 
+    if (!opts.target_triple.empty())
+    {
+        auto parsed = dcc::target::TargetConfig::parse_triple(opts.target_triple);
+        if (parsed)
+            compile_opts.target = *parsed;
+        else
+        {
+            std::println(std::cerr, "dcc: error: unsupported target triple '{}'", opts.target_triple);
+            return 1;
+        }
+    }
+
     compile_opts.import_roots.push_back(input_path.parent_path());
 
     for (auto& p : opts.import_paths)
@@ -675,7 +687,7 @@ auto main(int argc, char** argv) -> int
             return 1;
         }
 
-        dcc::ir::IrContext ir_ctx;
+        dcc::ir::IrContext ir_ctx{256 * 1024, &compile_opts.target};
         auto lowerer = std::make_unique<dcc::ir::lower::Lowerer>(ir_ctx, &sema->spec_registry(), &sema->graph(), opts.bounds_check, &session.source_manager(),
                                                                  &sema->types());
         auto* ir_mod = lowerer->lower_module(*module);

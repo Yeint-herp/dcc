@@ -1,0 +1,23 @@
+=== FILE: m.dc ===
+module m;
+
+public usize g_u;
+public isize g_i;
+
+void f(usize u, isize i) {
+    usize x;
+    isize y;
+    x = u;
+    y = i;
+}
+
+=== EXPECT-TYPES FOR: m ===
+Module m
+  Var g_u: usize
+  Var g_i: isize
+  Func f
+    Return: void
+    Param u: usize
+    Param i: isize
+
+

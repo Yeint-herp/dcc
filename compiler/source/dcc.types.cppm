@@ -1,6 +1,7 @@
 export module dcc.types;
 
 import std;
+import dcc.target;
 
 namespace dcc::ast
 {
@@ -92,8 +93,9 @@ export namespace dcc::types
 
         std::uint8_t bits;
         bool is_signed;
+        bool is_pointer_sized;
 
-        IntType(std::uint8_t b, bool s) : Type(Kind), bits(b), is_signed(s)
+        IntType(std::uint8_t b, bool s, bool ps = false) : Type(Kind), bits(b), is_signed(s), is_pointer_sized(ps)
         {
             byte_size = b / 8;
             byte_align = std::uint32_t(byte_size);
@@ -128,10 +130,10 @@ export namespace dcc::types
     {
         static constexpr auto Kind = TypeKind::NullT;
 
-        NullTType() : Type(Kind)
+        NullTType(std::uint8_t pb = 64, std::uint8_t pa = 8) : Type(Kind)
         {
-            byte_size = 8;
-            byte_align = 8;
+            byte_size = pb / 8;
+            byte_align = pa;
         }
     };
 
@@ -142,10 +144,10 @@ export namespace dcc::types
         TypePtr pointee;
         Qual pointee_quals;
 
-        PointerType(TypePtr p, Qual q) : Type(Kind), pointee(p), pointee_quals(q)
+        PointerType(TypePtr p, Qual q, std::uint8_t pb = 64, std::uint8_t pa = 8) : Type(Kind), pointee(p), pointee_quals(q)
         {
-            byte_size = 8;
-            byte_align = 8;
+            byte_size = pb / 8;
+            byte_align = pa;
         }
     };
 
@@ -242,10 +244,10 @@ export namespace dcc::types
         TypePtr return_type;
         std::pmr::vector<TypePtr> params;
 
-        FuncPtrType(TypePtr r, std::pmr::polymorphic_allocator<> a) : Type(Kind), return_type(r), params(a)
+        FuncPtrType(TypePtr r, std::pmr::polymorphic_allocator<> a, std::uint8_t pb = 64, std::uint8_t pa = 8) : Type(Kind), return_type(r), params(a)
         {
-            byte_size = 8;
-            byte_align = 8;
+            byte_size = pb / 8;
+            byte_align = pa;
         }
     };
 
@@ -360,7 +362,17 @@ export namespace dcc::types
     class TypeContext
     {
     public:
-        explicit TypeContext(std::size_t initial = 32 * 1024) : m_buffer(initial), m_arena(&m_buffer) {}
+        explicit TypeContext(std::size_t initial = 32 * 1024, target::TargetConfig const* target = nullptr) : m_buffer(initial), m_arena(&m_buffer)
+        {
+            if (target)
+            {
+                m_pointer_bits = target->pointer_bits;
+                m_pointer_align = target->pointer_align;
+            }
+        }
+
+        [[nodiscard]] std::uint8_t pointer_bits() const noexcept { return m_pointer_bits; }
+        [[nodiscard]] std::uint8_t pointer_align() const noexcept { return m_pointer_align; }
 
         TypeContext(TypeContext const&) = delete;
         TypeContext& operator=(TypeContext const&) = delete;
@@ -384,7 +396,7 @@ export namespace dcc::types
 
         [[nodiscard]] TypePtr m_nullt()
         {
-            return ensure_singleton(m_null, [&] { return make<NullTType>(); });
+            return ensure_singleton(m_null, [&] { return make<NullTType>(m_pointer_bits, m_pointer_align); });
         }
 
         [[nodiscard]] TypePtr m_errort()
@@ -392,16 +404,19 @@ export namespace dcc::types
             return ensure_singleton(m_error, [&] { return make<ErrorType>(); });
         }
 
-        [[nodiscard]] TypePtr int_t(std::uint8_t bits, bool is_signed)
+        [[nodiscard]] TypePtr int_t(std::uint8_t bits, bool is_signed, bool is_pointer_sized = false)
         {
             for (auto const* t : m_ints)
-                if (t->bits == bits && t->is_signed == is_signed)
+                if (t->bits == bits && t->is_signed == is_signed && t->is_pointer_sized == is_pointer_sized)
                     return t;
 
-            auto* t = make<IntType>(bits, is_signed);
+            auto* t = make<IntType>(bits, is_signed, is_pointer_sized);
             m_ints.push_back(t);
             return t;
         }
+
+        [[nodiscard]] TypePtr usize_t() { return int_t(m_pointer_bits, false, true); }
+        [[nodiscard]] TypePtr isize_t() { return int_t(m_pointer_bits, true, true); }
 
         [[nodiscard]] TypePtr float_t(std::uint8_t bits)
         {
@@ -420,7 +435,7 @@ export namespace dcc::types
                 if (t->pointee == pointee && t->pointee_quals == quals)
                     return t;
 
-            auto* t = make<PointerType>(pointee, quals);
+            auto* t = make<PointerType>(pointee, quals, m_pointer_bits, m_pointer_align);
             m_pointers.push_back(t);
             return t;
         }
@@ -518,7 +533,7 @@ export namespace dcc::types
                 if (t->return_type == ret && same_span(t->params, params))
                     return t;
 
-            auto* t = make<FuncPtrType>(ret, m_arena);
+            auto* t = make<FuncPtrType>(ret, m_arena, m_pointer_bits, m_pointer_align);
             t->params.assign(params.begin(), params.end());
             m_funcptrs.push_back(t);
             return t;
@@ -594,6 +609,9 @@ export namespace dcc::types
         CharType const* m_char{};
         NullTType const* m_null{};
         ErrorType const* m_error{};
+
+        std::uint8_t m_pointer_bits{64};
+        std::uint8_t m_pointer_align{8};
 
         std::vector<IntType const*> m_ints;
         std::vector<FloatType const*> m_floats;

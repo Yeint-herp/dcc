@@ -1400,10 +1400,6 @@ namespace
                 continue;
             }
 
-            dcc::ir::IrContext ir_ctx;
-            auto lowerer = std::make_unique<dcc::ir::lower::Lowerer>(ir_ctx, &sema.spec_registry(), &sema.graph(), exp.bounds_check, &sm, &sema.types());
-            auto* ir_mod = lowerer->lower_module(*mod);
-
             dcc::target::TargetConfig target;
             if (!exp.target_triple.empty())
             {
@@ -1418,6 +1414,10 @@ namespace
             }
             else
                 target = dcc::target::TargetConfig::host_default();
+
+            dcc::ir::IrContext ir_ctx{256 * 1024, &target};
+            auto lowerer = std::make_unique<dcc::ir::lower::Lowerer>(ir_ctx, &sema.spec_registry(), &sema.graph(), exp.bounds_check, &sm, &sema.types());
+            auto* ir_mod = lowerer->lower_module(*mod);
 
             target.no_red_zone = exp.no_red_zone;
             target.no_simd = exp.no_simd;
@@ -1535,10 +1535,6 @@ namespace
                 continue;
             }
 
-            dcc::ir::IrContext ir_ctx;
-            auto lowerer = std::make_unique<dcc::ir::lower::Lowerer>(ir_ctx, &sema.spec_registry(), &sema.graph(), false, &sm, &sema.types());
-            auto* ir_mod = lowerer->lower_module(*mod);
-
             dcc::target::TargetConfig target;
             if (!exp.target_triple.empty())
             {
@@ -1554,6 +1550,10 @@ namespace
             }
             else
                 target = dcc::target::TargetConfig::host_default();
+
+            dcc::ir::IrContext ir_ctx{256 * 1024, &target};
+            auto lowerer = std::make_unique<dcc::ir::lower::Lowerer>(ir_ctx, &sema.spec_registry(), &sema.graph(), false, &sm, &sema.types());
+            auto* ir_mod = lowerer->lower_module(*mod);
 
             target.no_red_zone = exp.no_red_zone;
             target.no_simd = exp.no_simd;

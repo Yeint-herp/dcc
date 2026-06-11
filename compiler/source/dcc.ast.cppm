@@ -1104,7 +1104,7 @@ export namespace dcc::ast
 
     [[nodiscard]] constexpr bool is_primitive_type(lex::TokenKind k) noexcept
     {
-        return k >= lex::TokenKind::Kwu8 && k <= lex::TokenKind::KwNullT;
+        return k >= lex::TokenKind::Kwu8 && k <= lex::TokenKind::KwIsize;
     }
 
     [[nodiscard]] constexpr bool is_qualifier(lex::TokenKind k) noexcept

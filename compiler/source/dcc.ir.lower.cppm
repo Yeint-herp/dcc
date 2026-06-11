@@ -968,7 +968,7 @@ export namespace dcc::ir::lower
                 return lower_user_type(type);
 
             if (auto* it = dcc::types::type_cast<dcc::types::IntType>(type))
-                return m_ctx.int_t(it->bits, it->is_signed);
+                return m_ctx.int_t(it->bits, it->is_signed, it->is_pointer_sized);
 
             if (auto* ft = dcc::types::type_cast<dcc::types::FloatType>(type))
                 return m_ctx.float_t(ft->bits);

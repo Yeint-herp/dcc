@@ -8,6 +8,7 @@ import dcc.parser;
 import dcc.diag;
 import dcc.ast;
 import dcc.sema;
+import dcc.target;
 
 export namespace dcc::session
 {
@@ -23,6 +24,7 @@ export namespace dcc::session
         std::vector<std::filesystem::path> import_roots;
         bool inject_libdcext_prelude{false};
         std::size_t arena_initial_size{256 * 1024};
+        dcc::target::TargetConfig target{dcc::target::TargetConfig::host_default()};
     };
 
     struct CompileResult
@@ -123,6 +125,7 @@ export namespace dcc::session
             sopts.arena_initial_size = opts.arena_initial_size;
             sopts.import_roots = opts.import_roots;
             sopts.interner = &m_interner;
+            sopts.target = opts.target;
 
             auto parse = [this](sm::FileId fid, ast::AstContext& ast, diag::DiagnosticEngine& d) -> ast::TranslationUnit* { return parse_file(fid, ast, d); };
 

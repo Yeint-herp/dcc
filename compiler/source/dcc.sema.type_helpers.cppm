@@ -39,6 +39,8 @@ export namespace dcc::sema
                 return "bool";
             case types::TypeKind::Int: {
                 auto const* it = static_cast<types::IntType const*>(ty);
+                if (it->is_pointer_sized)
+                    return std::string(it->is_signed ? "isize" : "usize");
                 return std::format("{}{}", it->is_signed ? 'i' : 'u', unsigned(it->bits));
             }
             case types::TypeKind::Float: {

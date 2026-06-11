@@ -4105,6 +4105,9 @@ export namespace dcc::sema
             {
                 auto const* e = static_cast<types::IntType const*>(expected);
                 auto const* g = static_cast<types::IntType const*>(got);
+                if (e->is_pointer_sized || g->is_pointer_sized)
+                    return false;
+
                 return e->bits >= g->bits;
             }
 
@@ -9588,6 +9591,10 @@ export namespace dcc::sema
                             return {.type = m_types.float_t(32)};
                         case lex::TokenKind::Kwf64:
                             return {.type = m_types.float_t(64)};
+                        case lex::TokenKind::KwUsize:
+                            return {.type = m_types.usize_t()};
+                        case lex::TokenKind::KwIsize:
+                            return {.type = m_types.isize_t()};
                         default:
                             return {.type = m_types.m_errort()};
                     }

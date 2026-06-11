@@ -1171,6 +1171,8 @@ namespace dcc::sema
                     return m_type_ctx.int_t(32, true);
                 if (name == "i64")
                     return m_type_ctx.int_t(64, true);
+                if (name == "isize")
+                    return m_type_ctx.isize_t();
                 if (name == "u8")
                     return m_type_ctx.int_t(8, false);
                 if (name == "u16")
@@ -1179,6 +1181,8 @@ namespace dcc::sema
                     return m_type_ctx.int_t(32, false);
                 if (name == "u64")
                     return m_type_ctx.int_t(64, false);
+                if (name == "usize")
+                    return m_type_ctx.usize_t();
                 if (name == "f32")
                     return m_type_ctx.float_t(32);
                 if (name == "f64")
@@ -1474,6 +1478,11 @@ export namespace dcc::sema
                 return make_primitive(lex::TokenKind::KwChar);
             case types::TypeKind::Int: {
                 auto const* it = static_cast<types::IntType const*>(ty);
+                if (it->is_pointer_sized)
+                {
+                    auto tk = it->is_signed ? lex::TokenKind::KwIsize : lex::TokenKind::KwUsize;
+                    return make_primitive(tk);
+                }
                 auto tk = it->bits == 8    ? (it->is_signed ? lex::TokenKind::Kwi8 : lex::TokenKind::Kwu8)
                           : it->bits == 16 ? (it->is_signed ? lex::TokenKind::Kwi16 : lex::TokenKind::Kwu16)
                           : it->bits == 32 ? (it->is_signed ? lex::TokenKind::Kwi32 : lex::TokenKind::Kwu32)

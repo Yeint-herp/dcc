@@ -1,0 +1,22 @@
+=== FILE: main.dc ===
+module main;
+
+u8 pick(usize x) {
+    return 0;
+}
+
+u16 pick(u64 x) {
+    return 0;
+}
+
+void call_pick_usize() {
+    usize v = 0;
+    u8 r = pick(v);
+}
+
+void call_pick_u64() {
+    u64 v = 0;
+    u16 r = pick(v);
+}
+
+=== ENTRY: main.dc ===

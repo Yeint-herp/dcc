@@ -516,7 +516,9 @@ export namespace dcc::infer
                 case types::TypeKind::Int: {
                     auto const* a = static_cast<types::IntType const*>(lhs);
                     auto const* b = static_cast<types::IntType const*>(rhs);
-                    return (a->bits == b->bits && a->is_signed == b->is_signed) ? ok() : fail(DeductionError::Conflict, "integer type mismatch");
+                    return (a->bits == b->bits && a->is_signed == b->is_signed && a->is_pointer_sized == b->is_pointer_sized)
+                               ? ok()
+                               : fail(DeductionError::Conflict, "integer type mismatch");
                 }
 
                 case types::TypeKind::Float: {

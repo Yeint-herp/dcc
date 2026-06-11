@@ -4,6 +4,7 @@ import dcc.comptime;
 import dcc.ast;
 import dcc.sm;
 import dcc.ir.mangle;
+import dcc.target;
 
 #include "harness.hh"
 
@@ -122,6 +123,80 @@ TEST_CASE("mangle_type Int u8")
 {
     types::TypeContext ctx;
     CHECK_EQ(mangle::mangle_type(u8(ctx)), "_DC0Ti8u");
+}
+
+TEST_CASE("mangle_type usize default 64-bit")
+{
+    types::TypeContext ctx;
+    auto usz = ctx.usize_t();
+    auto u64t = ctx.int_t(64, false);
+
+    CHECK_NE(usz, u64t);
+
+    CHECK(static_cast<types::IntType const*>(usz)->is_pointer_sized);
+    CHECK(!static_cast<types::IntType const*>(u64t)->is_pointer_sized);
+
+    CHECK_EQ(mangle::mangle_type(usz), "_DC0TIu");
+    CHECK_EQ(mangle::mangle_type(u64t), "_DC0Ti64u");
+
+    {
+        mangle::DemangledName d;
+        REQUIRE(mangle::demangle(d, "_DC0TIu"));
+        CHECK_EQ(d.type_only.tag, mangle::DemangledType::Tag::Int);
+        CHECK(d.type_only.is_pointer_sized);
+        CHECK(!d.type_only.is_signed);
+    }
+    {
+        mangle::DemangledName d;
+        REQUIRE(mangle::demangle(d, "_DC0Ti64u"));
+        CHECK_EQ(d.type_only.tag, mangle::DemangledType::Tag::Int);
+        CHECK(!d.type_only.is_pointer_sized);
+        CHECK(!d.type_only.is_signed);
+        CHECK_EQ(d.type_only.bits, 64u);
+    }
+}
+
+TEST_CASE("mangle_type isize default 64-bit")
+{
+    types::TypeContext ctx;
+    auto isz = ctx.isize_t();
+    auto i64t = ctx.int_t(64, true);
+    CHECK_NE(isz, i64t);
+    CHECK(static_cast<types::IntType const*>(isz)->is_pointer_sized);
+    CHECK(!static_cast<types::IntType const*>(i64t)->is_pointer_sized);
+    CHECK_EQ(mangle::mangle_type(isz), "_DC0TIs");
+    CHECK_EQ(mangle::mangle_type(i64t), "_DC0Ti64s");
+
+    {
+        mangle::DemangledName d;
+        REQUIRE(mangle::demangle(d, "_DC0TIs"));
+        CHECK_EQ(d.type_only.tag, mangle::DemangledType::Tag::Int);
+        CHECK(d.type_only.is_pointer_sized);
+        CHECK(d.type_only.is_signed);
+    }
+}
+
+TEST_CASE("mangle_type usize x86 32-bit target")
+{
+    auto target_opt = dcc::target::TargetConfig::parse_triple("x86-elf");
+    REQUIRE(target_opt.has_value());
+    types::TypeContext ctx{32 * 1024, &*target_opt};
+    CHECK_EQ(ctx.pointer_bits(), 32u);
+    auto usz = ctx.usize_t();
+    auto* it = static_cast<types::IntType const*>(usz);
+    CHECK_EQ(it->bits, 32u);
+    CHECK(!it->is_signed);
+    CHECK(it->is_pointer_sized);
+
+    auto u32t = ctx.int_t(32, false);
+    auto* u32it = static_cast<types::IntType const*>(u32t);
+    CHECK_EQ(u32it->bits, 32u);
+    CHECK(!u32it->is_signed);
+    CHECK(!u32it->is_pointer_sized);
+    CHECK_NE(usz, u32t);
+
+    CHECK_EQ(mangle::mangle_type(usz), "_DC0TIu");
+    CHECK_EQ(mangle::mangle_type(u32t), "_DC0Ti32u");
 }
 
 TEST_CASE("mangle_type Float f64")
