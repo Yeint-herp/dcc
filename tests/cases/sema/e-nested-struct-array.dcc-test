@@ -28,14 +28,14 @@ Module m
   Func f diverging=false
     Param h type=Holder storage=param offset=0 index=0
     Body
-      Sizeof [type=u64 const=16 constant]
-      Sizeof [type=u64 const=56 constant]
-      Alignof [type=u64 const=8 constant]
-      Alignof [type=u64 const=8 constant]
-      Offsetof [type=u64 const=0 constant]
-      Offsetof [type=u64 const=8 constant]
-      Offsetof [type=u64 const=0 constant]
-      Offsetof [type=u64 const=48 constant]
+      Sizeof [type=usize const=16 constant]
+      Sizeof [type=usize const=56 constant]
+      Alignof [type=usize const=8 constant]
+      Alignof [type=usize const=8 constant]
+      Offsetof [type=usize const=0 constant]
+      Offsetof [type=usize const=8 constant]
+      Offsetof [type=usize const=0 constant]
+      Offsetof [type=usize const=48 constant]
       FieldAccess x [type=f64 const=<none> lvalue decl=Point]
         Index [type=Point const=<none> lvalue decl=Holder]
           FieldAccess points [type=Point[3] const=<none> lvalue decl=Holder]

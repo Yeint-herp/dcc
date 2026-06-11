@@ -137,10 +137,11 @@ export namespace dcc::ir
         IrType const* element;
         Segment seg{Segment::None};
 
-        IrSliceType(IrType const* el, Segment s = Segment::None) : IrType(Kind), element(el), seg(s)
+        IrSliceType(IrType const* el, Segment s = Segment::None, std::uint8_t pointer_bits = 64, std::uint8_t pointer_align = 8)
+            : IrType(Kind), element(el), seg(s)
         {
-            byte_size = 16;
-            byte_align = 8;
+            byte_size = 2 * (static_cast<std::uint64_t>(pointer_bits) / 8);
+            byte_align = pointer_align;
         }
     };
 
@@ -1200,7 +1201,7 @@ export namespace dcc::ir
                 if (t->element == element && t->seg == seg)
                     return t;
 
-            auto* t = make<IrSliceType>(element, seg);
+            auto* t = make<IrSliceType>(element, seg, m_pointer_bits, m_pointer_align);
             m_slices.push_back(t);
             return t;
         }

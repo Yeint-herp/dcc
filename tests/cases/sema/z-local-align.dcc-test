@@ -17,5 +17,5 @@ Module m
       Var x type=i32 storage=local offset=0
         IntLiteral 0 [type=i32 const=0 constant]
       Var y type=i64 storage=local offset=8
-      Sizeof [type=u64 const=4 constant]
-      Alignof [type=u64 const=8 constant]
+      Sizeof [type=usize const=4 constant]
+      Alignof [type=usize const=8 constant]

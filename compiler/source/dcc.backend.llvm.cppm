@@ -250,10 +250,11 @@ namespace dcc::backend
         struct TypeCache
         {
             LLVMContextRef ctx;
+            std::uint8_t pointer_bits;
             std::unordered_map<IrType const*, LLVMTypeRef> map;
             std::unordered_map<IrType const*, std::vector<unsigned>> field_index_map;
 
-            explicit TypeCache(LLVMContextRef c) : ctx(c) {}
+            explicit TypeCache(LLVMContextRef c, std::uint8_t pb) : ctx(c), pointer_bits(pb) {}
 
             [[nodiscard]] LLVMTypeRef get(IrType const* t, bool for_memory)
             {
@@ -278,9 +279,10 @@ namespace dcc::backend
 
                 if (t->kind == IrTypeKind::Slice)
                 {
+                    auto* usize_llvm = LLVMIntTypeInContext(ctx, pointer_bits);
                     LLVMTypeRef fields[] = {
                         LLVMPointerTypeInContext(ctx, 0),
-                        LLVMInt64TypeInContext(ctx),
+                        usize_llvm,
                     };
                     auto* slice_ty = LLVMStructTypeInContext(ctx, fields, 2, 0);
                     map[t] = slice_ty;
@@ -710,7 +712,7 @@ namespace dcc::backend
                 }
 
                 std::unordered_map<IrValue const*, LLVMValueRef> val_map;
-                TypeCache type_cache{ctx};
+                TypeCache type_cache{ctx, opts.target.pointer_bits};
 
                 for (auto* g : module.globals)
                 {

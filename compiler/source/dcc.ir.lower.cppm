@@ -1208,9 +1208,11 @@ export namespace dcc::ir::lower
             IrValue* len_val = nullptr;
             IrValue* ptr_val = nullptr;
 
+            auto* usize_type = m_ctx.usize_t();
+
             if (iter_val->type && iter_val->type->kind == IrTypeKind::Slice)
             {
-                auto* len_extract = m_ctx.extract(m_ctx.int_t(64, false), iter_val, 1);
+                auto* len_extract = m_ctx.extract(usize_type, iter_val, 1);
                 auto len_name = ident_name();
                 len_extract->name = m_name_pool.back();
                 append_inst(len_extract);
@@ -1237,21 +1239,20 @@ export namespace dcc::ir::lower
                 append_inst(m_ctx.store(iter_val, temp));
 
                 auto* gep0 = m_ctx.gep(m_ctx.pointer_to(ir_element_type), temp);
-                gep0->indices.push_back({IrGepInst::IndexKind::Array, m_ctx.int_const(m_ctx.int_t(64, false), 0), 0});
+                gep0->indices.push_back({IrGepInst::IndexKind::Array, m_ctx.int_const(usize_type, 0), 0});
                 auto gep0_name = ident_name();
                 gep0->name = m_name_pool.back();
                 append_inst(gep0);
                 ptr_val = gep0;
 
-                len_val = m_ctx.int_const(m_ctx.int_t(64, false), static_cast<std::int64_t>(arr_type->count));
+                len_val = m_ctx.int_const(usize_type, static_cast<std::int64_t>(arr_type->count));
             }
 
-            auto* u64_type = m_ctx.int_t(64, false);
-            auto* idx_alloca = m_ctx.alloca(m_ctx.pointer_to(u64_type), u64_type);
+            auto* idx_alloca = m_ctx.alloca(m_ctx.pointer_to(usize_type), usize_type);
             auto idx_name = ident_name();
             idx_alloca->name = m_name_pool.back();
             append_inst(idx_alloca);
-            append_inst(m_ctx.store(m_ctx.int_const(u64_type, 0), idx_alloca));
+            append_inst(m_ctx.store(m_ctx.int_const(usize_type, 0), idx_alloca));
 
             auto* header_bb = create_block("forin.header");
             auto* body_bb = create_block("forin.body");
@@ -1261,7 +1262,7 @@ export namespace dcc::ir::lower
             emit_br(header_bb);
 
             set_current_block(header_bb);
-            auto* cur_idx = m_ctx.load(u64_type, idx_alloca);
+            auto* cur_idx = m_ctx.load(usize_type, idx_alloca);
             auto idx_load_name = ident_name();
             cur_idx->name = m_name_pool.back();
             append_inst(cur_idx);
@@ -1279,7 +1280,7 @@ export namespace dcc::ir::lower
             {
                 push_scope();
 
-                auto* cur_idx2 = m_ctx.load(u64_type, idx_alloca);
+                auto* cur_idx2 = m_ctx.load(usize_type, idx_alloca);
                 auto idx_load2_name = ident_name();
                 cur_idx2->name = m_name_pool.back();
                 append_inst(cur_idx2);
@@ -1347,13 +1348,13 @@ export namespace dcc::ir::lower
 
             set_current_block(step_bb);
 
-            auto* cur_idx3 = m_ctx.load(u64_type, idx_alloca);
+            auto* cur_idx3 = m_ctx.load(usize_type, idx_alloca);
             auto idx_load3_name = ident_name();
             cur_idx3->name = m_name_pool.back();
             append_inst(cur_idx3);
 
-            auto* one = m_ctx.int_const(u64_type, 1);
-            auto* next_idx = m_ctx.add(u64_type, cur_idx3, one);
+            auto* one = m_ctx.int_const(usize_type, 1);
+            auto* next_idx = m_ctx.add(usize_type, cur_idx3, one);
             auto next_name = ident_name();
             next_idx->name = m_name_pool.back();
             append_inst(next_idx);
@@ -1426,6 +1427,14 @@ export namespace dcc::ir::lower
                         cmp_index = tr;
                     }
                 }
+                else if (index->type != len->type)
+                {
+                    auto* bc = m_ctx.bitcast(len->type, cmp_index);
+                    auto bc_name = ident_name();
+                    bc->name = m_name_pool.back();
+                    append_inst(bc);
+                    cmp_index = bc;
+                }
             }
 
             auto* cmp = m_ctx.cmp_ult(cmp_index, len);
@@ -1494,7 +1503,7 @@ export namespace dcc::ir::lower
                 auto* slice_ir_ty = m_ctx.slice_t(m_ctx.int_t(8, false), ir::Segment::None);
                 auto* file_global = get_or_create_string_global(file, false);
                 auto* file_ptr = m_ctx.global_ref(file_global, m_ctx.pointer_to(m_ctx.int_t(8, false)));
-                auto* file_len = m_ctx.int_const(m_ctx.int_t(64, false), static_cast<std::int64_t>(file.size()));
+                auto* file_len = m_ctx.int_const(m_ctx.usize_t(), static_cast<std::int64_t>(file.size()));
                 auto* file_slice = m_ctx.aggregate(slice_ir_ty);
                 file_slice->values.push_back(file_ptr);
                 file_slice->values.push_back(file_len);
@@ -1507,7 +1516,7 @@ export namespace dcc::ir::lower
                 auto* slice_ir_ty = m_ctx.slice_t(m_ctx.int_t(8, false), ir::Segment::None);
                 auto* func_global = get_or_create_string_global(func, false);
                 auto* func_ptr = m_ctx.global_ref(func_global, m_ctx.pointer_to(m_ctx.int_t(8, false)));
-                auto* func_len = m_ctx.int_const(m_ctx.int_t(64, false), static_cast<std::int64_t>(func.size()));
+                auto* func_len = m_ctx.int_const(m_ctx.usize_t(), static_cast<std::int64_t>(func.size()));
                 auto* func_slice = m_ctx.aggregate(slice_ir_ty);
                 func_slice->values.push_back(func_ptr);
                 func_slice->values.push_back(func_len);
@@ -1518,7 +1527,7 @@ export namespace dcc::ir::lower
                 auto* slice_ir_ty = m_ctx.slice_t(m_ctx.int_t(8, false), ir::Segment::None);
                 auto* expr_global = get_or_create_string_global(expr, false);
                 auto* expr_ptr = m_ctx.global_ref(expr_global, m_ctx.pointer_to(m_ctx.int_t(8, false)));
-                auto* expr_len = m_ctx.int_const(m_ctx.int_t(64, false), static_cast<std::int64_t>(expr.size()));
+                auto* expr_len = m_ctx.int_const(m_ctx.usize_t(), static_cast<std::int64_t>(expr.size()));
                 auto* expr_slice = m_ctx.aggregate(slice_ir_ty);
                 expr_slice->values.push_back(expr_ptr);
                 expr_slice->values.push_back(expr_len);
@@ -1551,7 +1560,7 @@ export namespace dcc::ir::lower
             auto* void_sema = m_ctx.make<dcc::types::VoidType>();
             auto* char_sema = m_ctx.make<dcc::types::CharType>();
             auto* i32_sema = m_ctx.make<dcc::types::IntType>(static_cast<std::uint8_t>(32), true);
-            auto* slice_const_char_sema = m_ctx.make<dcc::types::SliceType>(char_sema, dcc::types::Qual::Const);
+            auto* slice_const_char_sema = m_ctx.make<dcc::types::SliceType>(char_sema, dcc::types::Qual::Const, m_ctx.pointer_bits(), m_ctx.pointer_align());
 
             auto* synthetic_fd = m_ctx.make<ast::FuncDecl>(sm::SourceRange{}, std::string_view{"__assert"}, sm::SourceRange{});
 
@@ -4334,7 +4343,7 @@ export namespace dcc::ir::lower
                         ptr_to_first->name = m_name_pool.back();
                         append_inst(ptr_to_first);
 
-                        auto* len_val = m_ctx.int_const(m_ctx.int_t(64, false), 1);
+                        auto* len_val = m_ctx.int_const(m_ctx.usize_t(), 1);
                         auto* ir_slice_type = lower_type(block_type);
                         auto* slice_agg = m_ctx.aggregate(ir_slice_type);
                         slice_agg->values.push_back(ptr_to_first);
@@ -4804,7 +4813,7 @@ export namespace dcc::ir::lower
                 auto* slice_ir_ty = lower_type(target_type);
                 auto* ptr_type = m_ctx.pointer_to(m_ctx.int_t(8, false));
                 auto* ptr_val = m_ctx.global_ref(str_global, ptr_type);
-                auto* len_val = m_ctx.int_const(m_ctx.int_t(64, false), static_cast<std::int64_t>(content.size()));
+                auto* len_val = m_ctx.int_const(m_ctx.usize_t(), static_cast<std::int64_t>(content.size()));
 
                 auto* agg = m_ctx.aggregate(slice_ir_ty);
                 agg->values.push_back(ptr_val);
@@ -4845,7 +4854,7 @@ export namespace dcc::ir::lower
                 auto* u16_type = m_ctx.int_t(16, false);
                 auto* ptr_type = m_ctx.pointer_to(u16_type);
                 auto* ptr_val = m_ctx.global_ref(str_global, ptr_type);
-                auto* len_val = m_ctx.int_const(m_ctx.int_t(64, false), static_cast<std::int64_t>(content.size()));
+                auto* len_val = m_ctx.int_const(m_ctx.usize_t(), static_cast<std::int64_t>(content.size()));
 
                 auto* agg = m_ctx.aggregate(slice_ir_ty);
                 agg->values.push_back(ptr_val);
@@ -4907,7 +4916,7 @@ export namespace dcc::ir::lower
                             auto* slice_ir_ty = lower_type(target_type);
                             auto* ptr_type = m_ctx.pointer_to(u16_ir);
                             auto* ptr_val = m_ctx.global_ref(str_global, ptr_type);
-                            auto* len_val = m_ctx.int_const(m_ctx.int_t(64, false), static_cast<std::int64_t>(u16v.size()));
+                            auto* len_val = m_ctx.int_const(m_ctx.usize_t(), static_cast<std::int64_t>(u16v.size()));
                             auto* agg = m_ctx.aggregate(slice_ir_ty);
                             agg->values.push_back(ptr_val);
                             agg->values.push_back(len_val);
@@ -4929,7 +4938,7 @@ export namespace dcc::ir::lower
                             auto* slice_ir_ty = lower_type(target_type);
                             auto* ptr_type = m_ctx.pointer_to(m_ctx.int_t(8, false));
                             auto* ptr_val = m_ctx.global_ref(str_global, ptr_type);
-                            auto* len_val = m_ctx.int_const(m_ctx.int_t(64, false), static_cast<std::int64_t>(s.size()));
+                            auto* len_val = m_ctx.int_const(m_ctx.usize_t(), static_cast<std::int64_t>(s.size()));
                             auto* agg = m_ctx.aggregate(slice_ir_ty);
                             agg->values.push_back(ptr_val);
                             agg->values.push_back(len_val);
@@ -5013,7 +5022,7 @@ export namespace dcc::ir::lower
                         auto* str_global = get_or_create_string_global(content, false);
                         auto* ptr_type = m_ctx.pointer_to(m_ctx.int_t(8, false));
                         auto* ptr_val = m_ctx.global_ref(str_global, ptr_type);
-                        auto* len_val = m_ctx.int_const(m_ctx.int_t(64, false), static_cast<std::int64_t>(content.size()));
+                        auto* len_val = m_ctx.int_const(m_ctx.usize_t(), static_cast<std::int64_t>(content.size()));
                         auto* agg = m_ctx.aggregate(ir_ty);
                         agg->values.push_back(ptr_val);
                         agg->values.push_back(len_val);
@@ -5066,7 +5075,7 @@ export namespace dcc::ir::lower
                 case IrTypeKind::Slice: {
                     auto* ptr_type = m_ctx.pointer_to(m_ctx.int_t(8, false));
                     auto* null_ptr = m_ctx.null_const(ptr_type);
-                    auto* zero_len = m_ctx.int_const(m_ctx.int_t(64, false), 0);
+                    auto* zero_len = m_ctx.int_const(m_ctx.usize_t(), 0);
                     auto* agg = m_ctx.aggregate(ir_type);
                     agg->values.push_back(null_ptr);
                     agg->values.push_back(zero_len);
@@ -5269,7 +5278,7 @@ export namespace dcc::ir::lower
                 ptr_to_first->name = m_name_pool.back();
                 append_inst(ptr_to_first);
 
-                auto* len_val = m_ctx.int_const(m_ctx.int_t(64, false), static_cast<std::int64_t>(field_count));
+                auto* len_val = m_ctx.int_const(m_ctx.usize_t(), static_cast<std::int64_t>(field_count));
 
                 auto* slice_agg = m_ctx.aggregate(ir_ty);
                 slice_agg->values.push_back(ptr_to_first);
@@ -5540,7 +5549,7 @@ export namespace dcc::ir::lower
             else
                 lower_panic("cannot coerce array to slice: unsupported IR type");
 
-            auto* len_val = m_ctx.int_const(m_ctx.int_t(64, false), static_cast<std::int64_t>(at->count));
+            auto* len_val = m_ctx.int_const(m_ctx.usize_t(), static_cast<std::int64_t>(at->count));
 
             auto* agg = m_ctx.aggregate(ir_slice_type);
             agg->values.push_back(ptr_val);
@@ -5843,7 +5852,7 @@ export namespace dcc::ir::lower
                 ptr_extract->name = m_name_pool.back();
                 append_inst(ptr_extract);
 
-                auto* len_type = m_ctx.int_t(64, false);
+                auto* len_type = m_ctx.usize_t();
                 auto* len_extract = m_ctx.extract(len_type, obj_val, 1);
                 auto len_name = ident_name();
                 len_extract->name = m_name_pool.back();
@@ -5886,7 +5895,7 @@ export namespace dcc::ir::lower
 
                             if (!skip_check)
                             {
-                                auto* len_val = m_ctx.int_const(m_ctx.int_t(64, false), static_cast<std::int64_t>(at->count));
+                                auto* len_val = m_ctx.int_const(m_ctx.usize_t(), static_cast<std::int64_t>(at->count));
                                 emit_bounds_check(nullptr, len_val, index_val, idx_expr->range, idx_expr->index->range, BoundsCheckKind::Array);
                             }
                         }
@@ -5923,7 +5932,7 @@ export namespace dcc::ir::lower
 
                             if (!skip_check)
                             {
-                                auto* len_val = m_ctx.int_const(m_ctx.int_t(64, false), static_cast<std::int64_t>(at->count));
+                                auto* len_val = m_ctx.int_const(m_ctx.usize_t(), static_cast<std::int64_t>(at->count));
                                 emit_bounds_check(nullptr, len_val, index_val, idx_expr->range, idx_expr->index->range, BoundsCheckKind::Array);
                             }
                         }
@@ -5985,7 +5994,7 @@ export namespace dcc::ir::lower
             if (!ir_slice_type || ir_slice_type->kind != IrTypeKind::Slice)
                 lower_panic(idx_expr, "range slice resolved type is not a slice");
 
-            auto* u64_type = m_ctx.int_t(64, false);
+            auto* usize_type = m_ctx.usize_t();
 
             IrValue* source_len = nullptr;
             IrValue* source_ptr = nullptr;
@@ -5993,7 +6002,7 @@ export namespace dcc::ir::lower
 
             if (auto const* at = types::type_cast<types::ArrayType>(obj_sema_type))
             {
-                source_len = m_ctx.int_const(u64_type, static_cast<std::int64_t>(at->count));
+                source_len = m_ctx.int_const(usize_type, static_cast<std::int64_t>(at->count));
                 ir_element_type = lower_type(at->element);
 
                 auto lv = lower_assign_lvalue(idx_expr->object);
@@ -6002,7 +6011,7 @@ export namespace dcc::ir::lower
                 {
                     auto* elem_ptr_type = m_ctx.pointer_to(ir_element_type);
                     auto* gep = m_ctx.gep(elem_ptr_type, lv.entry->value);
-                    gep->indices.push_back({IrGepInst::IndexKind::Array, m_ctx.int_const(u64_type, 0), 0});
+                    gep->indices.push_back({IrGepInst::IndexKind::Array, m_ctx.int_const(usize_type, 0), 0});
                     auto gep_name = ident_name();
                     gep->name = m_name_pool.back();
                     append_inst(gep);
@@ -6012,7 +6021,7 @@ export namespace dcc::ir::lower
                 {
                     auto* elem_ptr_type = m_ctx.pointer_to(ir_element_type);
                     auto* gep = m_ctx.gep(elem_ptr_type, lv.gep_ptr);
-                    gep->indices.push_back({IrGepInst::IndexKind::Array, m_ctx.int_const(u64_type, 0), 0});
+                    gep->indices.push_back({IrGepInst::IndexKind::Array, m_ctx.int_const(usize_type, 0), 0});
                     auto gep_name = ident_name();
                     gep->name = m_name_pool.back();
                     append_inst(gep);
@@ -6031,7 +6040,7 @@ export namespace dcc::ir::lower
 
                     auto* elem_ptr_type = m_ctx.pointer_to(ir_element_type);
                     auto* gep = m_ctx.gep(elem_ptr_type, temp);
-                    gep->indices.push_back({IrGepInst::IndexKind::Array, m_ctx.int_const(u64_type, 0), 0});
+                    gep->indices.push_back({IrGepInst::IndexKind::Array, m_ctx.int_const(usize_type, 0), 0});
                     auto gep_name = ident_name();
                     gep->name = m_name_pool.back();
                     append_inst(gep);
@@ -6051,7 +6060,7 @@ export namespace dcc::ir::lower
                 append_inst(ptr_extract);
                 source_ptr = ptr_extract;
 
-                auto* len_extract = m_ctx.extract(u64_type, obj_val, 1);
+                auto* len_extract = m_ctx.extract(usize_type, obj_val, 1);
                 auto len_name = ident_name();
                 len_extract->name = m_name_pool.back();
                 append_inst(len_extract);
@@ -6065,19 +6074,19 @@ export namespace dcc::ir::lower
             IrValue* start_val = nullptr;
             IrValue* end_val = nullptr;
 
-            auto ensure_u64 = [&](IrValue* v) -> IrValue* {
+            auto ensure_usize = [&](IrValue* v) -> IrValue* {
                 if (!v || !v->type)
                     return v;
 
                 if (v->type->kind == IrTypeKind::Int)
                 {
                     auto* int_ty = static_cast<IrIntType const*>(v->type);
-                    if (int_ty->bits != 64 || int_ty->is_signed)
+                    if (int_ty->bits != m_ctx.pointer_bits() || int_ty->is_signed || !int_ty->is_pointer_sized)
                     {
                         if (auto* ic = ir_cast<IrIntConstant>(v))
-                            return m_ctx.int_const(u64_type, ic->value);
+                            return m_ctx.int_const(usize_type, ic->value);
 
-                        auto* casted = m_ctx.zext(u64_type, v);
+                        auto* casted = m_ctx.zext(usize_type, v);
                         auto name = ident_name();
                         casted->name = m_name_pool.back();
                         append_inst(casted);
@@ -6088,20 +6097,20 @@ export namespace dcc::ir::lower
             };
 
             if (r.start)
-                start_val = ensure_u64(lower_expr(r.start));
+                start_val = ensure_usize(lower_expr(r.start));
             else
-                start_val = m_ctx.int_const(u64_type, 0);
+                start_val = m_ctx.int_const(usize_type, 0);
 
             if (r.end)
-                end_val = ensure_u64(lower_expr(r.end));
+                end_val = ensure_usize(lower_expr(r.end));
             else
                 end_val = source_len;
 
             IrValue* effective_end = nullptr;
             if (r.inclusive)
             {
-                auto* one = m_ctx.int_const(u64_type, 1);
-                effective_end = m_ctx.add(u64_type, end_val, one);
+                auto* one = m_ctx.int_const(usize_type, 1);
+                effective_end = m_ctx.add(usize_type, end_val, one);
                 auto eff_name = ident_name();
                 effective_end->name = m_name_pool.back();
                 append_inst(effective_end);
@@ -6226,7 +6235,7 @@ export namespace dcc::ir::lower
                 }
             }
 
-            auto* slice_len = m_ctx.sub(u64_type, effective_end, start_val);
+            auto* slice_len = m_ctx.sub(usize_type, effective_end, start_val);
             auto slice_len_name = ident_name();
             slice_len->name = m_name_pool.back();
             append_inst(slice_len);
@@ -6234,6 +6243,7 @@ export namespace dcc::ir::lower
             auto* elem_ptr_type = m_ctx.pointer_to(ir_element_type);
             auto* gep = m_ctx.gep(elem_ptr_type, source_ptr);
             gep->indices.push_back({IrGepInst::IndexKind::Array, start_val, 0});
+
             auto gep_name = ident_name();
             gep->name = m_name_pool.back();
             append_inst(gep);
@@ -6441,14 +6451,14 @@ export namespace dcc::ir::lower
 
                         if (m_bounds_check)
                         {
-                            auto* ptr_to_len_field = m_ctx.pointer_to(m_ctx.int_t(64, false));
+                            auto* ptr_to_len_field = m_ctx.pointer_to(m_ctx.usize_t());
                             auto* gep_len = m_ctx.gep(ptr_to_len_field, it->second.value);
                             gep_len->indices.push_back({IrGepInst::IndexKind::Field, nullptr, 1});
                             auto gep_len_name = ident_name();
                             gep_len->name = m_name_pool.back();
                             append_inst(gep_len);
 
-                            auto* len_val = m_ctx.load(m_ctx.int_t(64, false), gep_len);
+                            auto* len_val = m_ctx.load(m_ctx.usize_t(), gep_len);
                             auto len_load_name = ident_name();
                             len_val->name = m_name_pool.back();
                             append_inst(len_val);
@@ -6477,7 +6487,7 @@ export namespace dcc::ir::lower
 
                             if (!skip_check)
                             {
-                                auto* len_val = m_ctx.int_const(m_ctx.int_t(64, false), static_cast<std::int64_t>(at->count));
+                                auto* len_val = m_ctx.int_const(m_ctx.usize_t(), static_cast<std::int64_t>(at->count));
                                 emit_bounds_check(nullptr, len_val, index_val, idx_expr->range, idx_expr->index->range, BoundsCheckKind::Array);
                             }
                         }
@@ -6509,7 +6519,7 @@ export namespace dcc::ir::lower
 
                                 if (!skip_check)
                                 {
-                                    auto* len_val = m_ctx.int_const(m_ctx.int_t(64, false), static_cast<std::int64_t>(at->count));
+                                    auto* len_val = m_ctx.int_const(m_ctx.usize_t(), static_cast<std::int64_t>(at->count));
                                     emit_bounds_check(nullptr, len_val, index_val, idx_expr->range, idx_expr->index->range, BoundsCheckKind::Array);
                                 }
                             }
@@ -6543,7 +6553,7 @@ export namespace dcc::ir::lower
 
                         if (m_bounds_check)
                         {
-                            auto* len_extract = m_ctx.extract(m_ctx.int_t(64, false), entry_val, 1);
+                            auto* len_extract = m_ctx.extract(m_ctx.usize_t(), entry_val, 1);
                             auto len_name = ident_name();
                             len_extract->name = m_name_pool.back();
                             append_inst(len_extract);
@@ -6596,7 +6606,7 @@ export namespace dcc::ir::lower
 
                     if (m_bounds_check)
                     {
-                        auto* len_extract = m_ctx.extract(m_ctx.int_t(64, false), obj_val, 1);
+                        auto* len_extract = m_ctx.extract(m_ctx.usize_t(), obj_val, 1);
                         auto len_name = ident_name();
                         len_extract->name = m_name_pool.back();
                         append_inst(len_extract);

@@ -9,6 +9,7 @@ public enum FormatArg {
     @implicit_construction Str([]const u8),
     @implicit_construction Int(i64),
     @implicit_construction Uint(u64),
+    @implicit_construction Usize(usize),
 }
 
 void print(T)(T out, u8 c) if WritableInto(T) {
@@ -146,10 +147,20 @@ void format_one(T)(T out, FormatArg arg, u8 spec_kind) if WritableInto(T) {
                 out.print(n);
             }
         },
+        FormatArg::Usize(val) => {
+            u64 n = val as u64;
+            if spec_kind == ('d' as u8) {
+                out.print(n as i64);
+            } else if spec_kind == ('x' as u8) {
+                out.print_hex(n);
+            } else {
+                out.print(n);
+            }
+        },
     }
 }
 
-u8 read_spec([]const u8 fmt, u64 spec_start, u64 spec_len) {
+u8 read_spec([]const u8 fmt, usize spec_start, usize spec_len) {
     if spec_len == 0 {
         return 0;
     }
@@ -170,7 +181,7 @@ u8 read_spec([]const u8 fmt, u64 spec_start, u64 spec_len) {
     return 0;
 }
 
-void emit_arg(T)(T out, []const FormatArg args, u64 arg_idx, u8 kind) if WritableInto(T) {
+void emit_arg(T)(T out, []const FormatArg args, usize arg_idx, u8 kind) if WritableInto(T) {
     if arg_idx < args.len {
         out.format_one(args[arg_idx], kind);
     } else {
@@ -179,8 +190,8 @@ void emit_arg(T)(T out, []const FormatArg args, u64 arg_idx, u8 kind) if Writabl
 }
 
 void format_impl(T)(T out, []const u8 fmt, []const FormatArg args) if WritableInto(T) {
-    u64 arg_idx = 0;
-    u64 i = 0;
+    usize arg_idx = 0;
+    usize i = 0;
 
     while i < fmt.len {
         u8 c = fmt[i];
@@ -194,7 +205,7 @@ void format_impl(T)(T out, []const u8 fmt, []const FormatArg args) if WritableIn
                 }
             }
 
-            u64 spec_start = i + 1;
+            usize spec_start = i + 1;
             i = i + 1;
             while i < fmt.len {
                 if fmt[i] == ('}' as u8) {
@@ -206,7 +217,7 @@ void format_impl(T)(T out, []const u8 fmt, []const FormatArg args) if WritableIn
 
             if i >= fmt.len {
                 out.print('{' as u8);
-                u64 j = spec_start;
+                usize j = spec_start;
                 while j < fmt.len {
                     out.print(fmt[j]);
                     j = j + 1;
@@ -215,7 +226,7 @@ void format_impl(T)(T out, []const u8 fmt, []const FormatArg args) if WritableIn
                 return;
             }
 
-            u64 spec_len = i - spec_start;
+            usize spec_len = i - spec_start;
             u8 kind = read_spec(fmt, spec_start, spec_len);
 
             i = i + 1;

@@ -7,12 +7,12 @@ struct S {
     u16 c;
 }
 
-public u64 offset_plus_one() { return offsetof(S, b) + 1; }
+public usize offset_plus_one() { return offsetof(S, b) + 1; }
 
 === EXPECT-IR ===
 module "test"
-u64@_DC0F1.4.test15.offset_plus_one0i64u() {
+usize@_DC0F1.4.test15.offset_plus_one0Iu() {
 %entry:
-  %0 = add u64 #8, u64 #1
-  ret u64 %0
+  %0 = add usize #8, usize #1
+  ret usize %0
 }

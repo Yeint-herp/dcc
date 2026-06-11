@@ -12,7 +12,7 @@ module "test"
   %0 = alloca [5 x i64]
   store [5 x i64] %arr, ptr<[5 x i64]> %0
   %1 = gep ptr<[5 x i64]> %0, #0
-  %2 = sub u64 #5, u64 #0
+  %2 = sub usize #5, usize #0
   %3 = gep ptr<i64> %1, #0
   %4 = aggregate []i64, %3, %2
   ret []i64 %4

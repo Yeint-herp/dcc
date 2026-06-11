@@ -23,10 +23,10 @@ Module m
   Func f diverging=false
     Param a type=A storage=param offset=0 index=0
     Body
-      Sizeof [type=u64 const=8 constant]
-      Alignof [type=u64 const=4 constant]
-      Offsetof [type=u64 const=0 constant]
-      Offsetof [type=u64 const=4 constant]
+      Sizeof [type=usize const=8 constant]
+      Alignof [type=usize const=4 constant]
+      Offsetof [type=usize const=0 constant]
+      Offsetof [type=usize const=4 constant]
       FieldAccess x [type=i32 const=<none> lvalue decl=B]
         FieldAccess b [type=B const=<none> lvalue decl=A]
           Ident a [type=A const=<none> lvalue decl=a]

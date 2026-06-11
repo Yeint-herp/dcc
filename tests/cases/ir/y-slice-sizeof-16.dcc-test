@@ -1,13 +1,13 @@
 === FILE: test.dc ===
 module test;
 
-public u64 test() {
+public usize test() {
     return sizeof([]i64);
 }
 
 === EXPECT-IR ===
 module "test"
-u64@_DC0F1.4.test4.test0i64u() {
+usize@_DC0F1.4.test4.test0Iu() {
 %entry:
-  ret u64 #16
+  ret usize #16
 }

@@ -22,15 +22,15 @@ i64@_DC0F1.4.test1.f1Sqi64si64s([]i64) {
   %2 = load []i64, ptr<[]i64> %0
   %3 = extract []i64 %2, field #1
   %4 = extract []i64 %2, field #0
-  %5 = alloca u64
-  store u64 #0, ptr<u64> %5
+  %5 = alloca usize
+  store usize #0, ptr<usize> %5
   br label %forin.header1
 %forin.header1:
-  %6 = load u64, ptr<u64> %5
-  %7 = cmp.ult u64 %6, %3
+  %6 = load usize, ptr<usize> %5
+  %7 = cmp.ult usize %6, %3
   br.cond %7, label %forin.body2, label %forin.exit4
 %forin.body2:
-  %8 = load u64, ptr<u64> %5
+  %8 = load usize, ptr<usize> %5
   %9 = gep ptr<i64> %4, %8
   %10 = load i64, ptr<i64> %1
   %11 = load i64, ptr<i64> %9
@@ -38,9 +38,9 @@ i64@_DC0F1.4.test1.f1Sqi64si64s([]i64) {
   store i64 %12, ptr<i64> %1
   br label %forin.step3
 %forin.step3:
-  %13 = load u64, ptr<u64> %5
-  %14 = add u64 %13, u64 #1
-  store u64 %14, ptr<u64> %5
+  %13 = load usize, ptr<usize> %5
+  %14 = add usize %13, usize #1
+  store usize %14, ptr<usize> %5
   br label %forin.header1
 %forin.exit4:
   %15 = load i64, ptr<i64> %1

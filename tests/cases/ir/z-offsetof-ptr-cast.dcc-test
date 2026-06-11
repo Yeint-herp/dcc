@@ -7,15 +7,15 @@ public struct S {
     u64 b;
 }
 
-public S* container_from_link(u64 link_ptr) {
+public S* container_from_link(usize link_ptr) {
     return (link_ptr - offsetof(S, link)) as S*;
 }
 
 === EXPECT-IR ===
 module "test"
-ptr<{@0 u64, @8 u64, @16 u64}>@_DC0F1.4.test19.container_from_link1i64uPqD1.4.test1.S0.(u64) {
-%entry(u64 %link_ptr):
-  %0 = sub u64 %link_ptr, u64 #8
-  %1 = itoptr u64 %0 to ptr<{@0 u64, @8 u64, @16 u64}>
+ptr<{@0 u64, @8 u64, @16 u64}>@_DC0F1.4.test19.container_from_link1IuPqD1.4.test1.S0.(usize) {
+%entry(usize %link_ptr):
+  %0 = sub usize %link_ptr, usize #8
+  %1 = itoptr usize %0 to ptr<{@0 u64, @8 u64, @16 u64}>
   ret ptr<{@0 u64, @8 u64, @16 u64}> %1
 }

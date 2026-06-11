@@ -22,12 +22,13 @@ i64@_DC0F1.4.test4.test1i64si64s(i64) {
   %1 = aggregate [3 x i64], #10, #20, #30
   store [3 x i64] %1, ptr<[3 x i64]> %0
   %2 = load [3 x i64], ptr<[3 x i64]> %0
-  %3 = cmp.ult i64 %idx, #3
-  br.cond %3, label %bounds.ok1, label %bounds.fail2
+  %3 = bitcast i64 %idx to usize
+  %4 = cmp.ult usize %3, #3
+  br.cond %4, label %bounds.ok1, label %bounds.fail2
 %bounds.ok1:
-  %4 = gep ptr<[3 x i64]> %0, %idx
-  %5 = load i64, ptr<i64> %4
-  ret i64 %5
+  %5 = gep ptr<[3 x i64]> %0, %idx
+  %6 = load i64, ptr<i64> %5
+  ret i64 %6
 %bounds.fail2:
   call fn(@_DC0F1.6.assert8.__assert4SCqci32sSCqcSCqcv)([]u8 aggregate []u8, @.str.0, #7, i32 #5, []u8 aggregate []u8, @.str.1, #4, []u8 aggregate []u8, @.str.2, #25)
   unreachable

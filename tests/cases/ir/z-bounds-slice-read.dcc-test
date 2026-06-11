@@ -21,12 +21,13 @@ i64@_DC0F1.4.test4.test2Sqi64si64si64s([]i64, i64) {
   %1 = load []i64, ptr<[]i64> %0
   %2 = extract []i64 %1, field #0
   %3 = extract []i64 %1, field #1
-  %4 = cmp.ult i64 %idx, %3
-  br.cond %4, label %bounds.ok1, label %bounds.fail2
+  %4 = bitcast i64 %idx to usize
+  %5 = cmp.ult usize %4, %3
+  br.cond %5, label %bounds.ok1, label %bounds.fail2
 %bounds.ok1:
-  %5 = gep ptr<i64> %2, %idx
-  %6 = load i64, ptr<i64> %5
-  ret i64 %6
+  %6 = gep ptr<i64> %2, %idx
+  %7 = load i64, ptr<i64> %6
+  ret i64 %7
 %bounds.fail2:
   call fn(@_DC0F1.6.assert8.__assert4SCqci32sSCqcSCqcv)([]u8 aggregate []u8, @.str.0, #7, i32 #4, []u8 aggregate []u8, @.str.1, #4, []u8 aggregate []u8, @.str.2, #25)
   unreachable

@@ -5779,7 +5779,7 @@ export namespace dcc::sema
                             {
                                 auto pack_result = resolve_pack_info(mod, scope, ident->name, ident->range);
                                 if (pack_result.has_value())
-                                    out.type = m_types.int_t(64, false);
+                                    out.type = m_types.usize_t();
                                 else
                                     error(ident->range, "cannot expand '{}': not a pack", ident->name);
                             }
@@ -6404,7 +6404,7 @@ export namespace dcc::sema
                 }
                 if (f.field == "len")
                 {
-                    out.type = m_types.int_t(64, false);
+                    out.type = m_types.usize_t();
                     out.resolved_decl = nullptr;
                     out.is_lvalue = true;
                     if (obj.constant && obj.constant->kind() == comptime::Value::Kind::Slice && obj.constant->size() >= 2)
@@ -7283,7 +7283,7 @@ export namespace dcc::sema
         detail::ExprResult analyze_sizeof(ModuleInfo& mod, Scope const& scope, ast::SizeofExpr& s)
         {
             detail::ExprResult out{};
-            out.type = m_types.int_t(64, false);
+            out.type = m_types.usize_t();
             if (s.target)
             {
                 auto target = resolve_type_node(mod, scope, s.target);
@@ -7322,7 +7322,7 @@ export namespace dcc::sema
         detail::ExprResult analyze_sizeof_pack(ModuleInfo& mod, Scope const& scope, ast::SizeofPackExpr& s)
         {
             detail::ExprResult out{};
-            out.type = m_types.int_t(64, false);
+            out.type = m_types.usize_t();
             out.is_constant = true;
 
             auto pack = resolve_pack_info(mod, scope, s.pack_name, s.name_range);
@@ -7337,7 +7337,7 @@ export namespace dcc::sema
         detail::ExprResult analyze_alignof(ModuleInfo& mod, Scope const& scope, ast::AlignofExpr& s)
         {
             detail::ExprResult out{};
-            out.type = m_types.int_t(64, false);
+            out.type = m_types.usize_t();
             if (s.target)
             {
                 auto target = resolve_type_node(mod, scope, s.target);
@@ -7352,7 +7352,7 @@ export namespace dcc::sema
         detail::ExprResult analyze_offsetof(ModuleInfo& mod, Scope const& scope, ast::OffsetofExpr& s)
         {
             detail::ExprResult out{};
-            out.type = m_types.int_t(64, false);
+            out.type = m_types.usize_t();
             auto const* target_ty = s.target ? resolve_type_node(mod, scope, s.target) : nullptr;
             if (target_ty &&
                 (target_ty->kind == types::TypeKind::Struct || target_ty->kind == types::TypeKind::Union || target_ty->kind == types::TypeKind::Enum))
@@ -8969,8 +8969,8 @@ export namespace dcc::sema
 
                         auto* inner = make_scope(ScopeKind::Block, &scope);
                         auto* inner_consts = make_const_env(const_env);
-                        auto* v = make_local_decl(sf.item_name, sf.name_range, nullptr, ast::StorageClass::Local,
-                                                  allocate_frame_slot(next_off, m_types.int_t(64, false)));
+                        auto* v =
+                            make_local_decl(sf.item_name, sf.name_range, nullptr, ast::StorageClass::Local, allocate_frame_slot(next_off, m_types.usize_t()));
                         define_local(*inner, v);
                         std::ignore = analyze_block(mod, fn, *inner, sf.body, loop_depth, next_off, nullptr, inner_consts);
                     }
@@ -9476,7 +9476,7 @@ export namespace dcc::sema
                     if (lhs.tag != ConstSizeResult::Tag::Folded || rhs.tag != ConstSizeResult::Tag::Folded)
                         return ConstSizeResult::not_constant();
 
-                    auto* fold_ty = m_types.int_t(64, false);
+                    auto* fold_ty = m_types.usize_t();
                     switch (be->op)
                     {
                         case lex::TokenKind::Plus: {
@@ -9533,7 +9533,7 @@ export namespace dcc::sema
                     if (inner.tag != ConstSizeResult::Tag::Folded)
                         return ConstSizeResult::not_constant();
 
-                    auto* fold_ty = m_types.int_t(64, false);
+                    auto* fold_ty = m_types.usize_t();
                     switch (ue->op)
                     {
                         case lex::TokenKind::Plus:
@@ -9686,7 +9686,7 @@ export namespace dcc::sema
                                 auto* size_expr = const_cast<ast::Expr*>(arr->size);
                                 auto& scope_ref = const_cast<Scope&>(scope);
                                 std::uint32_t& off_ref = next_off_ptr ? *next_off_ptr : dummy_offset();
-                                auto* expected_ty = m_types.int_t(64, false);
+                                auto* expected_ty = m_types.usize_t();
                                 std::ignore = analyze_expr(mod, fn, scope_ref, *size_expr, 0, off_ref, expected_ty, const_env);
                             }
                             else if (arr->size && arr->size->kind == ast::ExprKind::Ident)

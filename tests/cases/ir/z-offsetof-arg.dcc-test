@@ -7,18 +7,18 @@ struct S {
     u16 c;
 }
 
-public u64 take(u64 x) { return x; }
-public u64 call_with_offsetof() { return take(offsetof(S, b)); }
+public usize take(usize x) { return x; }
+public usize call_with_offsetof() { return take(offsetof(S, b)); }
 
 === EXPECT-IR ===
 module "test"
-u64@_DC0F1.4.test4.take1i64ui64u(u64) {
-%entry(u64 %x):
-  ret u64 %x
+usize@_DC0F1.4.test4.take1IuIu(usize) {
+%entry(usize %x):
+  ret usize %x
 }
 
-u64@_DC0F1.4.test18.call_with_offsetof0i64u() {
+usize@_DC0F1.4.test18.call_with_offsetof0Iu() {
 %entry:
-  %0 = call fn(@_DC0F1.4.test4.take1i64ui64u)(u64 #8) -> u64
-  ret u64 %0
+  %0 = call fn(@_DC0F1.4.test4.take1IuIu)(usize #8) -> usize
+  ret usize %0
 }

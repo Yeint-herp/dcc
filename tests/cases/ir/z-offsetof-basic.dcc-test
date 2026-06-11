@@ -7,17 +7,17 @@ struct S {
     u16 c;
 }
 
-public u64 get_offset_b() { return offsetof(S, b); }
-public u64 get_offset_c() { return offsetof(S, c); }
+public usize get_offset_b() { return offsetof(S, b); }
+public usize get_offset_c() { return offsetof(S, c); }
 
 === EXPECT-IR ===
 module "test"
-u64@_DC0F1.4.test12.get_offset_b0i64u() {
+usize@_DC0F1.4.test12.get_offset_b0Iu() {
 %entry:
-  ret u64 #8
+  ret usize #8
 }
 
-u64@_DC0F1.4.test12.get_offset_c0i64u() {
+usize@_DC0F1.4.test12.get_offset_c0Iu() {
 %entry:
-  ret u64 #16
+  ret usize #16
 }

@@ -41,21 +41,21 @@ public fd_t open(const char* path, i32 flags, u32 mode) {
     ) as fd_t;
 }
 
-public i64 read(fd_t fd, u8* buf, u64 count) {
+public i64 read(fd_t fd, u8* buf, usize count) {
     return __syscall3(
         SYS_READ,
         fd as u64,
         buf as u64,
-        count
+        count as u64
     ) as i64;
 }
 
-public i64 write(fd_t fd, const u8* buf, u64 count) {
+public i64 write(fd_t fd, const u8* buf, usize count) {
     return __syscall3(
         SYS_WRITE,
         fd as u64,
         buf as u64,
-        count
+        count as u64
     ) as i64;
 }
 

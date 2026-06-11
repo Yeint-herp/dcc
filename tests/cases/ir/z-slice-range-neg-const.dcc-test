@@ -22,17 +22,17 @@ const global @.str.2 : [25 x u8] = aggregate [25 x u8], #115, #108, #105, #99, #
   %2 = extract []i64 %1, field #0
   %3 = extract []i64 %1, field #1
   %4 = neg i32 #1
-  %5 = zext i32 %4 to u64
-  %6 = cmp.ule u64 %5, #3
+  %5 = zext i32 %4 to usize
+  %6 = cmp.ule usize %5, #3
   br.cond %6, label %slice.oka1, label %slice.faila2
 %slice.oka1:
-  %7 = cmp.ule u64 #3, %3
+  %7 = cmp.ule usize #3, %3
   br.cond %7, label %slice.okb3, label %slice.failb4
 %slice.faila2:
   call fn(@_DC0F1.6.assert8.__assert4SCqci32sSCqcSCqcv)([]u8 aggregate []u8, @.str.0, #7, i32 #4, []u8 aggregate []u8, @.str.1, #15, []u8 aggregate []u8, @.str.2, #25)
   unreachable
 %slice.okb3:
-  %8 = sub u64 #3, u64 %5
+  %8 = sub usize #3, usize %5
   %9 = gep ptr<i64> %2, %5
   %10 = aggregate []i64, %9, %8
   ret []i64 %10

@@ -20,8 +20,8 @@ void f() {
 Module m
   Func f diverging=false
     Body
-      Sizeof [type=u64 const=13 constant]
-      Alignof [type=u64 const=1 constant]
-      Offsetof [type=u64 const=0 constant]
-      Offsetof [type=u64 const=8 constant]
-      Offsetof [type=u64 const=9 constant]
+      Sizeof [type=usize const=13 constant]
+      Alignof [type=usize const=1 constant]
+      Offsetof [type=usize const=0 constant]
+      Offsetof [type=usize const=8 constant]
+      Offsetof [type=usize const=9 constant]

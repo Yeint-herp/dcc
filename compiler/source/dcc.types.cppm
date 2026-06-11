@@ -168,10 +168,10 @@ export namespace dcc::types
         TypePtr element;
         Qual element_quals;
 
-        SliceType(TypePtr e, Qual q) : Type(Kind), element(e), element_quals(q)
+        SliceType(TypePtr e, Qual q, std::uint8_t pointer_bits = 64, std::uint8_t pointer_align = 8) : Type(Kind), element(e), element_quals(q)
         {
-            byte_size = 16;
-            byte_align = 8;
+            byte_size = 2 * (static_cast<std::uint64_t>(pointer_bits) / 8);
+            byte_align = pointer_align;
         }
     };
 
@@ -181,10 +181,10 @@ export namespace dcc::types
 
         TypePtr element;
 
-        RangeType(TypePtr e) : Type(Kind), element(e)
+        RangeType(TypePtr e, std::uint8_t pointer_bits = 64, std::uint8_t pointer_align = 8) : Type(Kind), element(e)
         {
-            byte_size = 16;
-            byte_align = 8;
+            byte_size = 2 * (static_cast<std::uint64_t>(pointer_bits) / 8);
+            byte_align = pointer_align;
         }
     };
 
@@ -194,10 +194,10 @@ export namespace dcc::types
 
         TypePtr element;
 
-        RangeInclusiveType(TypePtr e) : Type(Kind), element(e)
+        RangeInclusiveType(TypePtr e, std::uint8_t pointer_bits = 64, std::uint8_t pointer_align = 8) : Type(Kind), element(e)
         {
-            byte_size = 16;
-            byte_align = 8;
+            byte_size = 2 * (static_cast<std::uint64_t>(pointer_bits) / 8);
+            byte_align = pointer_align;
         }
     };
 
@@ -466,7 +466,7 @@ export namespace dcc::types
                 if (t->element == element && t->element_quals == quals)
                     return t;
 
-            auto* t = make<SliceType>(element, quals);
+            auto* t = make<SliceType>(element, quals, m_pointer_bits, m_pointer_align);
             m_slices.push_back(t);
             return t;
         }
@@ -477,7 +477,7 @@ export namespace dcc::types
                 if (t->element == element)
                     return t;
 
-            auto* t = make<RangeType>(element);
+            auto* t = make<RangeType>(element, m_pointer_bits, m_pointer_align);
             m_ranges.push_back(t);
             return t;
         }
@@ -488,7 +488,7 @@ export namespace dcc::types
                 if (t->element == element)
                     return t;
 
-            auto* t = make<RangeInclusiveType>(element);
+            auto* t = make<RangeInclusiveType>(element, m_pointer_bits, m_pointer_align);
             m_range_inclusives.push_back(t);
             return t;
         }

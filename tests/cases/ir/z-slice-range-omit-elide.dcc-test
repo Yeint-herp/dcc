@@ -32,7 +32,7 @@ const global @.str.2 : [25 x u8] = aggregate [25 x u8], #115, #108, #105, #99, #
   %0 = alloca [5 x i64]
   store [5 x i64] %arr, ptr<[5 x i64]> %0
   %1 = gep ptr<[5 x i64]> %0, #0
-  %2 = sub u64 #3, u64 #0
+  %2 = sub usize #3, usize #0
   %3 = gep ptr<i64> %1, #0
   %4 = aggregate []i64, %3, %2
   ret []i64 %4
@@ -43,7 +43,7 @@ const global @.str.2 : [25 x u8] = aggregate [25 x u8], #115, #108, #105, #99, #
   %0 = alloca [5 x i64]
   store [5 x i64] %arr, ptr<[5 x i64]> %0
   %1 = gep ptr<[5 x i64]> %0, #0
-  %2 = sub u64 #5, u64 #1
+  %2 = sub usize #5, usize #1
   %3 = gep ptr<i64> %1, #1
   %4 = aggregate []i64, %3, %2
   ret []i64 %4
@@ -54,7 +54,7 @@ const global @.str.2 : [25 x u8] = aggregate [25 x u8], #115, #108, #105, #99, #
   %0 = alloca [5 x i64]
   store [5 x i64] %arr, ptr<[5 x i64]> %0
   %1 = gep ptr<[5 x i64]> %0, #0
-  %2 = sub u64 #5, u64 #0
+  %2 = sub usize #5, usize #0
   %3 = gep ptr<i64> %1, #0
   %4 = aggregate []i64, %3, %2
   ret []i64 %4
@@ -67,10 +67,10 @@ const global @.str.2 : [25 x u8] = aggregate [25 x u8], #115, #108, #105, #99, #
   %1 = load []i64, ptr<[]i64> %0
   %2 = extract []i64 %1, field #0
   %3 = extract []i64 %1, field #1
-  %4 = cmp.ule u64 #3, %3
+  %4 = cmp.ule usize #3, %3
   br.cond %4, label %slice.okb1, label %slice.failb2
 %slice.okb1:
-  %5 = sub u64 #3, u64 #0
+  %5 = sub usize #3, usize #0
   %6 = gep ptr<i64> %2, #0
   %7 = aggregate []i64, %6, %5
   ret []i64 %7
