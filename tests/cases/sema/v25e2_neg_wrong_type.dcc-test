@@ -1,0 +1,13 @@
+=== FILE: main.dc ===
+module m;
+
+void typed(u16 vals...)(u8 x) {}
+
+void caller() {
+    typed!(1.0, 2.0)(0);
+}
+
+=== ENTRY: main.dc ===
+
+=== EXPECT-ERRORS ===
+main.dc:20: value pack element type mismatch: expected 'u16', got 'f64'

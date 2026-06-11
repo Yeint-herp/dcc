@@ -1,0 +1,13 @@
+=== FILE: main.dc ===
+module m;
+
+void required(u8 required, u16 values...)(i32 x) {}
+
+void caller() {
+    required!()(0);
+}
+
+=== ENTRY: main.dc ===
+
+=== EXPECT-ERRORS ===
+main.dc:16: missing required value template argument for 'required'

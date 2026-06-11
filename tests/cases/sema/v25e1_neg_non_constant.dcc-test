@@ -1,0 +1,15 @@
+=== FILE: main.dc ===
+module m;
+
+u64 get_val() { return 42; }
+
+void vp(u64 vals...)(i32 x) {}
+
+void caller() {
+    vp!(get_val())(0);
+}
+
+=== ENTRY: main.dc ===
+
+=== EXPECT-ERRORS ===
+main.dc:19: non-constant value supplied for value pack 'vals'
