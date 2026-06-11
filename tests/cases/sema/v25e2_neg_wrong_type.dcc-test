@@ -10,4 +10,4 @@ void caller() {
 === ENTRY: main.dc ===
 
 === EXPECT-ERRORS ===
-main.dc:20: value pack element type mismatch: expected 'u16', got 'f64'
+main.dc:6: value pack element type mismatch: expected 'u16', got 'f64'

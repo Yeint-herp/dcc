@@ -10,4 +10,4 @@ void caller() {
 === ENTRY: main.dc ===
 
 === EXPECT-ERRORS ===
-main.dc:16: missing required value template argument for 'required'
+main.dc:3: missing required value template argument for 'required'

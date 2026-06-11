@@ -2399,6 +2399,8 @@ export namespace dcc::sema
                 }
                 if (all_pack)
                     ;
+                else if (!f.template_params.empty() && f.template_params.back().is_pack)
+                    ;
                 else
                 {
                     if (failure)
@@ -2430,6 +2432,13 @@ export namespace dcc::sema
             {
                 if (template_args.size() < non_pack_count)
                 {
+                    if (template_args.size() < f.template_params.size())
+                    {
+                        auto const& missing = f.template_params[template_args.size()];
+                        if (missing.value_type && !missing.is_pack)
+                            error(missing.range, "missing required value template argument for '{}'", missing.name);
+                    }
+
                     if (failure)
                         *failure = ExplicitInstFailure::CountMismatch;
                     return std::nullopt;
@@ -2526,15 +2535,25 @@ export namespace dcc::sema
                         }
                         if (!arg.expr)
                         {
+                            error(arg.range, "non-constant value supplied for value pack '{}'", tp.name);
                             if (failure)
-                                *failure = ExplicitInstFailure::CountMismatch;
+                                *failure = ExplicitInstFailure::ValueArg;
                             return std::nullopt;
                         }
                         std::uint32_t probe_off = 0;
                         auto analyzed = analyze_expr(mod, nullptr, scope, *arg.expr, 0, probe_off, vt_type, nullptr);
                         if (has_error(analyzed.type) || !analyzed.constant)
                         {
-                            error(arg.range, "non-type template argument must be a constant expression");
+                            error(arg.range, "non-constant value supplied for value pack '{}'", tp.name);
+                            if (failure)
+                                *failure = ExplicitInstFailure::ValueArg;
+                            return std::nullopt;
+                        }
+
+                        if (analyzed.type != vt_type)
+                        {
+                            error(arg.range, "value pack element type mismatch: expected '{}', got '{}'", format_type_str(vt_type),
+                                  format_type_str(analyzed.type));
                             if (failure)
                                 *failure = ExplicitInstFailure::ValueArg;
                             return std::nullopt;
@@ -2922,7 +2941,7 @@ export namespace dcc::sema
             if (!nttps_already_resolved && func)
             {
                 for (auto const& tp : func->template_params)
-                    if (tp.value_type)
+                    if (tp.value_type && !tp.is_pack)
                         ++num_value_tparams;
             }
 
@@ -3001,7 +3020,7 @@ export namespace dcc::sema
                 {
                     std::size_t idx = 0;
                     for (auto const& tp : func->template_params)
-                        if (tp.value_type)
+                        if (tp.value_type && !tp.is_pack)
                         {
                             if (idx == vi)
                             {
@@ -3249,7 +3268,7 @@ export namespace dcc::sema
 
             std::size_t num_value_tparams = 0;
             for (auto const& tp : f.template_params)
-                if (tp.value_type)
+                if (tp.value_type && !tp.is_pack)
                     ++num_value_tparams;
 
             if (params.size() + num_value_tparams != arg_exprs.size() + 1)
@@ -3320,7 +3339,7 @@ export namespace dcc::sema
                 {
                     std::size_t idx = 0;
                     for (auto const& tp : f.template_params)
-                        if (tp.value_type)
+                        if (tp.value_type && !tp.is_pack)
                         {
                             if (idx == vi)
                             {

@@ -12,4 +12,4 @@ void caller() {
 === ENTRY: main.dc ===
 
 === EXPECT-ERRORS ===
-main.dc:19: non-constant value supplied for value pack 'vals'
+main.dc:8: non-constant value supplied for value pack 'vals'
