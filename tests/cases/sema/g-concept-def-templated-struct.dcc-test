@@ -1,0 +1,26 @@
+=== FILE: main.dc ===
+module m;
+
+struct Pair(T) {
+    T first;
+    T second;
+}
+
+using HasDotProduct(T) = compiles(T a, T b) {
+    a.first + a.second;
+    b.first + b.second;
+};
+
+T pick_first(T)(T a, T b) if HasDotProduct(T) {
+    return a;
+}
+
+void test() {
+    Pair(i32) p1;
+    p1.first = 10;
+    p1.second = 20;
+    Pair(i32) p2;
+    p2.first = 30;
+    p2.second = 40;
+    Pair(i32) result = pick_first(p1, p2);
+}

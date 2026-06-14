@@ -1,0 +1,20 @@
+=== FILE: main.dc ===
+module m;
+
+struct Console {
+}
+
+void write(Console* c, char ch) {}
+void write(Console* c, []const char msg) {}
+
+using WritableInto(T) = compiles(T x) {
+    x.write('H');
+    x.write("hello");
+};
+
+void print(W, T...)(W out, T args) if WritableInto(W) {}
+
+void test() {
+    Console c;
+    print(c, 1, 2, 3);
+}

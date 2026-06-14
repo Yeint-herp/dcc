@@ -1,0 +1,17 @@
+=== FILE: main.dc ===
+module m;
+
+struct WithValue {
+    i32 value;
+}
+
+using HasValue(T) = compiles(T x) {
+    x.value;
+};
+
+void constrained_fn(T)(T x) if HasValue(T) {}
+
+void test() {
+    WithValue wv;
+    constrained_fn(wv);
+}

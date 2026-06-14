@@ -1,0 +1,20 @@
+=== FILE: main.dc ===
+module m;
+
+enum Result(T) {
+    @implicit_construction Ok(T),
+    None,
+}
+
+using OkResult(T) = compiles(T x) {
+    x;
+};
+
+T accept_result(T)(T x) if OkResult(T) {
+    return x;
+}
+
+void test() {
+    Result(i32) r = 42;
+    Result(i32) r2 = accept_result(r);
+}

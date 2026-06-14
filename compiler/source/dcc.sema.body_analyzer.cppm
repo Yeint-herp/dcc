@@ -1423,8 +1423,8 @@ export namespace dcc::sema
             std::string reason;
         };
 
-        void collect_candidate_rejection(std::vector<CandidateInfo>& out, Symbol const& sym, std::string reason,
-                                         types::FuncPtrType const* explicit_fp = nullptr)
+        static void collect_candidate_rejection(std::vector<CandidateInfo>& out, Symbol const& sym, std::string reason,
+                                                types::FuncPtrType const* explicit_fp = nullptr)
         {
             auto& info = out.emplace_back();
             info.sym = &sym;
@@ -1638,7 +1638,7 @@ export namespace dcc::sema
             return resolve_template_param_actual(std::span<ast::TemplateParam const>{f.template_params.data(), f.template_params.size()}, bindings, name);
         }
 
-        [[nodiscard]] std::vector<types::TypePtr> expand_pack_param_type(types::TypePtr ty, infer::TemplateBindings const& bindings) const
+        [[nodiscard]] static std::vector<types::TypePtr> expand_pack_param_type(types::TypePtr ty, infer::TemplateBindings const& bindings)
         {
             std::vector<types::TypePtr> result;
 
@@ -1671,9 +1671,6 @@ export namespace dcc::sema
         [[nodiscard]] types::TypePtr resolve_constraint_arg_type(ModuleInfo& mod, Scope const& scope, std::span<ast::TemplateParam const> params,
                                                                  infer::TemplateBindings const& bindings, ast::Expr const& arg)
         {
-            std::ignore = mod;
-            std::ignore = scope;
-
             if (auto const* id = ast::node_cast<ast::IdentExpr>(&arg))
                 return resolve_template_param_actual(params, bindings, id->name);
 
@@ -1681,7 +1678,101 @@ export namespace dcc::sema
                 return resolve_template_param_actual(params, bindings, path->path.simple_name());
 
             if (auto const* type_expr = ast::node_cast<ast::TypeASTExpr>(&arg))
-                return type_expr->type_node ? get_canonical(type_expr->type_node->sema) : nullptr;
+            {
+                auto* ty = type_expr->type_node ? get_canonical(type_expr->type_node->sema) : nullptr;
+                if (!ty && type_expr->type_node)
+                    ty = resolve_type_node(mod, scope, type_expr->type_node);
+                return ty ? bindings.substitute(ty) : nullptr;
+            }
+
+            auto build_nominal = [&](ast::Decl const* d, std::vector<types::TypePtr> const& args) -> types::TypePtr {
+                if (auto const* sd = ast::node_cast<ast::StructDecl>(d))
+                    return m_types.nominal_t(types::TypeKind::Struct, sd, args);
+                if (auto const* ud = ast::node_cast<ast::UnionDecl>(d))
+                    return m_types.nominal_t(types::TypeKind::Union, ud, args);
+                if (auto const* ed = ast::node_cast<ast::EnumDecl>(d))
+                    return m_types.nominal_t(types::TypeKind::Enum, ed, args);
+                return nullptr;
+            };
+
+            auto lookup_type_decl = [&](std::string_view n) -> ast::Decl const* {
+                auto const* sym = scope.lookup_type(n);
+                if (!sym && mod.own_scope)
+                    sym = mod.own_scope->lookup_type(n);
+                if (!sym)
+                    return nullptr;
+                auto const* d = sym->decl;
+                if (auto const* use = ast::node_cast<ast::UsingDecl>(d))
+                {
+                    if (use->using_kind == ast::UsingKind::Alias && use->target_type && use->target_type->sema.canonical)
+                        return nullptr;
+                    return nullptr;
+                }
+                if (!ast::node_cast<ast::StructDecl>(d) && !ast::node_cast<ast::UnionDecl>(d) && !ast::node_cast<ast::EnumDecl>(d))
+                    return nullptr;
+                return d;
+            };
+
+            if (auto const* ti = ast::node_cast<ast::TemplateInstExpr>(&arg))
+            {
+                auto const* id = ast::node_cast<ast::IdentExpr>(ti->callee);
+                if (!id)
+                    return nullptr;
+                auto const* d = lookup_type_decl(id->name);
+                if (!d)
+                    return nullptr;
+                std::vector<types::TypePtr> resolved_args;
+                for (auto const& ta : ti->template_args)
+                {
+                    types::TypePtr arg_type = nullptr;
+                    if (ta.type)
+                    {
+                        if (auto const* nt = ast::node_cast<ast::NamedType>(ta.type); nt && nt->path.is_simple() && nt->template_args.empty())
+                            arg_type = resolve_template_param_actual(params, bindings, nt->path.simple_name());
+                        if (!arg_type)
+                        {
+                            arg_type = resolve_type_node(mod, scope, ta.type);
+                            if (arg_type)
+                                arg_type = bindings.substitute(arg_type);
+                        }
+                    }
+                    if (!arg_type)
+                        return nullptr;
+                    resolved_args.push_back(arg_type);
+                }
+                return build_nominal(d, resolved_args);
+            }
+
+            if (auto const* call = ast::node_cast<ast::CallExpr>(&arg))
+            {
+                auto const* id = ast::node_cast<ast::IdentExpr>(call->callee);
+                if (!id)
+                    return nullptr;
+
+                auto const* sym = scope.lookup_type(id->name);
+                if (!sym && mod.own_scope)
+                    sym = mod.own_scope->lookup_type(id->name);
+                if (!sym)
+                    return nullptr;
+                auto const* d = sym->decl;
+                if (auto const* use = ast::node_cast<ast::UsingDecl>(d))
+                {
+                    if (use->using_kind == ast::UsingKind::Alias && use->target_type && use->target_type->sema.canonical)
+                        return get_canonical(use->target_type->sema);
+                    return nullptr;
+                }
+                if (!ast::node_cast<ast::StructDecl>(d) && !ast::node_cast<ast::UnionDecl>(d) && !ast::node_cast<ast::EnumDecl>(d))
+                    return nullptr;
+                std::vector<types::TypePtr> resolved_args;
+                for (auto const* arg_expr : call->args)
+                {
+                    auto arg_type = resolve_constraint_arg_type(mod, scope, params, bindings, *arg_expr);
+                    if (!arg_type)
+                        return nullptr;
+                    resolved_args.push_back(arg_type);
+                }
+                return build_nominal(d, resolved_args);
+            }
 
             return nullptr;
         }
@@ -1693,8 +1784,8 @@ export namespace dcc::sema
                                                arg);
         }
 
-        [[nodiscard]] ast::UsingDecl const* resolve_concept_decl(ModuleInfo& mod, Scope const& scope, ast::Expr const& callee,
-                                                                 ModuleInfo const* defining_mod = nullptr)
+        [[nodiscard]] static ast::UsingDecl const* resolve_concept_decl(ModuleInfo& mod, Scope const& scope, ast::Expr const& callee,
+                                                                        ModuleInfo const* defining_mod = nullptr)
         {
             auto try_lookup = [](Scope const* s, std::string_view name) -> ast::UsingDecl const* {
                 if (!s)
@@ -1819,13 +1910,37 @@ export namespace dcc::sema
 
             auto* inner = make_scope(ScopeKind::Block, &scope);
             std::uint32_t tmp_off{};
+
+            struct CanonicalGuard
+            {
+                ast::TypeSema* sema{};
+                types::TypePtr saved{};
+                ~CanonicalGuard()
+                {
+                    if (sema)
+                        set_canonical(*sema, saved);
+                }
+                CanonicalGuard() = default;
+                CanonicalGuard(CanonicalGuard&& o) noexcept : sema(o.sema), saved(o.saved) { o.sema = nullptr; }
+                CanonicalGuard& operator=(CanonicalGuard&&) = delete;
+                CanonicalGuard(CanonicalGuard const&) = delete;
+                CanonicalGuard& operator=(CanonicalGuard const&) = delete;
+            };
+            std::pmr::vector<CanonicalGuard> canon_guards{m_alloc};
+            canon_guards.reserve(compiles.params.size());
+
             for (auto const& p : compiles.params)
             {
                 auto type = p.type && p.type->sema.canonical ? get_canonical(p.type->sema) : nullptr;
                 auto substituted = type ? bindings.substitute(type) : nullptr;
                 auto* v = make_local_decl(p.name, p.range, p.type, ast::StorageClass::Local, allocate_frame_slot(tmp_off, substituted));
                 if (substituted && p.type)
+                {
+                    auto& g = canon_guards.emplace_back();
+                    g.sema = std::addressof(p.type->sema);
+                    g.saved = get_canonical(p.type->sema);
                     set_canonical(p.type->sema, substituted);
+                }
 
                 define_local(*inner, v);
             }
@@ -1908,11 +2023,19 @@ export namespace dcc::sema
 
         void emit_constraint_error(sm::SourceRange range, std::string message)
         {
-            auto diag_obj = diag::Diagnostic{diag::Severity::Error, std::move(message)}.primary(range);
-            for (auto& n : m_concept_notes)
-                std::move(diag_obj).note(std::move(n));
-            m_concept_notes.clear();
-            m_diag.emit(std::move(diag_obj));
+            if (!m_suppress_errors)
+            {
+                auto diag_obj = diag::Diagnostic{diag::Severity::Error, std::move(message)}.primary(range);
+                for (auto& n : m_concept_notes)
+                    std::move(diag_obj).note(std::move(n));
+                m_concept_notes.clear();
+                m_diag.emit(std::move(diag_obj));
+            }
+            else
+            {
+                ++m_suppressed_error_count;
+                m_concept_notes.clear();
+            }
         }
 
         void diagnose_explicit_constraint_failure(ModuleInfo& mod, Scope& scope, ast::FuncDecl const& f, std::span<ast::TemplateArg const> template_args)

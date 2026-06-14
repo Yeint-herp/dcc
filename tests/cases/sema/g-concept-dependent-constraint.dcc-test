@@ -1,0 +1,20 @@
+=== FILE: main.dc ===
+module m;
+
+struct Box(T) {
+    T value;
+}
+
+using HasValue(T) = compiles(T x) {
+    x.value;
+};
+
+T identity(T)(T x) if HasValue(T) {
+    return x;
+}
+
+void test() {
+    Box(i32) b;
+    b.value = 42;
+    Box(i32) result = identity(b);
+}
