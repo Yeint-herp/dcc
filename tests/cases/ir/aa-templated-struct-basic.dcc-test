@@ -1,0 +1,23 @@
+=== FILE: test.dc ===
+module test;
+
+struct Box(T) {
+    T value;
+}
+
+public i32 test() {
+    Box(i32) b = {value = 42};
+    return b.value;
+}
+
+=== EXPECT-IR ===
+module "test"
+i32@_DC0F1.4.test4.test0i32s() {
+%entry:
+  %0 = alloca {@0 i32}
+  %1 = aggregate {@0 i32}, #42
+  store {@0 i32} %1, ptr<{@0 i32}> %0
+  %2 = gep ptr<{@0 i32}> %0, field #0
+  %3 = load i32, ptr<i32> %2
+  ret i32 %3
+}

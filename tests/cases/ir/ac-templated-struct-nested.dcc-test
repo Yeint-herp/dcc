@@ -1,0 +1,23 @@
+=== FILE: test.dc ===
+module test;
+
+public struct Box(T) {
+    T value;
+}
+
+public Box(Box(i32)) make_nested() {
+    Box(Box(i32)) b = {value = {value = 42}};
+    return b;
+}
+
+=== EXPECT-IR ===
+module "test"
+{@0 {@0 i32}}@_DC0F1.4.test11.make_nested0D1.4.test3.Box1.D1.4.test3.Box1.i32s() {
+%entry:
+  %0 = alloca {@0 {@0 i32}}
+  %1 = aggregate {@0 i32}, #42
+  %2 = aggregate {@0 {@0 i32}}, %1
+  store {@0 {@0 i32}} %2, ptr<{@0 {@0 i32}}> %0
+  %3 = load {@0 {@0 i32}}, ptr<{@0 {@0 i32}}> %0
+  ret {@0 {@0 i32}} %3
+}

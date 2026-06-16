@@ -5244,36 +5244,193 @@ export namespace dcc::ir::lower
             return m_ctx.int_const(m_ctx.int_t(8, false), 0);
         }
 
-        std::unordered_map<ast::Decl const*, IrType const*> m_struct_type_cache;
+        std::unordered_map<types::Type const*, IrType const*> m_struct_type_cache;
+
+        [[nodiscard]] std::unordered_map<void const*, types::TypePtr> build_template_subst(std::span<ast::TemplateParam const> template_params,
+                                                                                           std::span<types::TypePtr const> template_args) const
+        {
+            std::unordered_map<void const*, types::TypePtr> subst;
+            auto n = std::min(template_params.size(), template_args.size());
+            for (std::size_t i = 0; i < n; ++i)
+                subst[static_cast<void const*>(&template_params[i])] = template_args[i];
+
+            return subst;
+        }
+
+        [[nodiscard]] std::unordered_map<void const*, types::TypePtr> build_subst_from_user_type(types::TypePtr type) const
+        {
+            if (!type)
+                return {};
+
+            if (type->kind == types::TypeKind::Struct)
+            {
+                auto* st = types::type_cast<types::StructType>(type);
+                if (!st || st->template_args.empty())
+                    return {};
+
+                auto* sd = reinterpret_cast<ast::StructDecl const*>(st->decl);
+                return build_template_subst(sd->template_params, st->template_args);
+            }
+            if (type->kind == types::TypeKind::Union)
+                return {};
+
+            if (type->kind == types::TypeKind::Enum)
+            {
+                auto* et = types::type_cast<types::EnumType>(type);
+                if (!et || et->template_args.empty())
+                    return {};
+
+                auto* ed = reinterpret_cast<ast::EnumDecl const*>(et->decl);
+                return build_template_subst(ed->template_params, et->template_args);
+            }
+
+            return {};
+        }
+
+        [[nodiscard]] types::TypePtr get_field_canonical_with_subst(types::TypePtr parent_type, ast::FieldDecl const& field,
+                                                                    std::unordered_map<void const*, types::TypePtr> const* inherited_subst = nullptr) const
+        {
+            auto* ft = get_canonical_type(field.type);
+            if (inherited_subst && !inherited_subst->empty())
+                ft = substitute_type(ft, *inherited_subst);
+
+            if (!inherited_subst || inherited_subst->empty())
+            {
+                auto subst = build_subst_from_user_type(parent_type);
+                if (!subst.empty())
+                    ft = substitute_type(ft, subst);
+            }
+
+            return ft;
+        }
+
+        [[nodiscard]] types::TypePtr substitute_type(types::TypePtr type, std::unordered_map<void const*, types::TypePtr> const& subst) const
+        {
+            if (!type)
+                return type;
+
+            if (auto* tpt = types::type_cast<types::TemplateParamType>(type))
+            {
+                auto it = subst.find(tpt->param);
+                if (it != subst.end())
+                    return it->second;
+                return type;
+            }
+
+            if (type->kind == types::TypeKind::Struct || type->kind == types::TypeKind::Union || type->kind == types::TypeKind::Enum)
+            {
+                auto* ut = static_cast<types::UserType const*>(type);
+                bool changed = false;
+                std::vector<types::TypePtr> new_args;
+                new_args.reserve(ut->template_args.size());
+                for (auto* ta : ut->template_args)
+                {
+                    auto* sub = substitute_type(ta, subst);
+                    new_args.push_back(sub);
+                    if (sub != ta)
+                        changed = true;
+                }
+                if (changed && m_type_ctx)
+                    return m_type_ctx->nominal_t(type->kind, const_cast<void*>(static_cast<void const*>(ut->decl)), new_args);
+
+                return type;
+            }
+
+            if (auto* pt = types::type_cast<types::PointerType>(type))
+            {
+                auto* sub = substitute_type(pt->pointee, subst);
+                if (sub != pt->pointee && m_type_ctx)
+                    return m_type_ctx->pointer_to(sub, pt->pointee_quals);
+                return type;
+            }
+
+            if (auto* at = types::type_cast<types::ArrayType>(type))
+            {
+                auto* sub = substitute_type(at->element, subst);
+                if (sub != at->element && m_type_ctx)
+                    return m_type_ctx->array_t(sub, at->count);
+                return type;
+            }
+
+            if (auto* st = types::type_cast<types::SliceType>(type))
+            {
+                auto* sub = substitute_type(st->element, subst);
+                if (sub != st->element && m_type_ctx)
+                    return m_type_ctx->slice_t(sub, st->element_quals);
+                return type;
+            }
+
+            if (auto* ft = types::type_cast<types::FamType>(type))
+            {
+                auto* sub = substitute_type(ft->element, subst);
+                if (sub != ft->element && m_type_ctx)
+                    return m_type_ctx->fam_t(sub);
+                return type;
+            }
+
+            if (auto* fpt = types::type_cast<types::FuncPtrType>(type))
+            {
+                bool changed = false;
+                auto* sub_ret = substitute_type(fpt->return_type, subst);
+                if (sub_ret != fpt->return_type)
+                    changed = true;
+
+                std::vector<types::TypePtr> sub_params;
+                sub_params.reserve(fpt->params.size());
+                for (auto* p : fpt->params)
+                {
+                    auto* sp = substitute_type(p, subst);
+                    sub_params.push_back(sp);
+                    if (sp != p)
+                        changed = true;
+                }
+                if (changed && m_type_ctx)
+                    return m_type_ctx->funcptr_t(sub_ret, sub_params);
+
+                return type;
+            }
+
+            return type;
+        }
 
         IrType const* lower_user_type(dcc::types::TypePtr type)
         {
             if (!type)
                 return m_ctx.void_t();
 
+            {
+                auto it = m_struct_type_cache.find(type);
+                if (it != m_struct_type_cache.end())
+                    return it->second;
+            }
+
             if (auto* st = types::type_cast<types::StructType>(type))
             {
                 auto* sd = reinterpret_cast<ast::StructDecl const*>(st->decl);
-                auto it = m_struct_type_cache.find(sd);
-                if (it != m_struct_type_cache.end())
-                    return it->second;
 
                 auto* placeholder = m_ctx.make<IrAggregateType>();
                 placeholder->byte_size = type->byte_size;
                 placeholder->byte_align = type->byte_align;
-                m_struct_type_cache[sd] = placeholder;
+                m_struct_type_cache[type] = placeholder;
+
+                auto subst = st->template_args.empty() ? std::unordered_map<void const*, types::TypePtr>{}
+                                                       : build_template_subst(sd->template_params, st->template_args);
 
                 std::vector<IrType const*> members;
-                std::vector<std::uint64_t> offsets;
+                std::vector<types::TypePtr> subst_field_types;
                 members.reserve(sd->fields.size());
-                offsets.reserve(sd->fields.size());
+                subst_field_types.reserve(sd->fields.size());
 
                 for (auto const& f : sd->fields)
                 {
                     auto* ft = get_canonical_type(f.type);
+
+                    if (!subst.empty())
+                        ft = substitute_type(ft, subst);
+
                     auto* ir_ft = lower_type(ft);
                     members.push_back(ir_ft);
-                    offsets.push_back(f.byte_offset);
+                    subst_field_types.push_back(ft);
 
                     if (types::is_fam_type(ft))
                     {
@@ -5281,6 +5438,13 @@ export namespace dcc::ir::lower
                         placeholder->fam_member_index = static_cast<std::uint32_t>(members.size() - 1);
                     }
                 }
+
+                std::vector<std::uint64_t> offsets;
+                if (!subst.empty())
+                    offsets = compute_field_offsets(subst_field_types);
+                else
+                    for (auto const& f : sd->fields)
+                        offsets.push_back(f.byte_offset);
 
                 placeholder->members.assign(members.begin(), members.end());
                 placeholder->member_offsets.assign(offsets.begin(), offsets.end());
@@ -5291,14 +5455,11 @@ export namespace dcc::ir::lower
             if (auto* ut = types::type_cast<types::UnionType>(type))
             {
                 auto* ud = reinterpret_cast<ast::UnionDecl const*>(ut->decl);
-                auto it = m_struct_type_cache.find(ud);
-                if (it != m_struct_type_cache.end())
-                    return it->second;
 
                 auto* placeholder = m_ctx.make<IrAggregateType>();
                 placeholder->byte_size = type->byte_size;
                 placeholder->byte_align = type->byte_align;
-                m_struct_type_cache[ud] = placeholder;
+                m_struct_type_cache[type] = placeholder;
 
                 std::vector<IrType const*> members;
                 std::vector<std::uint64_t> offsets;
@@ -5311,8 +5472,6 @@ export namespace dcc::ir::lower
                     auto* ir_ft = lower_type(ft);
                     members.push_back(ir_ft);
 
-                    if (f.byte_offset != 0)
-                        lower_panic(std::format("union field `{}` has non-zero byte_offset {}", f.name, f.byte_offset));
                     offsets.push_back(0);
                 }
 
@@ -5333,15 +5492,6 @@ export namespace dcc::ir::lower
                     if (!layout)
                         lower_panic("tagged enum missing layout");
 
-                    auto* ed = reinterpret_cast<ast::EnumDecl const*>(et->decl);
-
-                    if (ed && et->template_args.empty())
-                    {
-                        auto it = m_struct_type_cache.find(ed);
-                        if (it != m_struct_type_cache.end())
-                            return it->second;
-                    }
-
                     std::vector<IrType const*> members;
                     std::vector<std::uint64_t> offsets;
 
@@ -5359,8 +5509,7 @@ export namespace dcc::ir::lower
 
                     auto* ir_agg = m_ctx.aggregate_t(members, offsets, layout->total_size, layout->total_align, false);
 
-                    if (ed && et->template_args.empty())
-                        m_struct_type_cache[ed] = ir_agg;
+                    m_struct_type_cache[type] = ir_agg;
 
                     return ir_agg;
                 }
@@ -5457,15 +5606,17 @@ export namespace dcc::ir::lower
             {
                 auto* sd = reinterpret_cast<ast::StructDecl const*>(st->decl);
                 field_count = static_cast<std::uint32_t>(sd->fields.size());
+                auto subst = build_subst_from_user_type(target_type);
                 for (auto const& f : sd->fields)
-                    field_types.push_back(get_canonical_type(f.type));
+                    field_types.push_back(get_field_canonical_with_subst(target_type, f, &subst));
             }
             else if (ut)
             {
                 auto* ud = reinterpret_cast<ast::UnionDecl const*>(ut->decl);
                 field_count = static_cast<std::uint32_t>(ud->fields.size());
+                auto subst = build_subst_from_user_type(target_type);
                 for (auto const& f : ud->fields)
-                    field_types.push_back(get_canonical_type(f.type));
+                    field_types.push_back(get_field_canonical_with_subst(target_type, f, &subst));
             }
             else if (arrt)
             {
@@ -5719,6 +5870,48 @@ export namespace dcc::ir::lower
             return agg;
         }
 
+        [[nodiscard]] static std::vector<std::uint64_t> compute_field_offsets(std::span<types::TypePtr const> field_types)
+        {
+            std::vector<std::uint64_t> offsets;
+            offsets.reserve(field_types.size());
+            std::uint64_t size = 0;
+            std::uint32_t align = 1;
+            for (auto* ft : field_types)
+            {
+                if (!ft)
+                {
+                    offsets.push_back(size);
+                    continue;
+                }
+
+                auto field_align = ft->byte_align;
+                if (field_align > align)
+                    align = field_align;
+
+                size = (size + field_align - 1) & ~(field_align - 1);
+                offsets.push_back(size);
+                size += ft->byte_size;
+            }
+            return offsets;
+        }
+
+        [[nodiscard]] types::TypePtr get_field_type_with_subst(ast::FieldAccessExpr const* fa, ast::FieldDecl const* field_decl) const
+        {
+            if (!field_decl)
+                return nullptr;
+
+            auto* obj_type = get_sema_resolved_type(fa->object);
+            if (!obj_type)
+                return get_canonical_type(field_decl->type);
+
+            auto* pointee = obj_type;
+            if (auto* pt = types::type_cast<types::PointerType>(obj_type))
+                pointee = pt->pointee;
+
+            auto subst = build_subst_from_user_type(pointee);
+            return get_field_canonical_with_subst(pointee, *field_decl, &subst);
+        }
+
         IrValue* lower_field_access_expr(ast::FieldAccessExpr const* fa)
         {
             auto* resolved_type = get_sema_resolved_type(fa);
@@ -5807,7 +6000,7 @@ export namespace dcc::ir::lower
                         lower_panic(fa, "cannot find field decl");
 
                     std::uint32_t field_idx = field_decl->index;
-                    auto* field_sema_ty = get_canonical_type(field_decl->type);
+                    auto* field_sema_ty = get_field_type_with_subst(fa, field_decl);
 
                     IrValue* base_ptr = it->second.value;
                     if (obj_sema_type && obj_sema_type->kind == types::TypeKind::Pointer)
@@ -5839,7 +6032,7 @@ export namespace dcc::ir::lower
                             lower_panic(fa, "cannot find field decl");
 
                         std::uint32_t field_idx = field_decl->index;
-                        auto* field_sema_ty = get_canonical_type(field_decl->type);
+                        auto* field_sema_ty = get_field_type_with_subst(fa, field_decl);
 
                         IrValue* base_ptr = global_ptr;
                         if (obj_sema_type && obj_sema_type->kind == types::TypeKind::Pointer)
@@ -5888,7 +6081,7 @@ export namespace dcc::ir::lower
 
             if (obj_sema_type && obj_sema_type->kind == types::TypeKind::Pointer)
             {
-                auto* field_sema_ty = get_canonical_type(field_decl->type);
+                auto* field_sema_ty = get_field_type_with_subst(fa, field_decl);
                 auto* gep = m_ctx.gep(m_ctx.pointer_to(lower_type(field_sema_ty)), obj_val);
                 gep->indices.push_back({IrGepInst::IndexKind::Field, nullptr, field_idx});
                 auto gep_name = ident_name();

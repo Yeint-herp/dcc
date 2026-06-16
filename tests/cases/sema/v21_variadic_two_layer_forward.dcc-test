@@ -52,13 +52,13 @@ Func inner diverging=false
   Body
     Call [type=void const=<none> decl=target]
       Ident target [type=<unresolved> const=<none>]
-      Ident x_0 [type=i32 const=<none>]
-      Ident x_1 [type=i64 const=<none>]
+      Ident x_0 [type=i32 const=<none> lvalue decl=x_0]
+      Ident x_1 [type=i64 const=<none> lvalue decl=x_1]
 Func outer diverging=false
   Param x_0 type=i32 storage=param offset=0 index=0
   Param x_1 type=i64 storage=param offset=8 index=1
   Body
     Call [type=void const=<none> decl=inner spec=inner]
       Ident inner [type=<unresolved> const=<none>]
-      Ident x_0 [type=i32 const=<none>]
-      Ident x_1 [type=i64 const=<none>]
+      Ident x_0 [type=i32 const=<none> lvalue decl=x_0]
+      Ident x_1 [type=i64 const=<none> lvalue decl=x_1]

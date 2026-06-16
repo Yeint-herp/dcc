@@ -2382,13 +2382,20 @@ export namespace dcc::sema
                                                 auto* elem_ident = ast::node_cast<ast::IdentExpr>(cloned);
                                                 if (elem_ident)
                                                 {
-                                                    if (multi)
+                                                    auto name_key = multi ? std::format("{}_{}", ident->name, pi) : std::string{ident->name};
+                                                    auto dit = expanded_decls.find(name_key);
+                                                    if (dit != expanded_decls.end())
                                                     {
-                                                        auto name_str = std::format("{}_{}", ident->name, pi);
-                                                        auto* buf = static_cast<char*>(ast_ctx.resource()->allocate(name_str.size() + 1, alignof(char)));
-                                                        std::memcpy(buf, name_str.data(), name_str.size() + 1);
-                                                        elem_ident->name = std::string_view{buf, name_str.size()};
+                                                        elem_ident->name = dit->second->name;
+                                                        cloned->sema.resolved_decl = dit->second;
                                                     }
+                                                    else if (multi)
+                                                    {
+                                                        auto* buf = static_cast<char*>(ast_ctx.resource()->allocate(name_key.size() + 1, alignof(char)));
+                                                        std::memcpy(buf, name_key.data(), name_key.size() + 1);
+                                                        elem_ident->name = std::string_view{buf, name_key.size()};
+                                                    }
+
                                                     if (it->second.is_value_pack && pi < it->second.values.size())
                                                     {
                                                         auto const& v = it->second.values[pi];

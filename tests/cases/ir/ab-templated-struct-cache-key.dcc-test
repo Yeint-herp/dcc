@@ -1,0 +1,26 @@
+=== FILE: test.dc ===
+module test;
+
+struct Pair(T, U) {
+    T first;
+    U second;
+}
+
+public i32 test() {
+    Pair(i32, f64) a = {first = 1, second = 2.0};
+    Pair(f64, i32) b = {first = 3.0, second = 4};
+    return 0;
+}
+
+=== EXPECT-IR ===
+module "test"
+i32@_DC0F1.4.test4.test0i32s() {
+%entry:
+  %0 = alloca {@0 i32, @8 f64}
+  %1 = aggregate {@0 i32, @8 f64}, #1, #2
+  store {@0 i32, @8 f64} %1, ptr<{@0 i32, @8 f64}> %0
+  %2 = alloca {@0 f64, @8 i32}
+  %3 = aggregate {@0 f64, @8 i32}, #3, #4
+  store {@0 f64, @8 i32} %3, ptr<{@0 f64, @8 i32}> %2
+  ret i32 #0
+}

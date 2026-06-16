@@ -1,0 +1,63 @@
+=== FILE: test.dc ===
+module test;
+
+struct Console {
+}
+
+void write(Console* c, char ch) {}
+void write(Console* c, []const char msg) {}
+
+using WritableInto(W) = compiles(W x) {
+    x.write('H');
+    x.write("hello");
+};
+
+void target(Console* out, i32 a, i64 b) {}
+
+void print(W, T...)(W out, T args) if WritableInto(W) {
+    target(&out, args...);
+}
+
+void caller() {
+    Console c;
+    i64 big = 100;
+    print(c, 42, big);
+}
+
+=== EXPECT-IR ===
+module "test"
+void@_DC0F1.4.test5.write2PqD1.4.test7.Console0.cv(ptr<{}>, u8) {
+%entry(ptr<{}> %c, u8 %ch):
+  ret void
+}
+
+void@_DC0F1.4.test5.write2PqD1.4.test7.Console0.SCqcv(ptr<{}>, []u8) {
+%entry(ptr<{}> %c, []u8 %msg):
+  %0 = alloca []u8
+  store []u8 %msg, ptr<[]u8> %0
+  ret void
+}
+
+void@_DC0F1.4.test6.target3PqD1.4.test7.Console0.i32si64sv(ptr<{}>, i32, i64) {
+%entry(ptr<{}> %out, i32 %a, i64 %b):
+  ret void
+}
+
+void@_DC0F1.4.test6.caller0v() {
+%entry:
+  %0 = alloca {}
+  %1 = alloca i64
+  store i64 #100, ptr<i64> %1
+  %2 = load {}, ptr<{}> %0
+  %3 = load i64, ptr<i64> %1
+  call fn(@_DC0S1.4.test5.print3D1.4.test7.Console0.i32si64svX3tD1.4.test7.Console0.ti32sti64s)({} %2, i32 #42, i64 %3)
+  ret void
+}
+
+linkonce_odr void@_DC0S1.4.test5.print3D1.4.test7.Console0.i32si64svX3tD1.4.test7.Console0.ti32sti64s({}, i32, i64) {
+%entry({} %out, i32 %args_0, i64 %args_1):
+  %0 = alloca {}
+  store {} %out, ptr<{}> %0
+  call fn(@_DC0F1.4.test6.target3PqD1.4.test7.Console0.i32si64sv)(ptr<{}> %0, i32 %args_0, i64 %args_1)
+  ret void
+}
