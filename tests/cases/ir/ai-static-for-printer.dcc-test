@@ -1,0 +1,63 @@
+=== FILE: test.dc ===
+module test;
+
+public struct ConsoleWriter {
+}
+
+public void write(ConsoleWriter* c, i32 val) {}
+public void write(ConsoleWriter* c, i64 val) {}
+
+using WritableInto(W) = compiles(W x) {
+    x.write(1 as i32);
+    x.write(2 as i64);
+};
+
+void print(W, T...)(W out, T args) if WritableInto(W) {
+    static for arg in args {
+        out.write(arg);
+    }
+}
+
+public void caller() {
+    ConsoleWriter cw;
+    i32 a = 1;
+    i64 b = 2;
+    print(cw, a, b);
+}
+
+=== EXPECT-IR ===
+module "test"
+void@_DC0F1.4.test5.write2PqD1.4.test13.ConsoleWriter0.i32sv(ptr<{}>, i32) {
+%entry(ptr<{}> %c, i32 %val):
+  ret void
+}
+
+void@_DC0F1.4.test5.write2PqD1.4.test13.ConsoleWriter0.i64sv(ptr<{}>, i64) {
+%entry(ptr<{}> %c, i64 %val):
+  ret void
+}
+
+void@_DC0F1.4.test6.caller0v() {
+%entry:
+  %0 = alloca {}
+  %1 = alloca i32
+  store i32 #1, ptr<i32> %1
+  %2 = alloca i64
+  store i64 #2, ptr<i64> %2
+  %3 = load {}, ptr<{}> %0
+  %4 = load i32, ptr<i32> %1
+  %5 = load i64, ptr<i64> %2
+  call fn(@_DC0S1.4.test5.print3D1.4.test13.ConsoleWriter0.i32si64svX3tD1.4.test13.ConsoleWriter0.ti32sti64s)({} %3, i32 %4, i64 %5)
+  ret void
+}
+
+linkonce_odr void@_DC0S1.4.test5.print3D1.4.test13.ConsoleWriter0.i32si64svX3tD1.4.test13.ConsoleWriter0.ti32sti64s({}, i32, i64) {
+%entry({} %out, i32 %args_0, i64 %args_1):
+  %0 = alloca {}
+  store {} %out, ptr<{}> %0
+  %1 = load {}, ptr<{}> %0
+  call fn(@_DC0F1.4.test5.write2PqD1.4.test13.ConsoleWriter0.i32sv)({} %1, i32 %args_0)
+  %2 = load {}, ptr<{}> %0
+  call fn(@_DC0F1.4.test5.write2PqD1.4.test13.ConsoleWriter0.i64sv)({} %2, i64 %args_1)
+  ret void
+}

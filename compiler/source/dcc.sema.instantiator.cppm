@@ -2823,6 +2823,10 @@ export namespace dcc::sema
                             types::TypePtr elem_type;
                             comptime::Value const* elem_value;
                             bool is_value;
+                            std::unordered_map<std::string, ast::VarDecl*> const& expanded_decls;
+                            std::string_view pack_param_name;
+                            std::size_t elem_index;
+                            bool multi;
 
                             void replace_in_block(ast::Block& blk)
                             {
@@ -2915,6 +2919,14 @@ export namespace dcc::sema
                                         }
                                         else
                                             set_resolved_type(e->sema, elem_type);
+
+                                        std::string name_key = multi ? std::format("{}_{}", pack_param_name, elem_index) : std::string{pack_param_name};
+                                        auto dit = expanded_decls.find(name_key);
+                                        if (dit != expanded_decls.end())
+                                        {
+                                            ident->name = dit->second->name;
+                                            e->sema.resolved_decl = dit->second;
+                                        }
                                         return;
                                     }
                                 }
@@ -3008,7 +3020,8 @@ export namespace dcc::sema
                         if (it->second.is_value_pack && elem_idx < it->second.values.size())
                             elem_val = &it->second.values[elem_idx];
 
-                        LoopVarReplacer replacer{ast_ctx, type_ctx, sf.item_name, pack.types[elem_idx], elem_val, it->second.is_value_pack};
+                        bool multi_pack = pack.types.size() > 1;
+                        LoopVarReplacer replacer{ast_ctx, type_ctx, sf.item_name, pack.types[elem_idx], elem_val, it->second.is_value_pack, expanded_decls, pack_name, elem_idx, multi_pack};
                         replacer.replace_in_block(cloned_block);
 
                         for (auto* s : cloned_block.stmts)

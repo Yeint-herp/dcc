@@ -6664,7 +6664,7 @@ export namespace dcc::ir::lower
                 lower_panic(fa, "cannot find field decl for lvalue");
 
             std::uint32_t field_idx = field_decl->index;
-            auto* field_sema_ty = get_canonical_type(field_decl->type);
+            auto* field_sema_ty = get_field_type_with_subst(fa, field_decl);
             bool is_fam_lv = types::is_fam_type(field_sema_ty);
 
             auto wrap_lvalue = [&](IrValue* gep) -> IrValue* {
