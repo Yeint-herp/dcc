@@ -211,6 +211,21 @@ export namespace dcc::ir::lower
                     continue;
                 to_lower.push_back(fd);
             }
+
+            std::ranges::sort(to_lower, [](ast::FuncDecl const* a, ast::FuncDecl const* b) {
+                auto const a_ok = a->range.begin.valid();
+                auto const b_ok = b->range.begin.valid();
+                if (a_ok != b_ok)
+                    return a_ok > b_ok;
+                if (!a_ok)
+                    return a->name < b->name;
+                auto a_file = static_cast<std::uint32_t>(a->range.begin.fileId);
+                auto b_file = static_cast<std::uint32_t>(b->range.begin.fileId);
+                if (a_file != b_file)
+                    return a_file < b_file;
+                return a->range.begin.offset < b->range.begin.offset;
+            });
+
             for (auto* fd : to_lower)
             {
                 auto it = m_func_map.find(fd);
