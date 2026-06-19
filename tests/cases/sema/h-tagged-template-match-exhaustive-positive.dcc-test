@@ -1,0 +1,54 @@
+=== FILE: main.dc ===
+module m;
+
+enum Option(T) {
+    Some(T),
+    None,
+}
+
+enum Result(T, E) {
+    Ok(T),
+    Err(E),
+}
+
+enum Color {
+    Red,
+    Green,
+    Blue,
+}
+
+struct Point {
+    i32 x;
+    i32 y;
+}
+
+i32 match_option_i32(Option(i32) opt) {
+    return match opt {
+        Option::Some(x) => x,
+        Option::None => 0,
+    };
+}
+
+i32 match_option_struct(Option(Point) opt) {
+    return match opt {
+        Option::Some(p) => p.x,
+        Option::None => 0,
+    };
+}
+
+i32 match_result_ok_err(Result(i32, i32) r) {
+    return match r {
+        Result::Ok(x) => x,
+        Result::Err(e) => e,
+    };
+}
+
+i32 match_non_template_exhaustive(Color c) {
+    return match c {
+        Color::Red => 1,
+        Color::Green => 2,
+        Color::Blue => 3,
+    };
+}
+
+=== EXPECT-ERRORS ===

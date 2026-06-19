@@ -4758,8 +4758,8 @@ export namespace dcc::sema
                     bool payload_irrefutable = true;
                     for (std::size_t i = 0; i < e.payload.size(); ++i)
                     {
-                        auto payload_ty = e.resolved_variant->payload[i] ? resolve_type_node(mod, scope, e.resolved_variant->payload[i]) : m_types.m_errort();
-                        payload_ty = substitute_in_nominal_context(payload_ty, matched_type);
+                        auto payload_ty = e.resolved_variant->payload[i] ? resolve_payload_type(*enum_decl, e.resolved_variant->payload[i], matched_type, mod, scope)
+                                                                           : m_types.m_errort();
                         if (!e.payload[i] || !pattern_irrefutable(mod, *e.payload[i], payload_ty, scope, const_env))
                         {
                             payload_irrefutable = false;
@@ -5273,8 +5273,8 @@ export namespace dcc::sema
 
                     for (std::size_t i = 0; i < e.payload.size(); ++i)
                     {
-                        auto payload_ty = e.resolved_variant->payload[i] ? resolve_type_node(mod, scope, e.resolved_variant->payload[i]) : m_types.m_errort();
-                        payload_ty = substitute_in_nominal_context(payload_ty, matched_type);
+                        auto payload_ty = e.resolved_variant->payload[i] ? resolve_payload_type(*enum_decl, e.resolved_variant->payload[i], matched_type, mod, scope)
+                                                                           : m_types.m_errort();
                         if (e.payload[i])
                             validate_child(*e.payload[i], payload_ty);
                     }
