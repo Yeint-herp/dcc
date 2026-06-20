@@ -2274,6 +2274,46 @@ export namespace dcc::ir::lower
             return is_void_result ? nullptr : call_inst;
         }
 
+        [[nodiscard]] IrMemoryOrdering extract_order_from_arg(IrValue* order_val, ast::CallExpr const* call) const
+        {
+            auto* order_int = ir_cast<IrIntConstant>(order_val);
+            if (!order_int)
+                lower_panic(call, "MemoryOrder argument must be a compile-time constant");
+
+            auto raw = order_int->value;
+            if (raw < 0 || raw > 4)
+                lower_panic(call, std::format("invalid MemoryOrder value: {}", raw));
+
+            return static_cast<IrMemoryOrdering>(raw);
+        }
+
+        [[nodiscard]] IrValue* maybe_unwrap_atomic_ptr(IrValue* ptr)
+        {
+            if (!ptr || !ptr->type)
+                return ptr;
+
+            auto* ptr_type = ir_type_cast<IrPointerType>(ptr->type);
+            if (!ptr_type)
+                return ptr;
+
+            auto* pointee = ptr_type->pointee;
+            if (!pointee || pointee->kind != IrTypeKind::Aggregate)
+                return ptr;
+
+            auto* agg_type = static_cast<IrAggregateType const*>(pointee);
+            if (agg_type->members.size() != 1)
+                return ptr;
+
+            auto* field_type = agg_type->members[0];
+            auto* field_ptr_type = m_ctx.pointer_to(field_type, ptr_type->seg);
+            auto* gep = m_ctx.gep(field_ptr_type, ptr);
+            gep->indices.push_back({IrGepInst::IndexKind::Field, nullptr, 0});
+            auto name = ident_name();
+            gep->name = m_name_pool.back();
+            append_inst(gep);
+            return gep;
+        }
+
         IrValue* lower_intrinsic_call(ast::FuncDecl const* func, ast::CallExpr const* call)
         {
             auto name = func->name;
@@ -2282,70 +2322,86 @@ export namespace dcc::ir::lower
             for (auto* arg_expr : call->args)
                 args.push_back(lower_expr(arg_expr));
 
-            auto* order_val = args.back();
-            auto* order_int = ir_cast<IrIntConstant>(order_val);
-            if (!order_int)
-                lower_panic(call, "MemoryOrder argument must be a compile-time constant");
-
-            auto order = static_cast<IrMemoryOrdering>(order_int->value);
-
             auto* sema_ret = get_sema_resolved_type(call);
             auto* ir_ret = lower_type(sema_ret);
 
             IrValue* result = nullptr;
 
+            auto get_atomic_ptr = [&](std::size_t idx) -> IrValue* {
+                if (idx >= args.size())
+                    lower_panic(call, std::format("missing pointer argument at index {}", idx));
+                return maybe_unwrap_atomic_ptr(args[idx]);
+            };
+
             if (name == "atomic_load")
             {
                 if (args.size() < 2)
-                    lower_panic(call, "atomic_load requires 2 arguments");
-                result = m_ctx.atomic_load(ir_ret, args[0], order);
+                    lower_panic(call, "atomic_load requires 2 arguments (ptr, order)");
+                auto order = extract_order_from_arg(args[1], call);
+                auto* ptr = get_atomic_ptr(0);
+                result = m_ctx.atomic_load(ir_ret, ptr, order);
             }
             else if (name == "atomic_store")
             {
                 if (args.size() < 3)
-                    lower_panic(call, "atomic_store requires 3 arguments");
-                result = m_ctx.atomic_store(args[1], args[0], order);
+                    lower_panic(call, "atomic_store requires 3 arguments (ptr, value, order)");
+                auto order = extract_order_from_arg(args[2], call);
+                auto* ptr = get_atomic_ptr(0);
+                result = m_ctx.atomic_store(args[1], ptr, order);
             }
             else if (name == "atomic_exchange")
             {
                 if (args.size() < 3)
-                    lower_panic(call, "atomic_exchange requires 3 arguments");
-                result = m_ctx.atomic_rmw(ir_ret, IrAtomicRmwOp::Xchg, args[0], args[1], order);
+                    lower_panic(call, "atomic_exchange requires 3 arguments (ptr, value, order)");
+                auto order = extract_order_from_arg(args[2], call);
+                auto* ptr = get_atomic_ptr(0);
+                result = m_ctx.atomic_rmw(ir_ret, IrAtomicRmwOp::Xchg, ptr, args[1], order);
             }
             else if (name == "atomic_fetch_add")
             {
                 if (args.size() < 3)
-                    lower_panic(call, "atomic_fetch_add requires 3 arguments");
-                result = m_ctx.atomic_rmw(ir_ret, IrAtomicRmwOp::Add, args[0], args[1], order);
+                    lower_panic(call, "atomic_fetch_add requires 3 arguments (ptr, value, order)");
+                auto order = extract_order_from_arg(args[2], call);
+                auto* ptr = get_atomic_ptr(0);
+                result = m_ctx.atomic_rmw(ir_ret, IrAtomicRmwOp::Add, ptr, args[1], order);
             }
             else if (name == "atomic_fetch_sub")
             {
                 if (args.size() < 3)
-                    lower_panic(call, "atomic_fetch_sub requires 3 arguments");
-                result = m_ctx.atomic_rmw(ir_ret, IrAtomicRmwOp::Sub, args[0], args[1], order);
+                    lower_panic(call, "atomic_fetch_sub requires 3 arguments (ptr, value, order)");
+                auto order = extract_order_from_arg(args[2], call);
+                auto* ptr = get_atomic_ptr(0);
+                result = m_ctx.atomic_rmw(ir_ret, IrAtomicRmwOp::Sub, ptr, args[1], order);
             }
             else if (name == "atomic_fetch_and")
             {
                 if (args.size() < 3)
-                    lower_panic(call, "atomic_fetch_and requires 3 arguments");
-                result = m_ctx.atomic_rmw(ir_ret, IrAtomicRmwOp::And, args[0], args[1], order);
+                    lower_panic(call, "atomic_fetch_and requires 3 arguments (ptr, value, order)");
+                auto order = extract_order_from_arg(args[2], call);
+                auto* ptr = get_atomic_ptr(0);
+                result = m_ctx.atomic_rmw(ir_ret, IrAtomicRmwOp::And, ptr, args[1], order);
             }
             else if (name == "atomic_fetch_or")
             {
                 if (args.size() < 3)
-                    lower_panic(call, "atomic_fetch_or requires 3 arguments");
-                result = m_ctx.atomic_rmw(ir_ret, IrAtomicRmwOp::Or, args[0], args[1], order);
+                    lower_panic(call, "atomic_fetch_or requires 3 arguments (ptr, value, order)");
+                auto order = extract_order_from_arg(args[2], call);
+                auto* ptr = get_atomic_ptr(0);
+                result = m_ctx.atomic_rmw(ir_ret, IrAtomicRmwOp::Or, ptr, args[1], order);
             }
             else if (name == "atomic_fetch_xor")
             {
                 if (args.size() < 3)
-                    lower_panic(call, "atomic_fetch_xor requires 3 arguments");
-                result = m_ctx.atomic_rmw(ir_ret, IrAtomicRmwOp::Xor, args[0], args[1], order);
+                    lower_panic(call, "atomic_fetch_xor requires 3 arguments (ptr, value, order)");
+                auto order = extract_order_from_arg(args[2], call);
+                auto* ptr = get_atomic_ptr(0);
+                result = m_ctx.atomic_rmw(ir_ret, IrAtomicRmwOp::Xor, ptr, args[1], order);
             }
             else if (name == "atomic_fence")
             {
                 if (args.size() < 1)
-                    lower_panic(call, "atomic_fence requires 1 argument");
+                    lower_panic(call, "atomic_fence requires 1 argument (order)");
+                auto order = extract_order_from_arg(args[0], call);
                 result = m_ctx.fence(order);
             }
             else

@@ -11,5 +11,29 @@ public i32 test_atomic_exchange_not_volatile(volatile i32* ptr, i32 v) {
     return core::atomic::atomic_exchange(ptr, v, core::atomic::MemoryOrder::SeqCst);
 }
 
-=== EXPECT-LLVM FLAGS: -verify ===
+public i32 test_volatile_load_plain(volatile i32* ptr) {
+    return *ptr;
+}
 
+=== EXPECT-LLVM ===
+; ModuleID = 'test'
+source_filename = "test"
+target triple = "x86_64-unknown-linux-gnu"
+
+define i32 @_DC0F1.4.test29.test_atomic_load_not_volatile1PVqi32si32s(ptr %ptr) {
+entry:
+  %"0" = load atomic i32, ptr %ptr monotonic, align 4
+  ret i32 %"0"
+}
+
+define i32 @_DC0F1.4.test33.test_atomic_exchange_not_volatile2PVqi32si32si32s(ptr %ptr, i32 %v) {
+entry:
+  %"0" = atomicrmw xchg ptr %ptr, i32 %v seq_cst, align 4
+  ret i32 %"0"
+}
+
+define i32 @_DC0F1.4.test24.test_volatile_load_plain1PVqi32si32s(ptr %ptr) {
+entry:
+  %"0" = load i32, ptr %ptr, align 4
+  ret i32 %"0"
+}

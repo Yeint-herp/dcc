@@ -108,29 +108,57 @@ public enum MemoryOrder : u8 {
     SeqCst,
 }
 
+public struct Atomic(T) {
+    volatile T value;
+}
+
 @intrinsic
 public T atomic_load(T)(volatile T* ptr, MemoryOrder order);
+
+@intrinsic
+public T atomic_load(T)(Atomic(T)* ptr, MemoryOrder order);
 
 @intrinsic
 public void atomic_store(T)(volatile T* ptr, T value, MemoryOrder order);
 
 @intrinsic
+public void atomic_store(T)(Atomic(T)* ptr, T value, MemoryOrder order);
+
+@intrinsic
 public T atomic_exchange(T)(volatile T* ptr, T value, MemoryOrder order);
+
+@intrinsic
+public T atomic_exchange(T)(Atomic(T)* ptr, T value, MemoryOrder order);
 
 @intrinsic
 public T atomic_fetch_add(T)(volatile T* ptr, T value, MemoryOrder order);
 
 @intrinsic
+public T atomic_fetch_add(T)(Atomic(T)* ptr, T value, MemoryOrder order);
+
+@intrinsic
 public T atomic_fetch_sub(T)(volatile T* ptr, T value, MemoryOrder order);
+
+@intrinsic
+public T atomic_fetch_sub(T)(Atomic(T)* ptr, T value, MemoryOrder order);
 
 @intrinsic
 public T atomic_fetch_and(T)(volatile T* ptr, T value, MemoryOrder order);
 
 @intrinsic
+public T atomic_fetch_and(T)(Atomic(T)* ptr, T value, MemoryOrder order);
+
+@intrinsic
 public T atomic_fetch_or(T)(volatile T* ptr, T value, MemoryOrder order);
 
 @intrinsic
+public T atomic_fetch_or(T)(Atomic(T)* ptr, T value, MemoryOrder order);
+
+@intrinsic
 public T atomic_fetch_xor(T)(volatile T* ptr, T value, MemoryOrder order);
+
+@intrinsic
+public T atomic_fetch_xor(T)(Atomic(T)* ptr, T value, MemoryOrder order);
 
 @intrinsic
 public void atomic_fence(MemoryOrder order);

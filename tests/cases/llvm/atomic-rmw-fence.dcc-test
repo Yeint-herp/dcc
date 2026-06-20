@@ -38,5 +38,71 @@ public void test_fence_seqcst() {
     core::atomic::atomic_fence(core::atomic::MemoryOrder::SeqCst);
 }
 
-=== EXPECT-LLVM FLAGS: -verify ===
+public void test_fence_acqrel() {
+    core::atomic::atomic_fence(core::atomic::MemoryOrder::AcqRel);
+}
 
+=== EXPECT-LLVM ===
+; ModuleID = 'test'
+source_filename = "test"
+target triple = "x86_64-unknown-linux-gnu"
+
+define i32 @_DC0F1.4.test20.test_exchange_seqcst2PVqi32si32si32s(ptr %ptr, i32 %v) {
+entry:
+  %"0" = atomicrmw xchg ptr %ptr, i32 %v seq_cst, align 4
+  ret i32 %"0"
+}
+
+define i32 @_DC0F1.4.test22.test_fetch_add_relaxed2PVqi32si32si32s(ptr %ptr, i32 %v) {
+entry:
+  %"0" = atomicrmw add ptr %ptr, i32 %v monotonic, align 4
+  ret i32 %"0"
+}
+
+define i32 @_DC0F1.4.test22.test_fetch_sub_acquire2PVqi32si32si32s(ptr %ptr, i32 %v) {
+entry:
+  %"0" = atomicrmw sub ptr %ptr, i32 %v acquire, align 4
+  ret i32 %"0"
+}
+
+define i32 @_DC0F1.4.test22.test_fetch_and_release2PVqi32si32si32s(ptr %ptr, i32 %v) {
+entry:
+  %"0" = atomicrmw and ptr %ptr, i32 %v release, align 4
+  ret i32 %"0"
+}
+
+define i32 @_DC0F1.4.test20.test_fetch_or_acqrel2PVqi32si32si32s(ptr %ptr, i32 %v) {
+entry:
+  %"0" = atomicrmw or ptr %ptr, i32 %v acq_rel, align 4
+  ret i32 %"0"
+}
+
+define i32 @_DC0F1.4.test21.test_fetch_xor_seqcst2PVqi32si32si32s(ptr %ptr, i32 %v) {
+entry:
+  %"0" = atomicrmw xor ptr %ptr, i32 %v seq_cst, align 4
+  ret i32 %"0"
+}
+
+define void @_DC0F1.4.test18.test_fence_acquire0v() {
+entry:
+  fence acquire
+  ret void
+}
+
+define void @_DC0F1.4.test18.test_fence_release0v() {
+entry:
+  fence release
+  ret void
+}
+
+define void @_DC0F1.4.test17.test_fence_seqcst0v() {
+entry:
+  fence seq_cst
+  ret void
+}
+
+define void @_DC0F1.4.test17.test_fence_acqrel0v() {
+entry:
+  fence acq_rel
+  ret void
+}

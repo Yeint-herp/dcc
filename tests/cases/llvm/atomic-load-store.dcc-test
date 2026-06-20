@@ -26,4 +26,43 @@ public void test_store_seqcst(volatile i32* ptr, i32 v) {
     core::atomic::atomic_store(ptr, v, core::atomic::MemoryOrder::SeqCst);
 }
 
-=== EXPECT-LLVM FLAGS: -verify ===
+=== EXPECT-LLVM ===
+; ModuleID = 'test'
+source_filename = "test"
+target triple = "x86_64-unknown-linux-gnu"
+
+define i32 @_DC0F1.4.test17.test_load_relaxed1PVqi32si32s(ptr %ptr) {
+entry:
+  %"0" = load atomic i32, ptr %ptr monotonic, align 4
+  ret i32 %"0"
+}
+
+define i32 @_DC0F1.4.test16.test_load_seqcst1PVqi32si32s(ptr %ptr) {
+entry:
+  %"0" = load atomic i32, ptr %ptr seq_cst, align 4
+  ret i32 %"0"
+}
+
+define i32 @_DC0F1.4.test17.test_load_acquire1PVqi32si32s(ptr %ptr) {
+entry:
+  %"0" = load atomic i32, ptr %ptr acquire, align 4
+  ret i32 %"0"
+}
+
+define void @_DC0F1.4.test18.test_store_release2PVqi32si32sv(ptr %ptr, i32 %v) {
+entry:
+  store atomic i32 %v, ptr %ptr release, align 4
+  ret void
+}
+
+define void @_DC0F1.4.test18.test_store_relaxed2PVqi32si32sv(ptr %ptr, i32 %v) {
+entry:
+  store atomic i32 %v, ptr %ptr monotonic, align 4
+  ret void
+}
+
+define void @_DC0F1.4.test17.test_store_seqcst2PVqi32si32sv(ptr %ptr, i32 %v) {
+entry:
+  store atomic i32 %v, ptr %ptr seq_cst, align 4
+  ret void
+}
