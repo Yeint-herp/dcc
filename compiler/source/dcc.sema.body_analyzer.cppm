@@ -849,6 +849,9 @@ export namespace dcc::sema
         std::vector<sm::SourceRange> m_active_defers{};
         std::uint32_t m_defer_depth{};
         std::unordered_set<ast::UsingDecl const*> m_concept_evaluation_stack{};
+        std::unordered_set<ast::Decl const*> m_constraint_checking_set{};
+        std::unordered_set<void const*> m_type_constraint_guard_set{};
+        std::unordered_set<void const*> m_type_walk_guard_set{};
         ConceptFrame const* m_concept_frame_stack{};
         std::vector<std::string> m_concept_notes;
         std::vector<diag::Diagnostic>* m_captured_diagnostics{};
@@ -2139,7 +2142,7 @@ export namespace dcc::sema
             }
         }
 
-        [[nodiscard]] std::optional<bool> evaluate_concept_expr(ModuleInfo& mod, Scope& scope, ast::FuncDecl const& f,
+        [[nodiscard]] std::optional<bool> evaluate_concept_expr(ModuleInfo& mod, Scope& scope, ast::FuncDecl const* f,
                                                                 std::span<ast::TemplateParam const> env_params, infer::TemplateBindings const& bindings,
                                                                 ast::Expr const& expr, RequirementMode mode = RequirementMode::Bool)
         {
@@ -2165,7 +2168,7 @@ export namespace dcc::sema
             {
                 if (mode == RequirementMode::Diagnostic)
                 {
-                    auto [result, failures] = check_requirements(mod, std::addressof(f), scope, *c, bindings, RequirementMode::Diagnostic);
+                    auto [result, failures] = check_requirements(mod, f, scope, *c, bindings, RequirementMode::Diagnostic);
                     for (auto const& rf : failures)
                     {
                         auto req_loc = format_source_location(rf.requirement_range);
@@ -2332,15 +2335,15 @@ export namespace dcc::sema
             return std::nullopt;
         }
 
-        [[nodiscard]] std::optional<bool> evaluate_compiles_expr(ModuleInfo& mod, Scope& scope, ast::FuncDecl const& f, infer::TemplateBindings const& bindings,
+        [[nodiscard]] std::optional<bool> evaluate_compiles_expr(ModuleInfo& mod, Scope& scope, ast::FuncDecl const* f, infer::TemplateBindings const& bindings,
                                                                  ast::CompilesExpr const& compiles)
         {
-            auto [result, failures] = check_requirements(mod, std::addressof(f), scope, compiles, bindings, RequirementMode::Bool);
+            auto [result, failures] = check_requirements(mod, f, scope, compiles, bindings, RequirementMode::Bool);
             std::ignore = failures;
             return result;
         }
 
-        [[nodiscard]] std::optional<bool> evaluate_concept_decl(ModuleInfo& mod, Scope& scope, ast::FuncDecl const& f, ast::UsingDecl const& concept_decl,
+        [[nodiscard]] std::optional<bool> evaluate_concept_decl(ModuleInfo& mod, Scope& scope, ast::FuncDecl const* f, ast::UsingDecl const& concept_decl,
                                                                 infer::TemplateBindings const& bindings, RequirementMode mode = RequirementMode::Bool)
         {
             if (!concept_decl.target_expr)
@@ -2399,7 +2402,7 @@ export namespace dcc::sema
 
             {
                 [[maybe_unused]] ErrorSuppressionGuard suppress{m_suppress_errors, m_suppressed_error_count};
-                auto evaluated = evaluate_concept_expr(mod, scope, f, std::span<ast::TemplateParam const>{f.template_params.data(), f.template_params.size()},
+                auto evaluated = evaluate_concept_expr(mod, scope, &f, std::span<ast::TemplateParam const>{f.template_params.data(), f.template_params.size()},
                                                        bindings, *f.constraint);
                 if (evaluated.value_or(false) && !suppress.had_suppressed_errors())
                     return true;
@@ -2424,11 +2427,228 @@ export namespace dcc::sema
                 append_concept_frame_note(*m_concept_frame_stack);
                 ConceptFrameGuard frame_guard{*this};
 
-                std::ignore = evaluate_concept_expr(mod, scope, f, std::span<ast::TemplateParam const>{f.template_params.data(), f.template_params.size()},
+                std::ignore = evaluate_concept_expr(mod, scope, &f, std::span<ast::TemplateParam const>{f.template_params.data(), f.template_params.size()},
                                                     bindings, *f.constraint, RequirementMode::Diagnostic);
             }
 
             return false;
+        }
+
+        [[nodiscard]] bool check_template_constraint(ModuleInfo& mod, Scope& scope, std::span<ast::TemplateParam const> template_params,
+                                                     ast::Expr const* constraint, infer::TemplateBindings const& bindings, bool diagnostic = false,
+                                                     ModuleInfo const* defining_mod = nullptr)
+        {
+            if (!constraint)
+                return true;
+
+            auto const* call = ast::node_cast<ast::CallExpr>(constraint);
+            if (!call)
+                return true;
+
+            auto const* concept_decl = resolve_concept_decl(mod, scope, *call->callee, defining_mod);
+            if (!concept_decl)
+                return false;
+
+            {
+                [[maybe_unused]] ErrorSuppressionGuard suppress{m_suppress_errors, m_suppressed_error_count};
+                auto evaluated = evaluate_concept_expr(mod, scope, nullptr, template_params, bindings, *constraint);
+                if (evaluated.value_or(false) && !suppress.had_suppressed_errors())
+                    return true;
+            }
+
+            if (diagnostic)
+            {
+                std::pmr::vector<std::pair<std::string_view, std::pmr::string>> param_bindings{m_alloc};
+                for (std::size_t i = 0; i < template_params.size(); ++i)
+                {
+                    auto const& tp = template_params[i];
+                    auto* param_ty = m_types.template_param_t(const_cast<ast::TemplateParam*>(std::addressof(tp)), tp.name, static_cast<std::uint32_t>(i));
+                    if (param_ty)
+                    {
+                        auto concrete = bindings.lookup(static_cast<types::TemplateParamType const*>(param_ty));
+                        auto type_str = concrete ? format_type_str(concrete) : format_type_str(param_ty);
+                        param_bindings.emplace_back(tp.name, std::pmr::string{type_str, m_alloc});
+                    }
+                }
+                auto concept_name = concept_decl->alias_path.is_empty() ? std::string_view{} : concept_decl->alias_path.segments.back().name;
+                push_concept_frame(concept_name, std::move(param_bindings), constraint->range, true);
+                append_concept_frame_note(*m_concept_frame_stack);
+                ConceptFrameGuard frame_guard{*this};
+
+                std::ignore = evaluate_concept_expr(mod, scope, nullptr, template_params, bindings, *constraint, RequirementMode::Diagnostic);
+            }
+
+            return false;
+        }
+
+        [[nodiscard]] bool check_type_constraint(ModuleInfo& mod, Scope const& scope, ast::Decl const* decl, std::span<types::TypePtr const> type_args,
+                                                 sm::SourceRange use_range)
+        {
+            ast::Expr const* constraint = nullptr;
+            std::span<ast::TemplateParam const> template_params;
+            std::string_view decl_name;
+
+            if (auto const* sd = ast::node_cast<ast::StructDecl>(decl))
+            {
+                constraint = sd->constraint;
+                template_params = {sd->template_params.data(), sd->template_params.size()};
+                decl_name = sd->name;
+            }
+            else if (auto const* ed = ast::node_cast<ast::EnumDecl>(decl))
+            {
+                constraint = ed->constraint;
+                template_params = {ed->template_params.data(), ed->template_params.size()};
+                decl_name = ed->name;
+            }
+            else
+                return true;
+
+            if (!constraint)
+                return true;
+
+            if (!m_constraint_checking_set.insert(decl).second)
+            {
+                error(use_range, "recursive type constraint on `{}`", decl_name);
+                return false;
+            }
+            struct RecursionGuard
+            {
+                std::unordered_set<ast::Decl const*>& set;
+                ast::Decl const* d;
+                ~RecursionGuard() { set.erase(d); }
+            } guard{m_constraint_checking_set, decl};
+            std::ignore = guard;
+
+            if (template_params.empty())
+                return true;
+
+            infer::TemplateBindings bindings{m_types};
+            for (std::size_t i = 0; i < template_params.size(); ++i)
+            {
+                auto const& tp = template_params[i];
+                if (i >= type_args.size())
+                    break;
+
+                auto* param_ty = m_types.template_param_t(const_cast<ast::TemplateParam*>(std::addressof(tp)), tp.name, static_cast<std::uint32_t>(i));
+                if (!param_ty || !bindings.deduce(param_ty, type_args[i]))
+                    return false;
+            }
+
+            auto& mutable_scope = const_cast<Scope&>(scope);
+            auto result = check_template_constraint(mod, mutable_scope, template_params, constraint, bindings, true);
+
+            if (!result)
+                error(use_range, "template constraint not satisfied for `{}`", decl_name);
+
+            return result;
+        }
+
+        void check_nominal_type_constraint(ModuleInfo& mod, Scope const& scope, types::TypePtr ty, sm::SourceRange use_range)
+        {
+            if (!ty)
+                return;
+
+            ast::Expr const* constraint = nullptr;
+            std::span<ast::TemplateParam const> template_params;
+            std::string_view decl_name;
+
+            if (auto const* st = types::type_cast<types::StructType>(ty))
+            {
+                auto const* sd = reinterpret_cast<ast::StructDecl const*>(st->decl);
+                constraint = sd->constraint;
+                template_params = {sd->template_params.data(), sd->template_params.size()};
+                decl_name = sd->name;
+            }
+            else if (auto const* et = types::type_cast<types::EnumType>(ty))
+            {
+                auto const* ed = reinterpret_cast<ast::EnumDecl const*>(et->decl);
+                constraint = ed->constraint;
+                template_params = {ed->template_params.data(), ed->template_params.size()};
+                decl_name = ed->name;
+            }
+
+            if (!constraint)
+                return;
+
+            if (template_params.empty())
+                return;
+
+            auto opt_bindings = make_bindings(ty);
+            if (!opt_bindings)
+                return;
+
+            auto* guard_key = reinterpret_cast<void const*>(ty);
+            if (!m_type_constraint_guard_set.insert(guard_key).second)
+            {
+                error(use_range, "recursive type constraint on `{}`", decl_name);
+                return;
+            }
+
+            struct RecursionGuard
+            {
+                std::unordered_set<void const*>& set;
+                void const* d;
+                ~RecursionGuard() { set.erase(d); }
+            } guard{m_type_constraint_guard_set, guard_key};
+            std::ignore = guard;
+
+            auto& mutable_scope = const_cast<Scope&>(scope);
+            if (!check_template_constraint(mod, mutable_scope, template_params, constraint, *opt_bindings, true))
+                error(use_range, "template constraint not satisfied for `{}`", decl_name);
+        }
+
+        void check_type_constraints_in_type(ModuleInfo& mod, Scope const& scope, types::TypePtr ty, sm::SourceRange use_range)
+        {
+            if (!ty)
+                return;
+
+            if (!m_type_walk_guard_set.insert(reinterpret_cast<void const*>(ty)).second)
+                return;
+
+            struct RecursionGuard
+            {
+                std::unordered_set<void const*>& set;
+                void const* d;
+                ~RecursionGuard() { set.erase(d); }
+            } guard{m_type_walk_guard_set, reinterpret_cast<void const*>(ty)};
+            std::ignore = guard;
+
+            switch (ty->kind)
+            {
+                case types::TypeKind::Struct:
+                case types::TypeKind::Enum:
+                    check_nominal_type_constraint(mod, scope, ty, use_range);
+                    {
+                        auto const* ut = static_cast<types::UserType const*>(ty);
+                        for (auto const* arg : ut->template_args)
+                            check_type_constraints_in_type(mod, scope, arg, use_range);
+                    }
+                    break;
+                case types::TypeKind::Pointer:
+                    check_type_constraints_in_type(mod, scope, static_cast<types::PointerType const*>(ty)->pointee, use_range);
+                    break;
+                case types::TypeKind::Array:
+                    check_type_constraints_in_type(mod, scope, static_cast<types::ArrayType const*>(ty)->element, use_range);
+                    break;
+                case types::TypeKind::RuntimeArray:
+                    check_type_constraints_in_type(mod, scope, static_cast<types::RuntimeArrayType const*>(ty)->element, use_range);
+                    break;
+                case types::TypeKind::Slice:
+                    check_type_constraints_in_type(mod, scope, static_cast<types::SliceType const*>(ty)->element, use_range);
+                    break;
+                case types::TypeKind::Fam:
+                    check_type_constraints_in_type(mod, scope, static_cast<types::FamType const*>(ty)->element, use_range);
+                    break;
+                case types::TypeKind::FuncPtr: {
+                    auto const* fp = static_cast<types::FuncPtrType const*>(ty);
+                    check_type_constraints_in_type(mod, scope, fp->return_type, use_range);
+                    for (auto const* p : fp->params)
+                        check_type_constraints_in_type(mod, scope, p, use_range);
+                    break;
+                }
+                default:
+                    break;
+            }
         }
 
         static void record_resolved_specialization(ast::ExprSema& sema, detail::CommittedSpecialization const* spec) noexcept
@@ -4309,6 +4529,12 @@ export namespace dcc::sema
                     analyze_function(mod, *f);
                 else if (auto* v = ast::node_cast<ast::VarDecl>(d))
                     analyze_var(mod, *v);
+                else if (auto* sd = ast::node_cast<ast::StructDecl>(d))
+                    analyze_struct_fields(mod, *sd);
+                else if (auto* ud = ast::node_cast<ast::UnionDecl>(d))
+                    analyze_union_fields(mod, *ud);
+                else if (auto* ed = ast::node_cast<ast::EnumDecl>(d))
+                    analyze_enum_fields(mod, *ed);
         }
 
         void analyze_function(ModuleInfo& mod, ast::FuncDecl& fn)
@@ -4338,6 +4564,8 @@ export namespace dcc::sema
 
                 auto type = p.type && p.type->sema.canonical ? get_canonical(p.type->sema) : nullptr;
                 check_type_valid_for_value(p.range, type, "parameter type");
+                if (type && mod.own_scope)
+                    check_type_constraints_in_type(mod, *mod.own_scope, type, p.range);
                 p.sema.frame_offset = allocate_frame_slot(frame_off, type);
                 auto* synthetic = make_param_decl(p);
 
@@ -4354,6 +4582,8 @@ export namespace dcc::sema
             {
                 auto ret_ty = fn.return_type ? get_canonical(fn.return_type->sema) : nullptr;
                 check_type_valid_for_value(fn.range, ret_ty, "return type");
+                if (ret_ty && mod.own_scope)
+                    check_type_constraints_in_type(mod, *mod.own_scope, ret_ty, fn.name_range);
             }
 
             if (fn.body)
@@ -4407,8 +4637,62 @@ export namespace dcc::sema
             if (!var.is_extern)
                 check_type_valid_for_value(var.range, var_type, "variable type");
 
+            if (var_type && mod.own_scope)
+                check_type_constraints_in_type(mod, *mod.own_scope, var_type, var.range);
+
             if (var.init && mod.own_scope)
                 std::ignore = analyze_expr(mod, nullptr, *mod.own_scope, *var.init, 0, dummy_offset(), var_type, nullptr);
+        }
+
+        void analyze_struct_fields(ModuleInfo& mod, ast::StructDecl& sd)
+        {
+            if (!mod.own_scope)
+                return;
+
+            for (auto& f : sd.fields)
+            {
+                if (!f.type || !f.type->sema.canonical)
+                    continue;
+
+                auto* ft = get_canonical(f.type->sema);
+                if (ft)
+                    check_type_constraints_in_type(mod, *mod.own_scope, ft, f.type->range);
+            }
+        }
+
+        void analyze_union_fields(ModuleInfo& mod, ast::UnionDecl& ud)
+        {
+            if (!mod.own_scope)
+                return;
+
+            for (auto& f : ud.fields)
+            {
+                if (!f.type || !f.type->sema.canonical)
+                    continue;
+
+                auto* ft = get_canonical(f.type->sema);
+                if (ft)
+                    check_type_constraints_in_type(mod, *mod.own_scope, ft, f.type->range);
+            }
+        }
+
+        void analyze_enum_fields(ModuleInfo& mod, ast::EnumDecl& ed)
+        {
+            if (!mod.own_scope)
+                return;
+
+            for (auto& v : ed.variants)
+            {
+                for (auto* p : v.payload)
+                {
+                    if (!p || !p->sema.canonical)
+                        continue;
+
+                    auto* pt = get_canonical(p->sema);
+                    if (pt)
+                        check_type_constraints_in_type(mod, *mod.own_scope, pt, p->range);
+                }
+            }
         }
 
         static std::uint32_t& dummy_offset()
@@ -4778,8 +5062,9 @@ export namespace dcc::sema
                     bool payload_irrefutable = true;
                     for (std::size_t i = 0; i < e.payload.size(); ++i)
                     {
-                        auto payload_ty = e.resolved_variant->payload[i] ? resolve_payload_type(*enum_decl, e.resolved_variant->payload[i], matched_type, mod, scope)
-                                                                           : m_types.m_errort();
+                        auto payload_ty = e.resolved_variant->payload[i]
+                                              ? resolve_payload_type(*enum_decl, e.resolved_variant->payload[i], matched_type, mod, scope)
+                                              : m_types.m_errort();
                         if (!e.payload[i] || !pattern_irrefutable(mod, *e.payload[i], payload_ty, scope, const_env))
                         {
                             payload_irrefutable = false;
@@ -5293,8 +5578,9 @@ export namespace dcc::sema
 
                     for (std::size_t i = 0; i < e.payload.size(); ++i)
                     {
-                        auto payload_ty = e.resolved_variant->payload[i] ? resolve_payload_type(*enum_decl, e.resolved_variant->payload[i], matched_type, mod, scope)
-                                                                           : m_types.m_errort();
+                        auto payload_ty = e.resolved_variant->payload[i]
+                                              ? resolve_payload_type(*enum_decl, e.resolved_variant->payload[i], matched_type, mod, scope)
+                                              : m_types.m_errort();
                         if (e.payload[i])
                             validate_child(*e.payload[i], payload_ty);
                     }
@@ -6862,6 +7148,9 @@ export namespace dcc::sema
                 out.type = get_canonical(c.target->sema);
             }
 
+            if (out.type && mod.own_scope && c.target)
+                check_type_constraints_in_type(mod, *mod.own_scope, out.type, c.target->range);
+
             if (!out.type)
                 out.type = m_types.m_errort();
 
@@ -7082,6 +7371,9 @@ export namespace dcc::sema
                 error(s.range, "brace literal requires an aggregate type");
                 return out;
             }
+
+            if (s.type && target && mod.own_scope)
+                check_type_constraints_in_type(mod, *mod.own_scope, target, s.range);
 
             auto analyze_record_fields = [&](types::TypePtr record_ty) -> std::optional<detail::ExprResult> {
                 if (!nominal_decl(record_ty))
@@ -7515,6 +7807,8 @@ export namespace dcc::sema
             if (s.target)
             {
                 auto target = resolve_type_node(mod, scope, s.target);
+                if (target && mod.own_scope)
+                    check_type_constraints_in_type(mod, *mod.own_scope, target, s.target->range);
                 if (auto layout = layout_of(target))
                     out.constant = make_int_const(static_cast<std::int64_t>(layout->size), out.type);
             }
@@ -7569,6 +7863,8 @@ export namespace dcc::sema
             if (s.target)
             {
                 auto target = resolve_type_node(mod, scope, s.target);
+                if (target && mod.own_scope)
+                    check_type_constraints_in_type(mod, *mod.own_scope, target, s.target->range);
                 if (auto layout = layout_of(target))
                     out.constant = make_int_const(static_cast<std::int64_t>(layout->align), out.type);
             }
@@ -7582,6 +7878,8 @@ export namespace dcc::sema
             detail::ExprResult out{};
             out.type = m_types.usize_t();
             auto const* target_ty = s.target ? resolve_type_node(mod, scope, s.target) : nullptr;
+            if (target_ty && mod.own_scope && s.target)
+                check_type_constraints_in_type(mod, *mod.own_scope, target_ty, s.target->range);
             if (target_ty &&
                 (target_ty->kind == types::TypeKind::Struct || target_ty->kind == types::TypeKind::Union || target_ty->kind == types::TypeKind::Enum))
             {
@@ -8814,7 +9112,7 @@ export namespace dcc::sema
                                     [[maybe_unused]] ErrorSuppressionGuard suppress{m_suppress_errors, m_suppressed_error_count};
                                     if (fn)
                                     {
-                                        auto result = evaluate_concept_decl(mod, scope, *fn, *use, concept_bindings);
+                                        auto result = evaluate_concept_decl(mod, scope, fn, *use, concept_bindings);
                                         if (result.value_or(false) && !suppress.had_suppressed_errors())
                                             matched = true;
                                     }
@@ -9300,6 +9598,7 @@ export namespace dcc::sema
             if (auto* v = ast::node_cast<ast::VarDecl>(&d))
             {
                 v->sema.storage = fn ? ast::StorageClass::Local : ast::StorageClass::ModuleGlobal;
+                bool had_canonical = v->type && v->type->sema.canonical;
                 if (v->type && !v->type->sema.canonical)
                 {
                     auto resolved = resolve_type_node(mod, scope, v->type, fn, &next_off, const_env);
@@ -9316,6 +9615,9 @@ export namespace dcc::sema
 
                     if (!v->is_extern)
                         check_type_valid_for_value(v->range, canon, "variable type");
+
+                    if (had_canonical && mod.own_scope)
+                        check_type_constraints_in_type(mod, *mod.own_scope, canon, v->range);
                 }
 
                 if (v->type && v->type->kind == ast::TypeKind::Qualified)
@@ -9889,11 +10191,19 @@ export namespace dcc::sema
                         }
 
                         if (auto const* sd = ast::node_cast<ast::StructDecl>(decl))
-                            return m_types.nominal_t(types::TypeKind::Struct, sd, resolved_args);
+                        {
+                            auto ty = m_types.nominal_t(types::TypeKind::Struct, sd, resolved_args);
+                            std::ignore = check_type_constraint(mod, scope, sd, resolved_args, nt->range);
+                            return ty;
+                        }
                         if (auto const* ud = ast::node_cast<ast::UnionDecl>(decl))
                             return m_types.nominal_t(types::TypeKind::Union, ud, resolved_args);
                         if (auto const* ed = ast::node_cast<ast::EnumDecl>(decl))
-                            return m_types.nominal_t(types::TypeKind::Enum, ed, resolved_args);
+                        {
+                            auto ty = m_types.nominal_t(types::TypeKind::Enum, ed, resolved_args);
+                            std::ignore = check_type_constraint(mod, scope, ed, resolved_args, nt->range);
+                            return ty;
+                        }
 
                         return m_types.m_errort();
                     };

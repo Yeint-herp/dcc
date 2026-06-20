@@ -1,0 +1,26 @@
+=== FILE: main.dc ===
+module m;
+
+using HasField(T) = compiles(T x) {
+    x.val;
+};
+
+struct Base {
+    i32 val;
+}
+
+struct X(T) if HasField(T) {
+    T val;
+}
+
+struct Y(T) if HasField(T) {
+    T val;
+}
+
+struct Z(T) if HasField(T) {
+    T val;
+}
+
+void f() {
+    X(Y(Z(Base))) deep;
+}

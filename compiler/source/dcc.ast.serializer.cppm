@@ -719,6 +719,12 @@ export namespace dcc::ast
             print_attrs(d->attrs);
             print_decl_modifiers(static_cast<Decl const*>(d));
             print_template_params(d->template_params);
+            if (d->constraint)
+            {
+                line("Constraint");
+                IndentScope is2(m_indent_level);
+                visitExpr(d->constraint);
+            }
             for (const auto& f : d->fields)
                 print_field_decl(f);
         }
@@ -743,6 +749,12 @@ export namespace dcc::ast
                 line("Backing");
                 IndentScope is2(m_indent_level);
                 visitTypeExpr(d->backing_type);
+            }
+            if (d->constraint)
+            {
+                line("Constraint");
+                IndentScope is2(m_indent_level);
+                visitExpr(d->constraint);
             }
             for (const auto& v : d->variants)
                 print_enum_variant(v);

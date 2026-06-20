@@ -861,6 +861,8 @@ namespace dcc::ast
     {
         visitAttrs(d->attrs);
         visitTemplateParams(d->template_params);
+        if (d->constraint)
+            visitExpr(d->constraint);
         for (auto const& f : d->fields)
             if (f.type)
                 visitTypeExpr(f.type);
@@ -880,6 +882,8 @@ namespace dcc::ast
         visitTemplateParams(d->template_params);
         if (d->backing_type)
             visitTypeExpr(d->backing_type);
+        if (d->constraint)
+            visitExpr(d->constraint);
         for (auto const& v : d->variants)
         {
             for (const auto* t : v.payload)

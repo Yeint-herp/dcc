@@ -1,0 +1,29 @@
+=== FILE: main.dc ===
+module m;
+
+using IsInt(T) = compiles(T x) {
+    x + 1;
+};
+
+struct NoAdd {}
+
+struct X(T) if IsInt(T) {
+    T val;
+}
+
+void test_var() {
+    X(NoAdd) bad;
+}
+
+struct Y(T) if IsInt(T) {
+    T val;
+}
+
+void test_nested() {
+    X(Y(NoAdd)) deep;
+}
+
+=== EXPECT-ERRORS ===
+main.dc:14: template constraint not satisfied for `X`
+main.dc:22: template constraint not satisfied for `Y`
+main.dc:22: template constraint not satisfied for `X`

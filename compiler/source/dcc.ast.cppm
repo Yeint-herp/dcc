@@ -990,6 +990,7 @@ export namespace dcc::ast
         sm::SourceRange name_range;
         std::pmr::vector<TemplateParam> template_params;
         std::pmr::vector<FieldDecl> fields;
+        ExprPtr constraint{};
         StructDecl(sm::SourceRange r, std::string_view n, sm::SourceRange nr, Allocator a)
             : Decl(Kind, r, a), name(n), name_range(nr), template_params(a), fields(a)
         {
@@ -1013,6 +1014,7 @@ export namespace dcc::ast
         std::pmr::vector<TemplateParam> template_params;
         TypePtr backing_type{};
         std::pmr::vector<EnumVariant> variants;
+        ExprPtr constraint{};
         bool is_tagged{};
         EnumDecl(sm::SourceRange r, std::string_view n, sm::SourceRange nr, Allocator a)
             : Decl(Kind, r, a), name(n), name_range(nr), template_params(a), variants(a)

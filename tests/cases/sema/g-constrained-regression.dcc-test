@@ -1,0 +1,36 @@
+=== FILE: main.dc ===
+module m;
+
+using Addable(T) = compiles(T a, T b) {
+    a + b;
+};
+
+T sum(T)(T a, T b) if Addable(T) {
+    return a + b;
+}
+
+i32 use() {
+    return sum(1, 2);
+}
+
+T broken(T)(T a) if Addable(T) {
+    return a;
+}
+
+struct NoAdd {}
+
+void test_func_negative() {
+    broken(NoAdd{});
+}
+
+struct Box(T) {
+    T value;
+}
+
+void test_box() {
+    Box(i32) b;
+    b.value = 42;
+}
+
+=== EXPECT-ERRORS ===
+main.dc:22: template constraint not satisfied for `broken`

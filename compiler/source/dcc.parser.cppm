@@ -1249,6 +1249,9 @@ export namespace dcc::parser
             if (check(TK::LParen))
                 d->template_params = parse_template_param_list(false);
 
+            if (match(TK::KwIf))
+                d->constraint = parse_expr(0, true);
+
             expect(TK::LBrace, "to begin struct body");
             while (!check(TK::RBrace) && !eof())
             {
@@ -1334,6 +1337,9 @@ export namespace dcc::parser
 
             if (match(TK::Colon))
                 d->backing_type = parse_type();
+
+            if (match(TK::KwIf))
+                d->constraint = parse_expr(0, true);
 
             expect(TK::LBrace, "to begin enum body");
             bool any_payload = false;
