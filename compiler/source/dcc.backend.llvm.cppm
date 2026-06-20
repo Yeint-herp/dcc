@@ -2764,16 +2764,18 @@ namespace dcc::backend
                                 }
                                 else
                                 {
-                                    auto* start_val = LLVMConstInt(llvm_val_ty, static_cast<unsigned long long>(c.start),
-                                                                   static_cast<IrIntType const*>(sw->value->type) &&
-                                                                       static_cast<IrIntType const*>(sw->value->type)->is_signed);
+                                    bool is_signed = false;
+                                    if (auto const* ir_int_type = static_cast<IrIntType const*>(sw->value->type))
+                                        is_signed = ir_int_type->is_signed;
 
-                                    auto* end_val = LLVMConstInt(llvm_val_ty, static_cast<unsigned long long>(c.end),
-                                                                 static_cast<IrIntType const*>(sw->value->type) &&
-                                                                     static_cast<IrIntType const*>(sw->value->type)->is_signed);
+                                    auto* start_val = LLVMConstInt(llvm_val_ty, static_cast<unsigned long long>(c.start), is_signed);
+                                    auto* end_val = LLVMConstInt(llvm_val_ty, static_cast<unsigned long long>(c.end), is_signed);
 
-                                    auto* ge_cmp = LLVMBuildICmp(builder, LLVMIntSGE, val, start_val, "");
-                                    auto* le_cmp = LLVMBuildICmp(builder, LLVMIntSLE, val, end_val, "");
+                                    LLVMIntPredicate ge_pred = is_signed ? LLVMIntSGE : LLVMIntUGE;
+                                    LLVMIntPredicate le_pred = is_signed ? LLVMIntSLE : LLVMIntULE;
+
+                                    auto* ge_cmp = LLVMBuildICmp(builder, ge_pred, val, start_val, "");
+                                    auto* le_cmp = LLVMBuildICmp(builder, le_pred, val, end_val, "");
                                     auto* in_range = LLVMBuildAnd(builder, ge_cmp, le_cmp, "inrange");
 
                                     if (is_last)
