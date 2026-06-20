@@ -2987,8 +2987,10 @@ export namespace dcc::sema
             return fp_type;
         }
 
-        [[nodiscard]] detail::CommittedSpecialization commit_candidate(ModuleInfo& mod, ExplicitInstCandidate const& cand)
+        [[nodiscard]] detail::CommittedSpecialization commit_candidate(ModuleInfo& mod, ExplicitInstCandidate const& cand,
+                                                                       std::span<ast::TemplateArg const> template_args = {})
         {
+            std::ignore = template_args;
             return commit_specialization(mod, *cand.template_fn, cand.bindings, cand.template_fn->range);
         }
 
@@ -3003,9 +3005,145 @@ export namespace dcc::sema
                 auto spec = commit_specialization(mod, f, *opt_bindings, f.range);
                 if (out_specialization_decl)
                     *out_specialization_decl = spec.decl;
+                if (f.name.starts_with("atomic_"))
+                    validate_atomic_type_param(f, *opt_bindings, template_args);
                 return spec.type;
             }
             return std::nullopt;
+        }
+
+        enum class AtomicOp
+        {
+            Load,
+            Store,
+            Exchange,
+            FetchAdd,
+            FetchSub,
+            FetchAnd,
+            FetchOr,
+            FetchXor,
+            Fence,
+            Unknown
+        };
+
+        static AtomicOp classify_atomic_op(std::string_view name)
+        {
+            if (name == "atomic_load")
+                return AtomicOp::Load;
+            if (name == "atomic_store")
+                return AtomicOp::Store;
+            if (name == "atomic_exchange")
+                return AtomicOp::Exchange;
+            if (name == "atomic_fetch_add")
+                return AtomicOp::FetchAdd;
+            if (name == "atomic_fetch_sub")
+                return AtomicOp::FetchSub;
+            if (name == "atomic_fetch_and")
+                return AtomicOp::FetchAnd;
+            if (name == "atomic_fetch_or")
+                return AtomicOp::FetchOr;
+            if (name == "atomic_fetch_xor")
+                return AtomicOp::FetchXor;
+            if (name == "atomic_fence")
+                return AtomicOp::Fence;
+            return AtomicOp::Unknown;
+        }
+
+        void validate_atomic_order(ast::FuncDecl const& f, detail::ExprResult const& order_arg, ast::Expr const* order_expr, AtomicOp op)
+        {
+            if (!order_arg.constant)
+            {
+                error(order_expr->range, "MemoryOrder argument to `{}` must be a compile-time constant", f.name);
+                return;
+            }
+
+            if (order_arg.constant->kind() != comptime::Value::Kind::Int)
+            {
+                error(order_expr->range, "MemoryOrder argument to `{}` must be an integer value", f.name);
+                return;
+            }
+
+            auto raw_order = order_arg.constant->get_int();
+
+            bool order_ok = true;
+            switch (op)
+            {
+                case AtomicOp::Load:
+                    if (raw_order != 0 && raw_order != 1 && raw_order != 4)
+                    {
+                        error(order_expr->range, "atomic_load allows MemoryOrder Relaxed(0), Acquire(1), or SeqCst(4); got {}", raw_order);
+                        order_ok = false;
+                    }
+                    break;
+                case AtomicOp::Store:
+                    if (raw_order != 0 && raw_order != 2 && raw_order != 4)
+                    {
+                        error(order_expr->range, "atomic_store allows MemoryOrder Relaxed(0), Release(2), or SeqCst(4); got {}", raw_order);
+                        order_ok = false;
+                    }
+                    break;
+                case AtomicOp::Fence:
+                    if (raw_order != 1 && raw_order != 2 && raw_order != 3 && raw_order != 4)
+                    {
+                        error(order_expr->range, "atomic_fence allows MemoryOrder Acquire(1), Release(2), AcqRel(3), or SeqCst(4); got {}", raw_order);
+                        order_ok = false;
+                    }
+                    break;
+                default:
+                    if (raw_order < 0 || raw_order > 4)
+                    {
+                        error(order_expr->range, "invalid MemoryOrder value: {}", raw_order);
+                        order_ok = false;
+                    }
+                    break;
+            }
+            std::ignore = order_ok;
+        }
+
+        void validate_atomic_type_param(ast::FuncDecl const& f, infer::TemplateBindings const& bindings, std::span<ast::TemplateArg const> template_args,
+                                        sm::SourceRange fallback_range = {})
+        {
+            types::TemplateParamType const* type_param_key = nullptr;
+            for (std::uint32_t i = 0; i < static_cast<std::uint32_t>(f.template_params.size()); ++i)
+            {
+                auto const& tp = f.template_params[i];
+                if (!tp.value_type)
+                {
+                    type_param_key =
+                        static_cast<types::TemplateParamType const*>(m_types.template_param_t(const_cast<ast::TemplateParam*>(std::addressof(tp)), tp.name, i));
+                    break;
+                }
+            }
+
+            auto op = classify_atomic_op(f.name);
+            if (op == AtomicOp::Unknown || op == AtomicOp::Fence)
+                return;
+
+            if (type_param_key)
+            {
+                auto* concrete_t = bindings.lookup(type_param_key);
+
+                auto type_range = [&]() -> sm::SourceRange {
+                    for (std::size_t ti = 0; ti < f.template_params.size() && ti < template_args.size(); ++ti)
+                        if (!f.template_params[ti].value_type)
+                            return template_args[ti].range;
+
+                    if (fallback_range.valid())
+                        return fallback_range;
+
+                    return f.range;
+                }();
+
+                if (concrete_t && concrete_t->kind == types::TypeKind::Float)
+                    error(type_range, "atomic intrinsic does not support float type `{}`", format_type_str(concrete_t));
+                else if (concrete_t && (concrete_t->kind == types::TypeKind::Struct || concrete_t->kind == types::TypeKind::Union ||
+                                        concrete_t->kind == types::TypeKind::Enum))
+                    error(type_range, "atomic intrinsic does not support aggregate type `{}`", format_type_str(concrete_t));
+                else if (concrete_t && concrete_t->kind == types::TypeKind::Pointer &&
+                         (op == AtomicOp::FetchAdd || op == AtomicOp::FetchSub || op == AtomicOp::FetchAnd || op == AtomicOp::FetchOr ||
+                          op == AtomicOp::FetchXor))
+                    error(type_range, "atomic RMW operations on pointer type `{}` are not supported", format_type_str(concrete_t));
+            }
         }
 
         void reevaluate_type_static_if_branches(ast::Stmt& s, ast::FuncDecl const& fn, infer::TemplateBindings const& bindings, ModuleInfo& mod, Scope& scope)
@@ -8039,7 +8177,9 @@ export namespace dcc::sema
 
                 detail::ExprResult out{};
                 auto& winner = scan.viable.front();
-                auto committed = commit_candidate(mod, winner);
+                if (winner.template_fn && winner.template_fn->name.starts_with("atomic_"))
+                    validate_atomic_type_param(*winner.template_fn, winner.bindings, t.template_args);
+                auto committed = commit_candidate(mod, winner, t.template_args);
                 out.type = winner.fp;
                 out.resolved_decl = winner.sym->decl;
                 out.spec_commit = detail::CommittedSpecialization{committed.decl, winner.fp};
@@ -8307,7 +8447,9 @@ export namespace dcc::sema
                     }
                     if (!winning_cand)
                         return detail::ExprResult{m_types.m_errort()};
-                    auto committed_spec = commit_candidate(mod, *winning_cand);
+                    if (winning_cand->template_fn && winning_cand->template_fn->name.starts_with("atomic_"))
+                        validate_atomic_type_param(*winning_cand->template_fn, winning_cand->bindings, t->template_args);
+                    auto committed_spec = commit_candidate(mod, *winning_cand, t->template_args);
                     record_resolved_specialization(t->sema, &committed_spec);
 
                     auto out = invoke_explicit_ranked_candidate(mod, scope, chosen.sym, chosen.explicit_fp, committed_spec, c.args, c.range, loop_depth,
@@ -8918,6 +9060,17 @@ export namespace dcc::sema
             if (std::ranges::any_of(args, [](detail::ExprResult const& r) { return has_error(r.type); }))
                 return {m_types.m_errort()};
 
+            if (f.name.starts_with("atomic_") && !args.empty() && !num_value_tparams)
+            {
+                auto op = classify_atomic_op(f.name);
+                if (op != AtomicOp::Unknown)
+                {
+                    std::size_t order_idx = args.size() - 1;
+                    auto const* order_expr = arg_exprs[func_arg_start + order_idx];
+                    validate_atomic_order(f, args[order_idx], order_expr, op);
+                }
+            }
+
             std::vector<types::TypePtr> actuals;
             actuals.reserve(args.size());
             for (auto const& a : args)
@@ -8968,6 +9121,14 @@ export namespace dcc::sema
                 }
 
                 return {m_types.m_errort()};
+            }
+
+            if (f.name.starts_with("atomic_"))
+            {
+                sm::SourceRange type_arg_range = range;
+                if (func_arg_start < arg_exprs.size())
+                    type_arg_range = arg_exprs[func_arg_start]->range;
+                validate_atomic_type_param(f, b, {}, type_arg_range);
             }
 
             if (has_func_pack && !pack_arg_types.empty())
