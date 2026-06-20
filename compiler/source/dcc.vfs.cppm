@@ -100,13 +100,40 @@ public import core::atomic;
 
     constexpr std::string_view kCoreAtomicSourceText = R"dc(module core::atomic;
 
-public struct AtomicStore {
-    u64 _opaque;
+public enum MemoryOrder : u8 {
+    Relaxed,
+    Acquire,
+    Release,
+    AcqRel,
+    SeqCst,
 }
 
-public u64 atomic_load(AtomicStore store) {
-    return store._opaque;
-}
+@intrinsic
+public T atomic_load(T)(volatile T* ptr, MemoryOrder order);
+
+@intrinsic
+public void atomic_store(T)(volatile T* ptr, T value, MemoryOrder order);
+
+@intrinsic
+public T atomic_exchange(T)(volatile T* ptr, T value, MemoryOrder order);
+
+@intrinsic
+public T atomic_fetch_add(T)(volatile T* ptr, T value, MemoryOrder order);
+
+@intrinsic
+public T atomic_fetch_sub(T)(volatile T* ptr, T value, MemoryOrder order);
+
+@intrinsic
+public T atomic_fetch_and(T)(volatile T* ptr, T value, MemoryOrder order);
+
+@intrinsic
+public T atomic_fetch_or(T)(volatile T* ptr, T value, MemoryOrder order);
+
+@intrinsic
+public T atomic_fetch_xor(T)(volatile T* ptr, T value, MemoryOrder order);
+
+@intrinsic
+public void atomic_fence(MemoryOrder order);
 
 )dc";
 

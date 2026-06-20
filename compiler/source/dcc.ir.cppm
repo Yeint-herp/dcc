@@ -164,6 +164,25 @@ export namespace dcc::ir
         return (t && t->kind == To::Kind) ? static_cast<To const*>(t) : nullptr;
     }
 
+    enum class IrMemoryOrdering : std::uint8_t
+    {
+        Relaxed,
+        Acquire,
+        Release,
+        AcqRel,
+        SeqCst,
+    };
+
+    enum class IrAtomicRmwOp : std::uint8_t
+    {
+        Xchg,
+        Add,
+        Sub,
+        And,
+        Or,
+        Xor,
+    };
+
     enum class IrNodeKind : std::uint8_t
     {
         IntConstant,
@@ -241,6 +260,11 @@ export namespace dcc::ir
 
         Call,
         CallTail,
+
+        AtomicLoad,
+        AtomicStore,
+        AtomicRmw,
+        Fence,
 
         BasicBlock,
         Function,
@@ -701,6 +725,52 @@ export namespace dcc::ir
         IrValue* pointer;
 
         IrStoreVolatileInst(IrValue* v, IrValue* p) : IrValue(Kind), value(v), pointer(p) {}
+    };
+
+    struct IrAtomicLoadInst : IrValue
+    {
+        static constexpr auto Kind = IrNodeKind::AtomicLoad;
+
+        IrValue* pointer;
+        IrMemoryOrdering ordering;
+
+        IrAtomicLoadInst(IrType const* result_t, IrValue* ptr, IrMemoryOrdering ord) : IrValue(Kind), pointer(ptr), ordering(ord) { type = result_t; }
+    };
+
+    struct IrAtomicStoreInst : IrValue
+    {
+        static constexpr auto Kind = IrNodeKind::AtomicStore;
+
+        IrValue* value;
+        IrValue* pointer;
+        IrMemoryOrdering ordering;
+
+        IrAtomicStoreInst(IrValue* v, IrValue* p, IrMemoryOrdering ord) : IrValue(Kind), value(v), pointer(p), ordering(ord) {}
+    };
+
+    struct IrAtomicRmwInst : IrValue
+    {
+        static constexpr auto Kind = IrNodeKind::AtomicRmw;
+
+        IrAtomicRmwOp op;
+        IrValue* pointer;
+        IrValue* value;
+        IrMemoryOrdering ordering;
+
+        IrAtomicRmwInst(IrType const* result_t, IrAtomicRmwOp o, IrValue* ptr, IrValue* v, IrMemoryOrdering ord)
+            : IrValue(Kind), op(o), pointer(ptr), value(v), ordering(ord)
+        {
+            type = result_t;
+        }
+    };
+
+    struct IrFenceInst : IrValue
+    {
+        static constexpr auto Kind = IrNodeKind::Fence;
+
+        IrMemoryOrdering ordering;
+
+        explicit IrFenceInst(IrMemoryOrdering ord) : IrValue(Kind), ordering(ord) {}
     };
 
     struct IrGepInst : IrValue
@@ -1275,6 +1345,21 @@ export namespace dcc::ir
         [[nodiscard]] IrLoadVolatileInst* load_volatile(IrType const* result_t, IrValue* ptr) { return make<IrLoadVolatileInst>(result_t, ptr); }
         [[nodiscard]] IrStoreInst* store(IrValue* val, IrValue* ptr) { return make<IrStoreInst>(val, ptr); }
         [[nodiscard]] IrStoreVolatileInst* store_volatile(IrValue* val, IrValue* ptr) { return make<IrStoreVolatileInst>(val, ptr); }
+
+        [[nodiscard]] IrAtomicLoadInst* atomic_load(IrType const* result_t, IrValue* ptr, IrMemoryOrdering ord)
+        {
+            return make<IrAtomicLoadInst>(result_t, ptr, ord);
+        }
+        [[nodiscard]] IrAtomicStoreInst* atomic_store(IrValue* val, IrValue* ptr, IrMemoryOrdering ord)
+        {
+            return make<IrAtomicStoreInst>(val, ptr, ord);
+        }
+        [[nodiscard]] IrAtomicRmwInst* atomic_rmw(IrType const* result_t, IrAtomicRmwOp op, IrValue* ptr, IrValue* val, IrMemoryOrdering ord)
+        {
+            return make<IrAtomicRmwInst>(result_t, op, ptr, val, ord);
+        }
+        [[nodiscard]] IrFenceInst* fence(IrMemoryOrdering ord) { return make<IrFenceInst>(ord); }
+
         [[nodiscard]] IrGepInst* gep(IrType const* result_t, IrValue* base) { return make<IrGepInst>(result_t, base, m_arena); }
 
         [[nodiscard]] IrZextInst* zext(IrType const* dst, IrValue* o) { return make<IrZextInst>(dst, o); }
@@ -1922,6 +2007,19 @@ export namespace dcc::ir
                     print_call(true, static_cast<IrCallTailInst const*>(inst), result_name);
                     break;
 
+                case IrNodeKind::AtomicLoad:
+                    print_atomic_load(static_cast<IrAtomicLoadInst const*>(inst), result_name);
+                    break;
+                case IrNodeKind::AtomicStore:
+                    print_atomic_store(static_cast<IrAtomicStoreInst const*>(inst));
+                    break;
+                case IrNodeKind::AtomicRmw:
+                    print_atomic_rmw(static_cast<IrAtomicRmwInst const*>(inst), result_name);
+                    break;
+                case IrNodeKind::Fence:
+                    print_fence(static_cast<IrFenceInst const*>(inst));
+                    break;
+
                 default:
                     break;
             }
@@ -2039,6 +2137,93 @@ export namespace dcc::ir
             print_op(val);
             write(", ");
             print_op(ptr);
+            m_out += '\n';
+        }
+
+        static std::string_view memory_ordering_str(IrMemoryOrdering ord)
+        {
+            switch (ord)
+            {
+                case IrMemoryOrdering::Relaxed:
+                    return "relaxed";
+                case IrMemoryOrdering::Acquire:
+                    return "acquire";
+                case IrMemoryOrdering::Release:
+                    return "release";
+                case IrMemoryOrdering::AcqRel:
+                    return "acq_rel";
+                case IrMemoryOrdering::SeqCst:
+                    return "seq_cst";
+            }
+            return "unknown";
+        }
+
+        static std::string_view atomic_rmw_op_str(IrAtomicRmwOp op)
+        {
+            switch (op)
+            {
+                case IrAtomicRmwOp::Xchg:
+                    return "xchg";
+                case IrAtomicRmwOp::Add:
+                    return "add";
+                case IrAtomicRmwOp::Sub:
+                    return "sub";
+                case IrAtomicRmwOp::And:
+                    return "and";
+                case IrAtomicRmwOp::Or:
+                    return "or";
+                case IrAtomicRmwOp::Xor:
+                    return "xor";
+            }
+            return "unknown";
+        }
+
+        void print_atomic_load(IrAtomicLoadInst const* inst, std::string_view name)
+        {
+            pad();
+            if (!name.empty())
+                std::format_to(std::back_inserter(m_out), "%{} = ", name);
+
+            write("atomic_load ");
+            print_type(inst->type);
+            write(", ");
+            print_op(inst->pointer);
+            std::format_to(std::back_inserter(m_out), " \"{}\"", memory_ordering_str(inst->ordering));
+            m_out += '\n';
+        }
+
+        void print_atomic_store(IrAtomicStoreInst const* inst)
+        {
+            pad();
+            write("atomic_store ");
+            print_op(inst->value);
+            write(", ");
+            print_op(inst->pointer);
+            std::format_to(std::back_inserter(m_out), " \"{}\"", memory_ordering_str(inst->ordering));
+            m_out += '\n';
+        }
+
+        void print_atomic_rmw(IrAtomicRmwInst const* inst, std::string_view name)
+        {
+            pad();
+            if (!name.empty())
+                std::format_to(std::back_inserter(m_out), "%{} = ", name);
+
+            write("atomic_rmw ");
+            write(atomic_rmw_op_str(inst->op));
+            write(" ");
+            print_op(inst->pointer);
+            write(", ");
+            print_op(inst->value);
+            std::format_to(std::back_inserter(m_out), " \"{}\"", memory_ordering_str(inst->ordering));
+            m_out += '\n';
+        }
+
+        void print_fence(IrFenceInst const* inst)
+        {
+            pad();
+            write("fence ");
+            std::format_to(std::back_inserter(m_out), "\"{}\"", memory_ordering_str(inst->ordering));
             m_out += '\n';
         }
 

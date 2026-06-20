@@ -74,6 +74,8 @@ namespace
         {
             if (attr.name == "inline")
                 d.sema.is_inline = true;
+            else if (attr.name == "intrinsic")
+                d.sema.is_intrinsic = true;
             else if (attr.name == "noinline")
                 d.sema.is_noinline = true;
             else if (attr.name == "nominal")
@@ -181,6 +183,8 @@ export namespace dcc::sema
         AttributeRegistry()
         {
             register_attr("implicit_construction", AttributeTarget::EnumVariant);
+
+            register_attr("intrinsic", AttributeTarget::Function);
 
             register_attr("deprecated", AttributeTarget::Function | AttributeTarget::EnumVariant | AttributeTarget::Variable | AttributeTarget::Struct_ |
                                             AttributeTarget::Union | AttributeTarget::EnumDecl);
@@ -294,6 +298,21 @@ export namespace dcc::sema
                 validate_decl_attrs(registry, diag, d->attrs, target);
                 validate_combinations(*d, d->attrs, diag);
                 propagate_decl_attrs(*d, d->attrs);
+
+                if (d->sema.is_intrinsic)
+                {
+                    auto segs = m->canonical_path.segments();
+                    if (segs.empty() || segs[0] != "core")
+                    {
+                        for (auto const& attr : d->attrs)
+                            if (attr.name == "intrinsic")
+                            {
+                                diag.emit(diag::Diagnostic{diag::Severity::Error,
+                                                           "attribute `@intrinsic` is only valid in the 'core' module"}
+                                              .primary(attr.range));
+                            }
+                    }
+                }
 
                 if (auto const* fd = ast::node_cast<ast::FuncDecl>(d))
                 {

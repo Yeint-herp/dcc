@@ -254,6 +254,7 @@ export namespace dcc::ast
         std::uint32_t param_index{};
 
         bool is_inline : 1 {};
+        bool is_intrinsic : 1 {};
         bool is_nominal : 1 {};
         bool is_nomangle : 1 {};
         bool is_noinline : 1 {};

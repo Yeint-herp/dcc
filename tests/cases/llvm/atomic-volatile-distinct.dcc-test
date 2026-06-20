@@ -1,0 +1,15 @@
+=== FILE: test.dc ===
+module test;
+
+import core::atomic;
+
+public i32 test_atomic_load_not_volatile(volatile i32* ptr) {
+    return core::atomic::atomic_load(ptr, core::atomic::MemoryOrder::Relaxed);
+}
+
+public i32 test_atomic_exchange_not_volatile(volatile i32* ptr, i32 v) {
+    return core::atomic::atomic_exchange(ptr, v, core::atomic::MemoryOrder::SeqCst);
+}
+
+=== EXPECT-LLVM FLAGS: -verify ===
+

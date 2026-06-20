@@ -1,0 +1,29 @@
+=== FILE: test.dc ===
+module test;
+import core::atomic;
+
+public i32 test_load_relaxed(volatile i32* ptr) {
+    return core::atomic::atomic_load(ptr, core::atomic::MemoryOrder::Relaxed);
+}
+
+public i32 test_load_seqcst(volatile i32* ptr) {
+    return core::atomic::atomic_load(ptr, core::atomic::MemoryOrder::SeqCst);
+}
+
+public i32 test_load_acquire(volatile i32* ptr) {
+    return core::atomic::atomic_load(ptr, core::atomic::MemoryOrder::Acquire);
+}
+
+public void test_store_release(volatile i32* ptr, i32 v) {
+    core::atomic::atomic_store(ptr, v, core::atomic::MemoryOrder::Release);
+}
+
+public void test_store_relaxed(volatile i32* ptr, i32 v) {
+    core::atomic::atomic_store(ptr, v, core::atomic::MemoryOrder::Relaxed);
+}
+
+public void test_store_seqcst(volatile i32* ptr, i32 v) {
+    core::atomic::atomic_store(ptr, v, core::atomic::MemoryOrder::SeqCst);
+}
+
+=== EXPECT-LLVM FLAGS: -verify ===

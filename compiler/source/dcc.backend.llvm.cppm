@@ -1580,6 +1580,44 @@ namespace dcc::backend
                 return it != val_map.end() ? it->second : nullptr;
             }
 
+            [[nodiscard]] static LLVMAtomicOrdering to_llvm_ordering(IrMemoryOrdering ord)
+            {
+                switch (ord)
+                {
+                    case IrMemoryOrdering::Relaxed:
+                        return LLVMAtomicOrderingMonotonic;
+                    case IrMemoryOrdering::Acquire:
+                        return LLVMAtomicOrderingAcquire;
+                    case IrMemoryOrdering::Release:
+                        return LLVMAtomicOrderingRelease;
+                    case IrMemoryOrdering::AcqRel:
+                        return LLVMAtomicOrderingAcquireRelease;
+                    case IrMemoryOrdering::SeqCst:
+                        return LLVMAtomicOrderingSequentiallyConsistent;
+                }
+                return LLVMAtomicOrderingSequentiallyConsistent;
+            }
+
+            [[nodiscard]] static LLVMAtomicRMWBinOp to_llvm_rmw_op(IrAtomicRmwOp op)
+            {
+                switch (op)
+                {
+                    case IrAtomicRmwOp::Xchg:
+                        return LLVMAtomicRMWBinOpXchg;
+                    case IrAtomicRmwOp::Add:
+                        return LLVMAtomicRMWBinOpAdd;
+                    case IrAtomicRmwOp::Sub:
+                        return LLVMAtomicRMWBinOpSub;
+                    case IrAtomicRmwOp::And:
+                        return LLVMAtomicRMWBinOpAnd;
+                    case IrAtomicRmwOp::Or:
+                        return LLVMAtomicRMWBinOpOr;
+                    case IrAtomicRmwOp::Xor:
+                        return LLVMAtomicRMWBinOpXor;
+                }
+                return LLVMAtomicRMWBinOpXchg;
+            }
+
             [[nodiscard]] static bool emit_instruction(IrValue const* inst, LLVMBuilderRef builder, LLVMContextRef ctx, TypeCache& tc,
                                                        std::unordered_map<IrValue const*, LLVMValueRef>& val_map,
                                                        std::unordered_map<IrBasicBlock const*, LLVMBasicBlockRef>& bb_map, TargetConfig const& target,
@@ -1723,6 +1761,51 @@ namespace dcc::backend
                             LLVMSetVolatile(store_inst, 1);
                         }
 
+                        break;
+                    }
+                    case IrNodeKind::AtomicLoad: {
+                        auto* al = static_cast<IrAtomicLoadInst const*>(inst);
+                        auto* ptr = lookup(al->pointer);
+                        if (!ptr)
+                            return false;
+
+                        auto* lt = llvm_type_cached(tc, al->type);
+                        if (!lt)
+                            return false;
+
+                        auto* load_inst = LLVMBuildLoad2(builder, lt, ptr, "");
+                        LLVMSetOrdering(load_inst, to_llvm_ordering(al->ordering));
+                        set_name(load_inst);
+                        val_map[inst] = load_inst;
+                        break;
+                    }
+                    case IrNodeKind::AtomicStore: {
+                        auto* as = static_cast<IrAtomicStoreInst const*>(inst);
+                        auto* ptr = lookup(as->pointer);
+                        auto* val = lookup(as->value);
+                        if (!ptr || !val)
+                            return false;
+
+                        auto* store_inst = LLVMBuildStore(builder, val, ptr);
+                        LLVMSetOrdering(store_inst, to_llvm_ordering(as->ordering));
+                        break;
+                    }
+                    case IrNodeKind::AtomicRmw: {
+                        auto* ar = static_cast<IrAtomicRmwInst const*>(inst);
+                        auto* ptr = lookup(ar->pointer);
+                        auto* val = lookup(ar->value);
+                        if (!ptr || !val)
+                            return false;
+
+                        auto* rmw_inst = LLVMBuildAtomicRMW(builder, to_llvm_rmw_op(ar->op), ptr, val, to_llvm_ordering(ar->ordering), false);
+                        set_name(rmw_inst);
+                        val_map[inst] = rmw_inst;
+                        break;
+                    }
+                    case IrNodeKind::Fence: {
+                        auto* f = static_cast<IrFenceInst const*>(inst);
+                        LLVMBuildFence(builder, to_llvm_ordering(f->ordering), false, "");
+                        val_map[inst] = nullptr;
                         break;
                     }
                     case IrNodeKind::Gep: {

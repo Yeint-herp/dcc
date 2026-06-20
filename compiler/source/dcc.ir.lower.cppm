@@ -303,6 +303,9 @@ export namespace dcc::ir::lower
             if (!fd)
                 return;
 
+            if (fd->sema.is_intrinsic)
+                return;
+
             if (m_func_map.find(fd) != m_func_map.end())
                 return;
 
@@ -2212,6 +2215,9 @@ export namespace dcc::ir::lower
                 }
             }
 
+            if (direct_target && direct_target->sema.is_intrinsic)
+                return lower_intrinsic_call(direct_target, call);
+
             if (direct_target)
             {
                 auto* ir_func = get_or_create_func_ref(const_cast<ast::FuncDecl*>(direct_target));
@@ -2266,6 +2272,93 @@ export namespace dcc::ir::lower
             append_inst(call_inst);
 
             return is_void_result ? nullptr : call_inst;
+        }
+
+        IrValue* lower_intrinsic_call(ast::FuncDecl const* func, ast::CallExpr const* call)
+        {
+            auto name = func->name;
+
+            std::vector<IrValue*> args;
+            for (auto* arg_expr : call->args)
+                args.push_back(lower_expr(arg_expr));
+
+            auto* order_val = args.back();
+            auto* order_int = ir_cast<IrIntConstant>(order_val);
+            if (!order_int)
+                lower_panic(call, "MemoryOrder argument must be a compile-time constant");
+
+            auto order = static_cast<IrMemoryOrdering>(order_int->value);
+
+            auto* sema_ret = get_sema_resolved_type(call);
+            auto* ir_ret = lower_type(sema_ret);
+
+            IrValue* result = nullptr;
+
+            if (name == "atomic_load")
+            {
+                if (args.size() < 2)
+                    lower_panic(call, "atomic_load requires 2 arguments");
+                result = m_ctx.atomic_load(ir_ret, args[0], order);
+            }
+            else if (name == "atomic_store")
+            {
+                if (args.size() < 3)
+                    lower_panic(call, "atomic_store requires 3 arguments");
+                result = m_ctx.atomic_store(args[1], args[0], order);
+            }
+            else if (name == "atomic_exchange")
+            {
+                if (args.size() < 3)
+                    lower_panic(call, "atomic_exchange requires 3 arguments");
+                result = m_ctx.atomic_rmw(ir_ret, IrAtomicRmwOp::Xchg, args[0], args[1], order);
+            }
+            else if (name == "atomic_fetch_add")
+            {
+                if (args.size() < 3)
+                    lower_panic(call, "atomic_fetch_add requires 3 arguments");
+                result = m_ctx.atomic_rmw(ir_ret, IrAtomicRmwOp::Add, args[0], args[1], order);
+            }
+            else if (name == "atomic_fetch_sub")
+            {
+                if (args.size() < 3)
+                    lower_panic(call, "atomic_fetch_sub requires 3 arguments");
+                result = m_ctx.atomic_rmw(ir_ret, IrAtomicRmwOp::Sub, args[0], args[1], order);
+            }
+            else if (name == "atomic_fetch_and")
+            {
+                if (args.size() < 3)
+                    lower_panic(call, "atomic_fetch_and requires 3 arguments");
+                result = m_ctx.atomic_rmw(ir_ret, IrAtomicRmwOp::And, args[0], args[1], order);
+            }
+            else if (name == "atomic_fetch_or")
+            {
+                if (args.size() < 3)
+                    lower_panic(call, "atomic_fetch_or requires 3 arguments");
+                result = m_ctx.atomic_rmw(ir_ret, IrAtomicRmwOp::Or, args[0], args[1], order);
+            }
+            else if (name == "atomic_fetch_xor")
+            {
+                if (args.size() < 3)
+                    lower_panic(call, "atomic_fetch_xor requires 3 arguments");
+                result = m_ctx.atomic_rmw(ir_ret, IrAtomicRmwOp::Xor, args[0], args[1], order);
+            }
+            else if (name == "atomic_fence")
+            {
+                if (args.size() < 1)
+                    lower_panic(call, "atomic_fence requires 1 argument");
+                result = m_ctx.fence(order);
+            }
+            else
+                lower_panic(call, std::format("unknown intrinsic function `{}`", name));
+
+            if (result && result->kind != IrNodeKind::Fence && result->type && result->type->kind != IrTypeKind::Void)
+            {
+                auto name_str = ident_name();
+                result->name = m_name_pool.back();
+            }
+
+            append_inst(result);
+            return (result && result->type && result->type->kind != IrTypeKind::Void) ? result : nullptr;
         }
 
         IrValue* lower_ident_expr(ast::IdentExpr const* id)

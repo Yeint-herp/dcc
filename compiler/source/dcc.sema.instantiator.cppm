@@ -3097,6 +3097,8 @@ export namespace dcc::sema
 
         syn_decl->body = std::move(cloned_body);
 
+        syn_decl->sema.is_intrinsic = template_fn.sema.is_intrinsic;
+
         return InstantiatedFunc{syn_decl, fp_type};
     }
 
