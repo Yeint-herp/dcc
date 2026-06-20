@@ -470,13 +470,9 @@ namespace dcc::backend
                         auto* elem_ty = LLVMGetElementType(mem_ty);
                         std::vector<LLVMValueRef> elems;
                         elems.reserve(sc->value.size());
-                        bool is_i8 = (LLVMGetTypeKind(elem_ty) == LLVMIntegerTypeKind && LLVMGetIntTypeWidth(elem_ty) == 8);
 
                         for (auto ch : sc->value)
-                            if (is_i8)
-                                elems.push_back(LLVMConstInt(elem_ty, static_cast<unsigned char>(ch), false));
-                            else
-                                elems.push_back(LLVMConstInt(elem_ty, static_cast<unsigned char>(ch), false));
+                            elems.push_back(LLVMConstInt(elem_ty, static_cast<unsigned long long>(ch), false));
 
                         auto count = LLVMGetArrayLength2(mem_ty);
                         while (elems.size() < count)
