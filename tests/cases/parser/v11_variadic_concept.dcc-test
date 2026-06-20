@@ -1,0 +1,22 @@
+=== FILE: main.dc ===
+module m;
+
+using Foo(T...) = compiles(T x) {
+    x;
+};
+
+=== EXPECT-AST ===
+TranslationUnit
+  Module m
+  Using kind=concept
+    alias=Foo
+    TemplateParams
+      Param name=T pack
+    TargetExpr
+      Compiles
+        Params
+          Param name=x
+            Named T
+        Body
+          ExprStmt
+            Ident x

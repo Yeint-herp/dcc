@@ -1,0 +1,9 @@
+=== FILE: main.dc ===
+module m;
+
+enum Foo(T...) {
+    A,
+}
+
+=== EXPECT-ERRORS ===
+main.dc:3: variadic template parameters are not allowed on struct/enum declarations

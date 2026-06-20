@@ -1018,7 +1018,7 @@ export namespace dcc::parser
             return arg;
         }
 
-        std::pmr::vector<ast::TemplateParam> parse_template_param_list()
+        std::pmr::vector<ast::TemplateParam> parse_template_param_list(bool allow_pack = true)
         {
             std::pmr::vector<ast::TemplateParam> params(m_ctx.allocator());
             expect(TK::LParen, "to begin template parameter list");
@@ -1036,7 +1036,11 @@ export namespace dcc::parser
                     tp.name = tok.interned;
                     tp.range = tok.range;
                     if (match(TK::Ellipsis))
+                    {
                         tp.is_pack = true;
+                        if (!allow_pack)
+                            error_at(tp.range, "variadic template parameters are not allowed on struct/enum declarations");
+                    }
                 }
                 else
                 {
@@ -1047,7 +1051,11 @@ export namespace dcc::parser
                         tp.name = name.interned;
                         tp.range = range_from(start);
                         if (match(TK::Ellipsis))
+                        {
                             tp.is_pack = true;
+                            if (!allow_pack)
+                                error_at(tp.range, "variadic template parameters are not allowed on struct/enum declarations");
+                        }
                     }
                 }
                 params.push_back(std::move(tp));
@@ -1239,7 +1247,7 @@ export namespace dcc::parser
             d->attrs = std::move(attrs);
 
             if (check(TK::LParen))
-                d->template_params = parse_template_param_list();
+                d->template_params = parse_template_param_list(false);
 
             expect(TK::LBrace, "to begin struct body");
             while (!check(TK::RBrace) && !eof())
@@ -1322,7 +1330,7 @@ export namespace dcc::parser
             d->attrs = std::move(attrs);
 
             if (check(TK::LParen))
-                d->template_params = parse_template_param_list();
+                d->template_params = parse_template_param_list(false);
 
             if (match(TK::Colon))
                 d->backing_type = parse_type();
