@@ -1,0 +1,14 @@
+=== FILE: main.dc ===
+module m;
+
+@nominal
+using Fd = i32;
+
+=== EXPECT-AST ===
+TranslationUnit
+  Module m
+  Using kind=alias
+    @nominal
+    alias=Fd
+    TargetType
+      Primitive i32

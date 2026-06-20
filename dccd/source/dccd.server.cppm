@@ -2292,6 +2292,8 @@ export namespace dccd
                 case dcc::types::TypeKind::TypePack:
                     return std::format("type_pack({}: {})", format_dcc_type(static_cast<dcc::types::TypePackType const*>(ty)->element),
                                        static_cast<dcc::types::TypePackType const*>(ty)->pack_index);
+                case dcc::types::TypeKind::Nominal:
+                    return format_dcc_type(static_cast<dcc::types::NominalType const*>(ty)->underlying);
                 case dcc::types::TypeKind::Error:
                     return "<error>";
             }

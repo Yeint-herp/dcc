@@ -171,6 +171,8 @@ namespace dccd::completion
                     return reinterpret_cast<dcc::ast::Decl const*>(static_cast<dcc::types::EnumType const*>(ty)->decl);
                 case TypeKind::Pointer:
                     return nominal_decl(static_cast<dcc::types::PointerType const*>(ty)->pointee);
+                case TypeKind::Nominal:
+                    return nominal_decl(static_cast<dcc::types::NominalType const*>(ty)->underlying);
                 default:
                     return nullptr;
             }

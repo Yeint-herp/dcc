@@ -33,6 +33,7 @@ export namespace dcc::types
         RangeInclusive,
         RuntimeArray,
         TypePack,
+        Nominal,
         Error,
     };
 
@@ -234,6 +235,23 @@ export namespace dcc::types
         {
             is_complete = false;
             is_zero_sized = true;
+        }
+    };
+
+    struct NominalType : Type
+    {
+        static constexpr auto Kind = TypeKind::Nominal;
+
+        TypePtr underlying;
+        void const* decl;
+
+        NominalType(TypePtr u, void const* d) : Type(Kind), underlying(u), decl(d)
+        {
+            byte_size = u->byte_size;
+            byte_align = u->byte_align;
+            is_complete = u->is_complete;
+            is_zero_sized = u->is_zero_sized;
+            layout_is_default = u->layout_is_default;
         }
     };
 
@@ -580,6 +598,17 @@ export namespace dcc::types
             }
         }
 
+        [[nodiscard]] TypePtr nominal_alias_t(TypePtr underlying, void const* decl)
+        {
+            for (auto const* t : m_nominal_aliases)
+                if (t->underlying == underlying && t->decl == decl)
+                    return t;
+
+            auto* t = make<NominalType>(underlying, decl);
+            m_nominal_aliases.push_back(t);
+            return t;
+        }
+
         [[nodiscard]] TypePtr template_param_t(void* param, std::string_view name, std::uint32_t index)
         {
             for (auto const* t : m_template_params)
@@ -628,6 +657,7 @@ export namespace dcc::types
         std::vector<UnionType const*> m_unions;
         std::vector<EnumType const*> m_enums;
         std::vector<TemplateParamType const*> m_template_params;
+        std::vector<NominalType const*> m_nominal_aliases;
 
         template <typename T, typename F> TypePtr ensure_singleton(T const*& slot, F&& factory)
         {

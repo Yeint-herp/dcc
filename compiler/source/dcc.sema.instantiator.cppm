@@ -742,6 +742,13 @@ namespace dcc::sema
 
                         return type;
                     }
+                    case types::TypeKind::Nominal: {
+                        auto const* t = static_cast<types::NominalType const*>(static_cast<void const*>(type));
+                        auto underlying = deep_substitute(t->underlying);
+                        if (underlying != t->underlying)
+                            return m_types.nominal_alias_t(underlying, t->decl);
+                        return type;
+                    }
                     default:
                         return type;
                 }
@@ -1557,6 +1564,15 @@ export namespace dcc::sema
                     nt->template_args.push_back(ast::TemplateArg{sm::SourceRange{}, clone_type_from_canonical(ta, ast_ctx, type_ctx), nullptr});
                 set_canonical(nt->sema, ty);
                 return nt;
+            }
+            case types::TypeKind::Nominal: {
+                auto const* nt = static_cast<types::NominalType const*>(ty);
+                auto const* ud = reinterpret_cast<ast::UsingDecl const*>(nt->decl);
+                ast::Path path(sm::SourceRange{}, ast_ctx.allocator());
+                path.segments.push_back({ud->alias_path.simple_name(), sm::SourceRange{}});
+                auto* named = ast_ctx.make<ast::NamedType>(sm::SourceRange{}, std::move(path), ast_ctx.allocator());
+                set_canonical(named->sema, ty);
+                return named;
             }
             default:
                 return nullptr;

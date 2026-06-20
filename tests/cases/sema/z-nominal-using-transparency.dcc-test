@@ -1,0 +1,29 @@
+=== FILE: m.dc ===
+module m;
+
+using Fd = i32;
+
+void accept_i32(i32 x) {}
+void accept_fd(Fd x) {}
+
+void test() {
+    Fd fd_val;
+    i32 i32_val;
+    fd_val = i32_val;
+    i32_val = fd_val;
+    accept_i32(fd_val);
+    accept_fd(i32_val);
+}
+
+=== EXPECT-TYPES FOR: m ===
+Module m
+  Using Fd
+    Alias: i32
+  Func accept_i32
+    Return: void
+    Param x: i32
+  Func accept_fd
+    Return: void
+    Param x: i32
+  Func test
+    Return: void

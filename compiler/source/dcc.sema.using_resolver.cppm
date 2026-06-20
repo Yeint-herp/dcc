@@ -342,6 +342,14 @@ export namespace dcc::sema
             return true;
         }
 
+        static bool has_nominal_attr(ast::UsingDecl const& u) noexcept
+        {
+            for (auto const& attr : u.attrs)
+                if (attr.name == "nominal")
+                    return true;
+            return false;
+        }
+
         bool resolve_alias(ModuleInfo& mod, ast::UsingDecl& u)
         {
             if (u.alias_path.is_empty())
@@ -353,6 +361,9 @@ export namespace dcc::sema
 
             if (u.target_type)
             {
+                if (has_nominal_attr(u))
+                    return install_type_alias_marker(mod, u);
+
                 if (auto const* nt = ast::node_cast<ast::NamedType>(u.target_type); nt && nt->template_args.empty())
                 {
                     if (u.alias_path.is_simple() && nt->path.is_simple() && nt->path.simple_name() == u.alias_path.segments.back().name)

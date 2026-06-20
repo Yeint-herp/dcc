@@ -1,0 +1,22 @@
+=== FILE: m.dc ===
+module m;
+
+@nominal using Fd = i32;
+
+void take_fd(Fd x) {}
+void take_i32(i32 x) {}
+
+void test() {
+    Fd fd;
+    i32 raw;
+    fd = raw;
+    raw = fd;
+    take_fd(raw);
+    take_i32(fd);
+}
+
+=== EXPECT-ERRORS ===
+m.dc:11: assignment type mismatch
+m.dc:12: assignment type mismatch
+m.dc:13: no matching call for `take_fd`
+m.dc:14: no matching call for `take_i32`

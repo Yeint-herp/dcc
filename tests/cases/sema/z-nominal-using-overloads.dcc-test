@@ -1,0 +1,17 @@
+=== FILE: m.dc ===
+module m;
+
+@nominal using Fd = i32;
+
+void f(Fd x) {}
+void f(i32 x) {}
+
+=== EXPECT-SCOPE FOR: m ===
+Module m
+  OwnScope
+    Binding Fd
+      Type: alias via-using
+    Binding f
+      Value: function
+      Value: function
+  ExportScope

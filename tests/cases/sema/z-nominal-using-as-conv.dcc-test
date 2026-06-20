@@ -1,0 +1,18 @@
+=== FILE: m.dc ===
+module m;
+
+@nominal using Fd = i32;
+
+void test() {
+    Fd fd;
+    i32 raw;
+    fd = raw as Fd;
+    raw = fd as i32;
+}
+
+=== EXPECT-TYPES FOR: m ===
+Module m
+  Using Fd
+    Alias: i32
+  Func test
+    Return: void

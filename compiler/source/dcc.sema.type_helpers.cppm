@@ -142,6 +142,18 @@ export namespace dcc::sema
                 return std::string{static_cast<types::TemplateParamType const*>(ty)->name};
             case types::TypeKind::TypePack:
                 return std::format("pack({})", format_dcc_type(static_cast<types::TypePackType const*>(ty)->element));
+            case types::TypeKind::Nominal: {
+                auto const* nt = static_cast<types::NominalType const*>(ty);
+                auto const* dd = reinterpret_cast<ast::Decl const*>(nt->decl);
+                std::string name = "<nominal>";
+                if (dd && dd->kind == ast::DeclKind::Using)
+                {
+                    auto const* ud = static_cast<ast::UsingDecl const*>(dd);
+                    if (!ud->alias_path.is_empty())
+                        name = std::string{ud->alias_path.tail_name()};
+                }
+                return std::format("nominal({}, {})", name, format_dcc_type(nt->underlying));
+            }
             case types::TypeKind::Error:
                 return "<error>";
         }

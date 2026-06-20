@@ -820,6 +820,70 @@ TEST_CASE("alias transparency: same resolved type gives same mangling")
     CHECK_EQ(mangle::mangle_type(t1), mangle::mangle_type(t2));
 }
 
+SECTION("mangle_type: nominal alias");
+
+TEST_CASE("mangle_type nominal alias Fd differs from i32")
+{
+    types::TypeContext ctx;
+    ast::AstContext actx;
+    auto* ud = actx.make<ast::UsingDecl>(dcc::sm::SourceRange{});
+    ud->alias_path = ast::Path{actx.allocator()};
+    ud->alias_path.segments.push_back({"Fd", {}});
+    ud->sema.is_nominal = true;
+    auto fd_t = ctx.nominal_alias_t(i32(ctx), ud);
+    auto fd_str = mangle::mangle_type(fd_t, make_resolver({"m"}, "Fd"));
+    auto i32_str = mangle::mangle_type(i32(ctx));
+    CHECK_NE(fd_str, i32_str);
+    CHECK_EQ(fd_str, "_DC0TNi32s1.1.m2.Fd");
+}
+
+TEST_CASE("mangle_type nominal alias Fd and Handle differ")
+{
+    types::TypeContext ctx;
+    ast::AstContext actx;
+    auto* fd_ud = actx.make<ast::UsingDecl>(dcc::sm::SourceRange{});
+    fd_ud->alias_path = ast::Path{actx.allocator()};
+    fd_ud->alias_path.segments.push_back({"Fd", {}});
+    fd_ud->sema.is_nominal = true;
+    auto* h_ud = actx.make<ast::UsingDecl>(dcc::sm::SourceRange{});
+    h_ud->alias_path = ast::Path{actx.allocator()};
+    h_ud->alias_path.segments.push_back({"Handle", {}});
+    h_ud->sema.is_nominal = true;
+    auto fd_t = ctx.nominal_alias_t(i32(ctx), fd_ud);
+    auto h_t = ctx.nominal_alias_t(i32(ctx), h_ud);
+    auto fd_str = mangle::mangle_type(fd_t, make_resolver({"m"}, "Fd"));
+    auto h_str = mangle::mangle_type(h_t, make_resolver({"m"}, "Handle"));
+    auto i32_str = mangle::mangle_type(i32(ctx));
+    CHECK_NE(fd_str, h_str);
+    CHECK_NE(fd_str, i32_str);
+    CHECK_NE(h_str, i32_str);
+}
+
+TEST_CASE("mangle_type transparent using alias resolves to same mangling as underlying")
+{
+    types::TypeContext ctx;
+    auto i32_str = mangle::mangle_type(i32(ctx));
+    CHECK_EQ(i32_str, "_DC0Ti32s");
+}
+
+TEST_CASE("demangle nominal alias Fd round-trip")
+{
+    types::TypeContext ctx;
+    ast::AstContext actx;
+    auto* ud = actx.make<ast::UsingDecl>(dcc::sm::SourceRange{});
+    ud->alias_path = ast::Path{actx.allocator()};
+    ud->alias_path.segments.push_back({"Fd", {}});
+    ud->sema.is_nominal = true;
+    auto fd_t = ctx.nominal_alias_t(i32(ctx), ud);
+    auto s = mangle::mangle_type(fd_t, make_resolver({"m"}, "Fd"));
+    CHECK(mangle::demangle(s).has_value());
+    mangle::DemangledName d;
+    REQUIRE(mangle::demangle(d, s));
+    CHECK_EQ(d.type_only.name, "Fd");
+    CHECK_EQ(d.type_only.module_path.size(), 1u);
+    CHECK_EQ(d.type_only.module_path[0], "m");
+}
+
 SECTION("UTF-8 encoding");
 
 TEST_CASE("UTF-8 struct name")

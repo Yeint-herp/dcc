@@ -46,6 +46,7 @@ export namespace dcc::ir::mangle
             Struct,
             Union,
             Enum,
+            Nominal,
             TemplateParam,
             Range,
             RangeInclusive,
@@ -573,6 +574,25 @@ namespace dcc::ir::mangle
                     encode_type(out, rit->element, resolver);
                     return;
                 }
+                case dcc::types::TypeKind::Nominal: {
+                    auto* nt = static_cast<dcc::types::NominalType const*>(type);
+                    out += 'N';
+                    encode_type(out, nt->underlying, resolver);
+                    std::vector<std::string_view> mp;
+                    std::string_view dn;
+                    if (resolver)
+                    {
+                        auto info = resolver(const_cast<void*>(nt->decl));
+                        if (info)
+                        {
+                            mp = info->module_path;
+                            dn = info->name;
+                        }
+                    }
+                    encode_path(out, mp, resolver);
+                    encode_seg(out, dn);
+                    return;
+                }
                 case dcc::types::TypeKind::TypePack:
                 case dcc::types::TypeKind::Error:
                     out += 'E';
@@ -859,10 +879,28 @@ namespace dcc::ir::mangle
                     for (std::uint64_t i = 0; i < tc; ++i)
                     {
                         DemangledType ta;
+                        if (!demangle_type_into(ta, sv, pos))
+                            return false;
                         dt.template_args.push_back(std::move(ta));
                     }
 
                     dt.tag = DemangledType::Tag::Struct;
+                    return true;
+                }
+                case 'N': {
+                    auto underlying = std::make_shared<DemangledType>();
+                    if (!demangle_type_into(*underlying, sv, pos))
+                        return false;
+
+                    std::vector<std::string> mp;
+                    if (!parse_path(sv, pos, mp))
+                        return false;
+
+                    dt.module_path = std::move(mp);
+                    if (!parse_ident(sv, pos, dt.name))
+                        return false;
+
+                    dt.tag = DemangledType::Tag::Nominal;
                     return true;
                 }
                 case 'Z': {

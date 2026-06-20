@@ -1335,6 +1335,8 @@ export namespace dcc::sema
                     return ConstructionKind::Slice;
                 case types::TypeKind::Enum:
                     return ConstructionKind::Enum;
+                case types::TypeKind::Nominal:
+                    return construction_kind_for_type(static_cast<types::NominalType const*>(ty)->underlying);
                 default:
                     return ConstructionKind::None;
             }
@@ -2638,6 +2640,9 @@ export namespace dcc::sema
                     break;
                 case types::TypeKind::Fam:
                     check_type_constraints_in_type(mod, scope, static_cast<types::FamType const*>(ty)->element, use_range);
+                    break;
+                case types::TypeKind::Nominal:
+                    check_type_constraints_in_type(mod, scope, static_cast<types::NominalType const*>(ty)->underlying, use_range);
                     break;
                 case types::TypeKind::FuncPtr: {
                     auto const* fp = static_cast<types::FuncPtrType const*>(ty);
@@ -4146,6 +4151,10 @@ export namespace dcc::sema
 
             std::vector<types::TypePtr> args;
             std::vector<ast::TemplateParam const*> template_params;
+
+            if (ty->kind == types::TypeKind::Nominal)
+                ty = static_cast<types::NominalType const*>(ty)->underlying;
+
             switch (ty->kind)
             {
                 case types::TypeKind::Struct: {
@@ -4244,6 +4253,8 @@ export namespace dcc::sema
                 case types::TypeKind::Union:
                 case types::TypeKind::Enum:
                     return layout_of_nominal(ty, seen);
+                case types::TypeKind::Nominal:
+                    return layout_of_impl(static_cast<types::NominalType const*>(ty)->underlying, seen);
             }
 
             return std::nullopt;
@@ -4353,6 +4364,8 @@ export namespace dcc::sema
                 case types::TypeKind::Union:
                     append(*reinterpret_cast<ast::UnionDecl const*>(static_cast<types::UnionType const*>(ty)->decl));
                     break;
+                case types::TypeKind::Nominal:
+                    return record_fields(static_cast<types::NominalType const*>(ty)->underlying, bindings);
                 default:
                     break;
             }
@@ -5707,6 +5720,8 @@ export namespace dcc::sema
                 }
                 case types::TypeKind::Pointer:
                     return nominal_decl(static_cast<types::PointerType const*>(ty)->pointee);
+                case types::TypeKind::Nominal:
+                    return nominal_decl(static_cast<types::NominalType const*>(ty)->underlying);
                 default:
                     return nullptr;
             }
@@ -10173,7 +10188,12 @@ export namespace dcc::sema
                         if (auto const* u = ast::node_cast<ast::UsingDecl>(decl))
                         {
                             if (u->using_kind == ast::UsingKind::Alias && u->target_type && u->target_type->sema.canonical)
-                                return get_canonical(u->target_type->sema);
+                            {
+                                auto underlying = get_canonical(u->target_type->sema);
+                                if (u->sema.is_nominal && underlying && underlying->kind != types::TypeKind::Error)
+                                    return m_types.nominal_alias_t(underlying, u);
+                                return underlying;
+                            }
 
                             return m_types.m_errort();
                         }

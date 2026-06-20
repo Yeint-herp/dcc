@@ -1,0 +1,25 @@
+=== FILE: m.dc ===
+module m;
+
+@nominal using Fd = i32;
+
+Fd make_fd() { return 0 as Fd; }
+i32 make_i32() { return 0; }
+
+void take_fd(Fd x) {}
+void take_i32(i32 x) {}
+
+=== EXPECT-TYPES FOR: m ===
+Module m
+  Using Fd
+    Alias: i32
+  Func make_fd
+    Return: nominal(Fd, i32)
+  Func make_i32
+    Return: i32
+  Func take_fd
+    Return: void
+    Param x: nominal(Fd, i32)
+  Func take_i32
+    Return: void
+    Param x: i32

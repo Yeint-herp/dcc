@@ -356,6 +356,9 @@ export namespace dcc::sema
 
                     return;
                 }
+                case types::TypeKind::Nominal:
+                    validate_canonical(mod, static_cast<types::NominalType const*>(ty)->underlying, range);
+                    return;
                 case types::TypeKind::Struct:
                 case types::TypeKind::Union:
                 case types::TypeKind::Enum:
@@ -414,6 +417,9 @@ export namespace dcc::sema
             if (!ty)
                 return nullptr;
 
+            if (ty->kind == types::TypeKind::Nominal)
+                ty = static_cast<types::NominalType const*>(ty)->underlying;
+
             switch (ty->kind)
             {
                 case types::TypeKind::Struct:
@@ -431,6 +437,9 @@ export namespace dcc::sema
         {
             if (!ty)
                 return {};
+
+            if (ty->kind == types::TypeKind::Nominal)
+                ty = static_cast<types::NominalType const*>(ty)->underlying;
 
             switch (ty->kind)
             {

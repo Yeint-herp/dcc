@@ -662,6 +662,9 @@ export namespace dcc::sema
                     m_diag.error(range, "malformed type alias `{}`", detail::decl_name(&u));
             }
 
+            if (out.type && out.type->kind != types::TypeKind::Error && decl_has_attr(u, "nominal"))
+                out.type = m_types.nominal_alias_t(out.type, &u);
+
             m_alias_resolving.erase(&u);
             if (cacheable)
                 m_alias_cache.emplace(&u, out.type);

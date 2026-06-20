@@ -498,7 +498,7 @@ export namespace dcc::parser
 
         static constexpr bool is_known_attr_name(std::string_view name) noexcept
         {
-            return name == "packed" || name == "align" || name == "import" || name == "export" || name == "nomangle" || name == "inline" ||
+            return name == "packed" || name == "align" || name == "nominal" || name == "import" || name == "export" || name == "nomangle" || name == "inline" ||
                    name == "noinline" || name == "section" || name == "calling_conv" || name == "deprecated" || name == "implicit_construction";
         }
 

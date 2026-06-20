@@ -1,0 +1,22 @@
+=== FILE: a.dc ===
+module a;
+
+public void foo() {}
+public void bar() {}
+
+=== FILE: main.dc ===
+module main;
+import a;
+
+@nominal using a::foo;
+@nominal using a::*;
+@nominal using {a::foo, a::bar};
+@nominal using G = a::*;
+
+=== ENTRY: main.dc ===
+
+=== EXPECT-ERRORS ===
+main.dc:4: attribute `@nominal` is not valid on this declaration
+main.dc:5: attribute `@nominal` is not valid on this declaration
+main.dc:6: attribute `@nominal` is not valid on this declaration
+main.dc:7: attribute `@nominal` is not valid on this declaration

@@ -80,6 +80,20 @@ export namespace dcc::ir::lower
                         decl_name = ud->name;
                     else if (auto* ed = ast::node_cast<ast::EnumDecl>(d))
                         decl_name = ed->name;
+                    else if (auto* usingd = ast::node_cast<ast::UsingDecl>(d))
+                    {
+                        bool is_nominal = false;
+                        for (auto const& attr : usingd->attrs)
+                            if (attr.name == "nominal")
+                            {
+                                is_nominal = true;
+                                break;
+                            }
+                        if (!is_nominal)
+                            continue;
+
+                        decl_name = usingd->alias_path.tail_name();
+                    }
                     else
                         continue;
 
@@ -981,6 +995,9 @@ export namespace dcc::ir::lower
 
             if (type->kind == dcc::types::TypeKind::Struct || type->kind == dcc::types::TypeKind::Union || type->kind == dcc::types::TypeKind::Enum)
                 return lower_user_type(type);
+
+            if (auto* nt = dcc::types::type_cast<dcc::types::NominalType>(type))
+                return lower_type(nt->underlying);
 
             if (auto* it = dcc::types::type_cast<dcc::types::IntType>(type))
                 return m_ctx.int_t(it->bits, it->is_signed, it->is_pointer_sized);
@@ -4904,6 +4921,9 @@ export namespace dcc::ir::lower
             if (!target_type)
                 lower_panic(sl, "struct literal without target type in constant");
 
+            if (auto* nt = types::type_cast<types::NominalType>(target_type))
+                target_type = nt->underlying;
+
             auto* ir_ty = lower_type(target_type);
 
             std::uint32_t field_count = 0;
@@ -5549,6 +5569,9 @@ export namespace dcc::ir::lower
 
             auto* ir_ty = lower_type(target_type);
 
+            if (auto* nt = types::type_cast<types::NominalType>(target_type))
+                target_type = nt->underlying;
+
             auto* st = types::type_cast<types::StructType>(target_type);
             auto* ut = types::type_cast<types::UnionType>(target_type);
             auto* arrt = types::type_cast<types::ArrayType>(target_type);
@@ -5923,6 +5946,9 @@ export namespace dcc::ir::lower
             if (auto* pt = types::type_cast<types::PointerType>(obj_type))
                 pointee = pt->pointee;
 
+            if (auto* nt = types::type_cast<types::NominalType>(pointee))
+                pointee = nt->underlying;
+
             auto subst = build_subst_from_user_type(pointee);
             return get_field_canonical_with_subst(pointee, *field_decl, &subst);
         }
@@ -6134,6 +6160,9 @@ export namespace dcc::ir::lower
 
             if (auto* pt = types::type_cast<types::PointerType>(obj_type))
                 obj_type = pt->pointee;
+
+            if (auto* nt = types::type_cast<types::NominalType>(obj_type))
+                obj_type = nt->underlying;
 
             ast::Decl const* decl = nullptr;
             if (auto* st = types::type_cast<types::StructType>(obj_type))

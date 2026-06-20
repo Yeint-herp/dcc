@@ -418,6 +418,10 @@ export namespace dcc::infer
                             return true;
                     return false;
                 }
+                case types::TypeKind::Nominal: {
+                    auto const* t = static_cast<types::NominalType const*>(type);
+                    return contains_param(t->underlying, target);
+                }
                 case types::TypeKind::Struct:
                 case types::TypeKind::Union:
                 case types::TypeKind::Enum: {
@@ -589,6 +593,13 @@ export namespace dcc::infer
                     return ok();
                 }
 
+                case types::TypeKind::Nominal: {
+                    auto const* a = static_cast<types::NominalType const*>(lhs);
+                    auto const* b = static_cast<types::NominalType const*>(rhs);
+                    if (a->decl != b->decl)
+                        return fail(DeductionError::KindMismatch, "nominal alias type mismatch");
+                    return deduce(a->underlying, b->underlying);
+                }
                 case types::TypeKind::Struct:
                 case types::TypeKind::Union:
                 case types::TypeKind::Enum: {
@@ -742,6 +753,13 @@ export namespace dcc::infer
                     break;
                 }
 
+                case types::TypeKind::Nominal: {
+                    auto const* t = static_cast<types::NominalType const*>(type);
+                    auto underlying = substitute_impl(t->underlying, memo);
+                    if (underlying != t->underlying)
+                        out = m_types.nominal_alias_t(underlying, t->decl);
+                    break;
+                }
                 case types::TypeKind::Struct:
                 case types::TypeKind::Union:
                 case types::TypeKind::Enum: {

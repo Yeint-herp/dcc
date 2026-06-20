@@ -76,6 +76,8 @@ namespace
                 d.sema.is_inline = true;
             else if (attr.name == "noinline")
                 d.sema.is_noinline = true;
+            else if (attr.name == "nominal")
+                d.sema.is_nominal = true;
             else if (attr.name == "nomangle")
                 d.sema.is_nomangle = true;
             else if (attr.name == "import")
@@ -155,6 +157,7 @@ export namespace dcc::sema
         Struct_ = 1 << 4,
         Union = 1 << 5,
         EnumDecl = 1 << 6,
+        UsingAlias = 1 << 7,
     };
 
     [[nodiscard]] constexpr AttributeTarget operator|(AttributeTarget a, AttributeTarget b) noexcept
@@ -192,6 +195,8 @@ export namespace dcc::sema
 
             register_attr("inline", AttributeTarget::Function);
             register_attr("noinline", AttributeTarget::Function);
+
+            register_attr("nominal", AttributeTarget::UsingAlias);
 
             register_attr("section", AttributeTarget::Function | AttributeTarget::Variable);
             register_attr("calling_conv", AttributeTarget::Function);
@@ -274,6 +279,12 @@ export namespace dcc::sema
                                 for (auto const& va : v.attrs)
                                     validate_attr_args(va, diag);
                             }
+                        break;
+                    }
+                    case ast::DeclKind::Using: {
+                        auto const* ud = static_cast<ast::UsingDecl const*>(d);
+                        if (ud->using_kind == ast::UsingKind::Alias)
+                            target = AttributeTarget::UsingAlias;
                         break;
                     }
                     default:
