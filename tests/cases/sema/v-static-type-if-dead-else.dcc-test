@@ -1,0 +1,16 @@
+=== FILE: main.dc ===
+module m;
+
+void f(T)(T x) {
+    static if T == i32 {
+        i32 y = 1;
+    } else {
+        undeclared_name;
+    }
+}
+
+void call_f() {
+    f(42);
+}
+
+=== ENTRY: main.dc ===

@@ -1,0 +1,12 @@
+=== FILE: main.dc ===
+module m;
+
+void f() {
+    static if false {
+        undeclared_name;
+    } else {
+        i32 x = 1;
+    }
+}
+
+=== ENTRY: main.dc ===

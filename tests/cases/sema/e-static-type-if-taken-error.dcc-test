@@ -1,0 +1,19 @@
+=== FILE: main.dc ===
+module m;
+
+void f(T)(T x) {
+    static if T == i32 {
+        undeclared_name;
+    } else {
+        i32 y = 1;
+    }
+}
+
+void call_f() {
+    f(42);
+}
+
+=== EXPECT-ERRORS ===
+main.dc:5: unknown name `undeclared_name`
+
+=== ENTRY: main.dc ===

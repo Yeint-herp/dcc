@@ -2485,6 +2485,15 @@ export namespace dcc::sema
                     auto* saved_defining_mod = m_specialization_defining_module;
                     m_specialization_defining_module = find_template_defining_module(f);
 
+                    {
+                        auto* temp_scope = make_scope(ScopeKind::Block, nullptr);
+                        if (spec.decl->body)
+                        {
+                            for (auto* stmt : spec.decl->body->stmts)
+                                reevaluate_type_static_if_branches(*stmt, f, bindings, mod, *temp_scope);
+                        }
+                    }
+
                     auto pre_count = m_diag.diagnostic_count();
                     analyze_single_function(mod, *spec.decl);
                     auto post_count = m_diag.diagnostic_count();
@@ -2803,10 +2812,21 @@ export namespace dcc::sema
                             auto concrete = bindings.lookup(param_type);
                             if (concrete)
                             {
-                                auto const* rhs_type_ast = ast::node_cast<ast::TypeASTExpr>(bin->rhs);
                                 types::TypePtr target_type = nullptr;
-                                if (rhs_type_ast && rhs_type_ast->type_node)
-                                    target_type = resolve_type_node(mod, scope, rhs_type_ast->type_node);
+
+                                if (auto const* rhs_ident = ast::node_cast<ast::IdentExpr>(bin->rhs))
+                                {
+                                    ast::Path path(m_ast_ctx.allocator());
+                                    path.segments.push_back({rhs_ident->name, rhs_ident->range});
+                                    path.range = rhs_ident->range;
+                                    auto* type_expr = m_ast_ctx.make<ast::NamedType>(rhs_ident->range, std::move(path));
+                                    target_type = resolve_type_node(mod, scope, type_expr);
+                                }
+                                else if (auto const* rhs_type_ast = ast::node_cast<ast::TypeASTExpr>(bin->rhs))
+                                {
+                                    if (rhs_type_ast->type_node)
+                                        target_type = resolve_type_node(mod, scope, rhs_type_ast->type_node);
+                                }
 
                                 bool types_match = target_type && (concrete == target_type || concrete->kind == target_type->kind);
                                 si->taken_branch = types_match ? 0 : 1;
@@ -8844,8 +8864,6 @@ export namespace dcc::sema
                 auto* inner = make_scope(ScopeKind::Block, &scope);
                 auto* inner_consts = make_const_env(const_env);
                 out = analyze_block(mod, fn, *inner, si.then_block, loop_depth, next_off, nullptr, inner_consts);
-                if (si.else_branch)
-                    std::ignore = analyze_stmt(mod, fn, scope, *si.else_branch, loop_depth, next_off, const_env);
 
                 out.foldable = false;
                 return out;
@@ -8858,8 +8876,6 @@ export namespace dcc::sema
                 auto* inner = make_scope(ScopeKind::Block, &scope);
                 auto* inner_consts = make_const_env(const_env);
                 out = analyze_block(mod, fn, *inner, si.then_block, loop_depth, next_off, nullptr, inner_consts);
-                if (si.else_branch)
-                    std::ignore = analyze_stmt(mod, fn, scope, *si.else_branch, loop_depth, next_off, const_env);
 
                 out.foldable = false;
                 return out;
@@ -8883,12 +8899,24 @@ export namespace dcc::sema
 
             if (!scrutinee_type)
             {
-                si.taken_branch = 0;
-                auto* inner = make_scope(ScopeKind::Block, &scope);
-                auto* inner_consts = make_const_env(const_env);
-                out = analyze_block(mod, fn, *inner, si.then_block, loop_depth, next_off, nullptr, inner_consts);
-                if (si.else_branch)
-                    std::ignore = analyze_stmt(mod, fn, scope, *si.else_branch, loop_depth, next_off, const_env);
+                if (!fn || !fn->template_params.empty())
+                    si.taken_branch = 0;
+
+                if (si.taken_branch == 0)
+                {
+                    auto* inner = make_scope(ScopeKind::Block, &scope);
+                    auto* inner_consts = make_const_env(const_env);
+                    out = analyze_block(mod, fn, *inner, si.then_block, loop_depth, next_off, nullptr, inner_consts);
+                }
+                else if (si.else_branch)
+                {
+                    out = analyze_stmt(mod, fn, scope, *si.else_branch, loop_depth, next_off, const_env);
+                    if (auto* es = ast::node_cast<ast::ExprStmt>(si.else_branch))
+                    {
+                        if (es->expr && es->expr->sema.is_diverging)
+                            out.falls_through = false;
+                    }
+                }
 
                 out.foldable = false;
                 return out;
@@ -8913,14 +8941,22 @@ export namespace dcc::sema
 
             si.taken_branch = take_then ? 0 : 1;
 
-            auto* inner = make_scope(ScopeKind::Block, &scope);
-            auto* inner_consts = make_const_env(const_env);
-            auto then_res = analyze_block(mod, fn, *inner, si.then_block, loop_depth, next_off, nullptr, inner_consts);
+            if (take_then)
+            {
+                auto* inner = make_scope(ScopeKind::Block, &scope);
+                auto* inner_consts = make_const_env(const_env);
+                out = analyze_block(mod, fn, *inner, si.then_block, loop_depth, next_off, nullptr, inner_consts);
+            }
+            else if (si.else_branch)
+            {
+                out = analyze_stmt(mod, fn, scope, *si.else_branch, loop_depth, next_off, const_env);
+                if (auto* es = ast::node_cast<ast::ExprStmt>(si.else_branch))
+                {
+                    if (es->expr && es->expr->sema.is_diverging)
+                        out.falls_through = false;
+                }
+            }
 
-            if (si.else_branch)
-                std::ignore = analyze_stmt(mod, fn, scope, *si.else_branch, loop_depth, next_off, const_env);
-
-            out = take_then ? then_res : detail::StmtResult{};
             out.foldable = false;
             return out;
         }
@@ -9132,13 +9168,19 @@ export namespace dcc::sema
                     auto cond = analyze_expr_or_error(mod, fn, scope, si.condition, loop_depth, next_off, nullptr, const_env);
                     bool take_then = !(cond.constant && cond.constant->kind() == comptime::Value::Kind::Bool) || cond.constant->get_bool();
                     si.taken_branch = take_then ? 0 : 1;
-                    auto* inner = make_scope(ScopeKind::Block, &scope);
-                    auto* inner_consts = make_const_env(const_env);
-                    auto then_res = analyze_block(mod, fn, *inner, si.then_block, loop_depth, next_off, nullptr, inner_consts);
-                    if (si.else_branch)
-                        std::ignore = analyze_stmt(mod, fn, scope, *si.else_branch, loop_depth, next_off, const_env);
-
-                    out = take_then ? then_res : detail::StmtResult{};
+                    if (take_then)
+                    {
+                        auto* inner = make_scope(ScopeKind::Block, &scope);
+                        auto* inner_consts = make_const_env(const_env);
+                        out = analyze_block(mod, fn, *inner, si.then_block, loop_depth, next_off, nullptr, inner_consts);
+                    }
+                    else if (si.else_branch)
+                    {
+                        out = analyze_stmt(mod, fn, scope, *si.else_branch, loop_depth, next_off, const_env);
+                        if (auto* es = ast::node_cast<ast::ExprStmt>(si.else_branch))
+                            if (es->expr && es->expr->sema.is_diverging)
+                                out.falls_through = false;
+                    }
                     out.foldable = false;
                     return out;
                 }

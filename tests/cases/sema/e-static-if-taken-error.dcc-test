@@ -1,0 +1,13 @@
+=== FILE: main.dc ===
+module m;
+
+void f() {
+    static if true {
+        undeclared_name;
+    }
+}
+
+=== EXPECT-ERRORS ===
+main.dc:5: unknown name `undeclared_name`
+
+=== ENTRY: main.dc ===

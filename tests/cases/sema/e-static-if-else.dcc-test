@@ -25,7 +25,7 @@ Module m
           IntLiteral 1 [type=i32 const=1 constant]
           IntLiteral 2 [type=i32 const=2 constant]
         Body
-          Call [type=void const=<none> decl=cleanup]
+          Call [type=<unresolved> const=<none>]
             Ident cleanup [type=<unresolved> const=<none>]
         Block [type=void const=<none>]
           Body
