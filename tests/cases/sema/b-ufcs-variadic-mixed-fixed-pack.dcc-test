@@ -1,0 +1,35 @@
+=== FILE: main.dc ===
+module m;
+
+struct Handler(T) {
+    T value;
+}
+
+void process(T, U...)(Handler(T) self, i32 a, f64 b, U args) {
+    sizeof...(U);
+}
+
+void test_fixed_only() {
+    Handler(i32) h;
+    h.process(42, 3.14);
+}
+
+void test_fixed_plus_one() {
+    Handler(i32) h;
+    h.process(42, 3.14, "hello");
+}
+
+void test_fixed_plus_multi() {
+    Handler(i32) h;
+    h.process(42, 3.14, 1, 2, 3);
+}
+
+void test_too_few_fixed() {
+    Handler(i32) h;
+    h.process(42);
+}
+
+=== EXPECT-ERRORS ===
+main.dc:28: no matching UFCS function for `process` on receiver type `Handler(i32)`
+main.dc:7: = note: candidate `process(Handler(T), i32, f64, U)`
+main.dc:7: = note: reason: argument count mismatch: expected at least 3, got 2

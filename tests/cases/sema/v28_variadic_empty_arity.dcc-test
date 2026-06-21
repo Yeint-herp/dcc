@@ -12,4 +12,4 @@ void caller_bad() {
 }
 
 === EXPECT-ERRORS ===
-main.dc:13: no matching call for `fixed_two_pack`
+main.dc:10: no matching call for `fixed_two_pack`

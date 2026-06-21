@@ -1,0 +1,25 @@
+=== FILE: main.dc ===
+module m;
+
+void process(T, U...)(T self, U args) {}
+
+void test_zero() {
+    i32 h = 0;
+    h.process();
+}
+
+=== EXPECT-IR ===
+module "m"
+void@_DC0F1.1.m9.test_zero0v() {
+%entry:
+  %0 = alloca i32
+  store i32 #0, ptr<i32> %0
+  %1 = load i32, ptr<i32> %0
+  call fn(@_DC0S1.1.m7.process1i32svX1ti32s)(i32 %1)
+  ret void
+}
+
+linkonce_odr void@_DC0S1.1.m7.process1i32svX1ti32s(i32) {
+%entry(i32 %self):
+  ret void
+}
