@@ -1,0 +1,8 @@
+=== FILE: main.dc ===
+module main;
+
+@intrinsic
+public void my_func();
+
+=== EXPECT-ERRORS ===
+main.dc:3: attribute `@intrinsic` is only valid in the 'core' module

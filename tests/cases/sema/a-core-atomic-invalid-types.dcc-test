@@ -1,0 +1,28 @@
+=== FILE: main.dc ===
+module main;
+import core::atomic;
+
+volatile f32 gf32;
+volatile i32 gi32;
+
+struct S { i32 x; }
+
+void test_float_type() {
+    core::atomic::atomic_load(&gf32, core::atomic::MemoryOrder::Relaxed);
+}
+
+void test_struct_type() {
+    volatile S gs;
+    core::atomic::atomic_load(&gs, core::atomic::MemoryOrder::Relaxed);
+}
+
+void test_ptr_rmw() {
+    volatile i32* gp;
+    i32* vp;
+    core::atomic::atomic_fetch_add(&gp, vp, core::atomic::MemoryOrder::Relaxed);
+}
+
+=== EXPECT-ERRORS ===
+main.dc:10: atomic intrinsic does not support float type `f32`
+main.dc:15: atomic intrinsic does not support aggregate type `S`
+main.dc:21: atomic RMW operations on pointer type `volatile i32*` are not supported

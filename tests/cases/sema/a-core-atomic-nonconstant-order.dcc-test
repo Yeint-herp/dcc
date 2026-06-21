@@ -1,0 +1,13 @@
+=== FILE: main.dc ===
+module main;
+import core::atomic;
+
+volatile i32 g;
+
+void test_nonconst_order() {
+    u8 order = 0;
+    core::atomic::atomic_load(&g, order);
+}
+
+=== EXPECT-ERRORS ===
+main.dc:8: no matching call for `core::atomic::atomic_load`
