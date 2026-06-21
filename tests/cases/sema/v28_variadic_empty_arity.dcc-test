@@ -1,0 +1,15 @@
+=== FILE: main.dc ===
+module m;
+
+void fixed_two_pack(T...)(i32 a, f64 b, T c) {}
+
+void caller_ok() {
+    fixed_two_pack!()(42, 3.14);
+}
+
+void caller_bad() {
+    fixed_two_pack!()(42);
+}
+
+=== EXPECT-ERRORS ===
+main.dc:13: no matching call for `fixed_two_pack`

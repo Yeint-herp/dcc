@@ -1,0 +1,23 @@
+=== FILE: test.dc ===
+module test;
+
+void empty(T...)(T x) {}
+
+void caller() {
+    empty!()();
+}
+
+=== EXPECT-IR ===
+module "test"
+void@_DC0F1.4.test6.caller0v() {
+%entry:
+  call fn(@_DC0S1.4.test5.empty0v)()
+  ret void
+}
+
+linkonce_odr void@_DC0S1.4.test5.empty0v() {
+%entry:
+  ret void
+}
+
+=== EXPECT-LLVM FLAGS: -verify ===

@@ -1,0 +1,27 @@
+=== FILE: test.dc ===
+module test;
+
+struct Writer { i32 x; }
+
+void print(W, T...)(W* out, T args) {}
+
+void caller() {
+    Writer w;
+    print(&w);
+}
+
+=== EXPECT-IR ===
+module "test"
+void@_DC0F1.4.test6.caller0v() {
+%entry:
+  %0 = alloca {@0 i32}
+  call fn(@_DC0S1.4.test5.print1PqD1.4.test6.Writer0.vX1tD1.4.test6.Writer0.)(ptr<{@0 i32}> %0)
+  ret void
+}
+
+linkonce_odr void@_DC0S1.4.test5.print1PqD1.4.test6.Writer0.vX1tD1.4.test6.Writer0.(ptr<{@0 i32}>) {
+%entry(ptr<{@0 i32}> %out):
+  ret void
+}
+
+=== EXPECT-LLVM FLAGS: -verify ===

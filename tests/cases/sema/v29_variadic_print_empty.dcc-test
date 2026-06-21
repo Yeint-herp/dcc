@@ -1,0 +1,11 @@
+=== FILE: main.dc ===
+module m;
+
+struct Writer { i32 x; }
+
+void print(W, T...)(W* out, T args) {}
+
+void caller() {
+    Writer w;
+    print(&w);
+}

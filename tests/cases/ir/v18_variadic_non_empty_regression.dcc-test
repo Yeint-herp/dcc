@@ -1,0 +1,38 @@
+=== FILE: test.dc ===
+module test;
+
+void foo(T...)(T x) {}
+void bar(T, U...)(T a, U b) {}
+
+void caller() {
+    foo!(i32)(5);
+    foo!(i32, f64)(10, 3.14);
+    bar!(i32, f64)(42, 3.14);
+}
+
+=== EXPECT-IR ===
+module "test"
+void@_DC0F1.4.test6.caller0v() {
+%entry:
+  call fn(@_DC0S1.4.test3.foo1i32svX1ti32s)(i32 #5)
+  call fn(@_DC0S1.4.test3.foo2i32sf64.vX2ti32stf64.)(i32 #10, f64 #3.14)
+  call fn(@_DC0S1.4.test3.bar2i32sf64.vX2ti32stf64.)(i32 #42, f64 #3.14)
+  ret void
+}
+
+linkonce_odr void@_DC0S1.4.test3.bar2i32sf64.vX2ti32stf64.(i32, f64) {
+%entry(i32 %a, f64 %b):
+  ret void
+}
+
+linkonce_odr void@_DC0S1.4.test3.foo1i32svX1ti32s(i32) {
+%entry(i32 %x):
+  ret void
+}
+
+linkonce_odr void@_DC0S1.4.test3.foo2i32sf64.vX2ti32stf64.(i32, f64) {
+%entry(i32 %x_0, f64 %x_1):
+  ret void
+}
+
+=== EXPECT-LLVM FLAGS: -verify ===

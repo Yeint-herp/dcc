@@ -1501,6 +1501,36 @@ export namespace dcc::sema
             return {bindings.substitute(ty)};
         }
 
+        struct PackArityInfo
+        {
+            bool has_pack = false;
+            std::size_t non_pack_count = 0;
+            std::size_t min_required = 0;
+        };
+
+        [[nodiscard]] static PackArityInfo compute_pack_arity(ast::FuncDecl const* func, std::size_t param_count,
+                                                              bool nttps_already_resolved = false)
+        {
+            PackArityInfo info;
+            info.non_pack_count = param_count;
+            info.min_required = param_count;
+
+            if (!func || nttps_already_resolved)
+                return info;
+
+            if (func->params.empty())
+                return info;
+
+            if (!is_func_param_sema_pack(func->params.back(), *func))
+                return info;
+
+            info.has_pack = true;
+            info.non_pack_count = param_count - 1;
+
+            info.min_required = info.non_pack_count;
+            return info;
+        }
+
         [[nodiscard]] types::TypePtr resolve_constraint_arg_type(ModuleInfo& mod, Scope const& scope, std::span<ast::TemplateParam const> params,
                                                                  infer::TemplateBindings const& bindings, ast::Expr const& arg)
         {
@@ -3280,22 +3310,10 @@ export namespace dcc::sema
                         ++num_value_tparams;
             }
 
-            bool has_func_pack = false;
-            std::size_t non_pack_func_params = params.size();
-            std::size_t min_required = non_pack_func_params;
-            if (func && !nttps_already_resolved)
-            {
-                if (!func->params.empty() && is_func_param_sema_pack(func->params.back(), *func))
-                {
-                    has_func_pack = true;
-                    non_pack_func_params = params.size() - 1;
-
-                    if (!func->params.back().is_pack)
-                        min_required = params.size();
-                    else
-                        min_required = non_pack_func_params;
-                }
-            }
+            auto pack_arity = compute_pack_arity(func, params.size(), nttps_already_resolved);
+            bool has_func_pack = pack_arity.has_pack;
+            std::size_t non_pack_func_params = pack_arity.non_pack_count;
+            std::size_t min_required = pack_arity.min_required;
 
             if (!has_func_pack)
             {
@@ -8771,19 +8789,10 @@ export namespace dcc::sema
                 if (tp.value_type)
                     ++num_value_tparams;
 
-            bool has_func_pack = false;
-            std::size_t non_pack_func_params = params.size();
-            std::size_t min_required = non_pack_func_params;
-            if (!f.params.empty() && is_func_param_sema_pack(f.params.back(), f))
-            {
-                has_func_pack = true;
-                non_pack_func_params = params.size() - 1;
-
-                if (!f.params.back().is_pack)
-                    min_required = params.size();
-                else
-                    min_required = non_pack_func_params;
-            }
+            auto pack_arity = compute_pack_arity(&f, params.size());
+            bool has_func_pack = pack_arity.has_pack;
+            std::size_t non_pack_func_params = pack_arity.non_pack_count;
+            std::size_t min_required = pack_arity.min_required;
 
             if (!has_func_pack)
             {

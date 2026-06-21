@@ -1,0 +1,11 @@
+=== FILE: main.dc ===
+module m;
+
+void empty(T...)(T x) {}
+
+void caller() {
+    empty!()();
+}
+
+=== EXPECT-REGISTRY ===
+fn=empty args=[] state=2

@@ -1639,7 +1639,7 @@ export namespace dcc::sema
                 }
             }
 
-            if (pack_count == 0 && sub_pack_ty)
+            if (pack_count == 0 && sub_pack_ty && !is_pack_binding)
             {
                 if (auto const* pack_type = types::type_cast<types::TypePackType>(sub_pack_ty))
                 {
