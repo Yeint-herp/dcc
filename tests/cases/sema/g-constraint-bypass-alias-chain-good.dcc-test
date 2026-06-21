@@ -1,0 +1,19 @@
+=== FILE: main.dc ===
+module m;
+
+using IsInt(T) = compiles(T x) {
+    x + 1;
+};
+
+struct X(T) if IsInt(T) {
+    T val;
+}
+
+using A = X(i32);
+using B = A;
+using C = B;
+
+void f() {
+    C c;
+    c.val = 42;
+}

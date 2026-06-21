@@ -9763,7 +9763,6 @@ export namespace dcc::sema
             if (auto* v = ast::node_cast<ast::VarDecl>(&d))
             {
                 v->sema.storage = fn ? ast::StorageClass::Local : ast::StorageClass::ModuleGlobal;
-                bool had_canonical = v->type && v->type->sema.canonical;
                 if (v->type && !v->type->sema.canonical)
                 {
                     auto resolved = resolve_type_node(mod, scope, v->type, fn, &next_off, const_env);
@@ -9781,7 +9780,7 @@ export namespace dcc::sema
                     if (!v->is_extern)
                         check_type_valid_for_value(v->range, canon, "variable type");
 
-                    if (had_canonical && mod.own_scope)
+                    if (mod.own_scope)
                         check_type_constraints_in_type(mod, *mod.own_scope, canon, v->range);
                 }
 
