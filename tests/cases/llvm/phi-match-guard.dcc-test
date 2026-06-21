@@ -1,0 +1,71 @@
+=== FILE: test.dc ===
+module test;
+
+public enum Option(T) { Some(T), None, }
+
+@nomangle
+public i32 f(Option(i32) x) {
+    return match x {
+        Option::Some(v) if v > 0 => v,
+        Option::Some(v) => 0,
+        Option::None => -1,
+    };
+}
+
+=== EXPECT-LLVM FLAGS: -verify ===
+; ModuleID = 'test'
+source_filename = "test"
+target triple = "x86_64-unknown-linux-gnu"
+
+%0 = type { i8, [3 x i8], [4 x i8] }
+
+define i32 @f(%0 %x) {
+entry:
+  %"0" = alloca %0, align 8
+  store %0 %x, ptr %"0", align 1
+  %"1" = load %0, ptr %"0", align 1
+  br label %match.arm0.test3
+
+match.merge1:                                     ; preds = %match.guard0.pass9, %match.arm2.body8, %match.arm1.body6
+  %"18" = phi i32 [ %"7", %match.guard0.pass9 ], [ 0, %match.arm1.body6 ], [ -1, %match.arm2.body8 ]
+  ret i32 %"18"
+
+match.fail2:                                      ; preds = %match.arm2.test7
+  unreachable
+
+match.arm0.test3:                                 ; preds = %entry
+  %"2" = extractvalue %0 %"1", 0
+  %"3" = icmp eq i8 %"2", 0
+  br i1 %"3", label %match.arm0.body4, label %match.arm1.test5
+
+match.arm0.body4:                                 ; preds = %match.arm0.test3
+  %"4" = extractvalue %0 %"1", 2
+  %"6" = alloca [4 x i8], align 1
+  store [4 x i8] %"4", ptr %"6", align 1
+  %"7" = load i32, ptr %"6", align 4
+  %"8" = icmp sgt i32 %"7", 0
+  br i1 %"8", label %match.guard0.pass9, label %match.arm1.test5
+
+match.arm1.test5:                                 ; preds = %match.arm0.body4, %match.arm0.test3
+  %"9" = extractvalue %0 %"1", 0
+  %"10" = icmp eq i8 %"9", 0
+  br i1 %"10", label %match.arm1.body6, label %match.arm2.test7
+
+match.arm1.body6:                                 ; preds = %match.arm1.test5
+  %"11" = extractvalue %0 %"1", 2
+  %"13" = alloca [4 x i8], align 1
+  store [4 x i8] %"11", ptr %"13", align 1
+  %"14" = load i32, ptr %"13", align 4
+  br label %match.merge1
+
+match.arm2.test7:                                 ; preds = %match.arm1.test5
+  %"15" = extractvalue %0 %"1", 0
+  %"16" = icmp eq i8 %"15", 1
+  br i1 %"16", label %match.arm2.body8, label %match.fail2
+
+match.arm2.body8:                                 ; preds = %match.arm2.test7
+  br label %match.merge1
+
+match.guard0.pass9:                               ; preds = %match.arm0.body4
+  br label %match.merge1
+}

@@ -1,0 +1,15 @@
+=== FILE: test.dc ===
+module test;
+
+@nomangle
+public i32 f(i32 v) {
+    return match v {
+        1 => {
+            i32 t = 10;
+            t
+        },
+        _ => 99,
+    };
+}
+
+=== EXPECT-LLVM FLAGS: -verify ===

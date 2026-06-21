@@ -14,7 +14,7 @@ i32@_DC0F1.4.test1.f1i32si32s(i32) {
 %entry(i32 %v):
   br label %match.arm0.test3
 %match.merge1:
-  %1 = phi i32 [ i32 #1, label %match.arm0.body4 ],  [ i32 %v, label %match.arm1.body6 ]
+  %1 = phi i32 [ i32 #1, label %match.guard0.pass7 ],  [ i32 %v, label %match.arm1.body6 ]
   ret i32 %1
 %match.fail2:
   unreachable

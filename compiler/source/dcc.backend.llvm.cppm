@@ -1571,6 +1571,59 @@ namespace dcc::backend
                     ++instruction_index;
                 }
 
+                for (auto* bb : func->blocks)
+                {
+                    if (!bb)
+                        continue;
+
+                    for (auto* inst : bb->instructions)
+                    {
+                        if (!inst || inst->kind != IrNodeKind::Phi)
+                            continue;
+
+                        auto* p = static_cast<IrPhiInst const*>(inst);
+                        auto phi_it = val_map.find(inst);
+                        if (phi_it == val_map.end())
+                        {
+                            add_diag(diags, inst->range, "LLVM backend: PHI node missing from value map");
+                            return false;
+                        }
+
+                        auto* phi = phi_it->second;
+                        if (!phi)
+                            continue;
+
+                        for (auto const& pred : p->incoming)
+                        {
+                            auto* val = [&]() -> LLVMValueRef {
+                                if (!pred.value)
+                                    return nullptr;
+
+                                if (auto it = val_map.find(pred.value); it != val_map.end())
+                                    return it->second;
+
+                                auto* c = c_api_constant(pred.value, ctx, tc, val_map);
+                                if (c)
+                                    val_map[pred.value] = c;
+
+                                return c;
+                            }();
+
+                            auto bb_it = bb_map.find(pred.block);
+                            if (!val || bb_it == bb_map.end())
+                            {
+                                add_diag(diags, inst->range,
+                                         "LLVM backend: PHI incoming value or block could not be resolved");
+                                return false;
+                            }
+
+                            LLVMValueRef vals[] = {val};
+                            LLVMBasicBlockRef blocks[] = {bb_it->second};
+                            LLVMAddIncoming(phi, vals, blocks, 1);
+                        }
+                    }
+                }
+
                 return true;
             }
 
@@ -1620,7 +1673,7 @@ namespace dcc::backend
 
             [[nodiscard]] static bool emit_instruction(IrValue const* inst, LLVMBuilderRef builder, LLVMContextRef ctx, TypeCache& tc,
                                                        std::unordered_map<IrValue const*, LLVMValueRef>& val_map,
-                                                       std::unordered_map<IrBasicBlock const*, LLVMBasicBlockRef>& bb_map, TargetConfig const& target,
+                                                       [[maybe_unused]] std::unordered_map<IrBasicBlock const*, LLVMBasicBlockRef>& bb_map, TargetConfig const& target,
                                                        std::vector<BackendDiagnostic>& diags)
             {
                 if (!inst)
@@ -2425,18 +2478,6 @@ namespace dcc::backend
                             return false;
 
                         auto* phi = LLVMBuildPhi(builder, phi_ty, "");
-                        for (auto const& pred : p->incoming)
-                        {
-                            auto* val = lookup(pred.value);
-                            auto* bb = bb_map[pred.block];
-                            if (val && bb)
-                            {
-                                LLVMValueRef vals[] = {val};
-                                LLVMBasicBlockRef blocks[] = {bb};
-                                LLVMAddIncoming(phi, vals, blocks, 1);
-                            }
-                        }
-
                         set_name(phi);
                         val_map[inst] = phi;
                         break;

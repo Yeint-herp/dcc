@@ -1,0 +1,41 @@
+=== FILE: test.dc ===
+module test;
+
+@nomangle
+public i32 f(i32 v, bool c1, bool c2) {
+    return if c1 {
+        v
+    } else {
+        if c2 { 10 } else { 20 }
+    };
+}
+
+=== EXPECT-LLVM FLAGS: -verify ===
+; ModuleID = 'test'
+source_filename = "test"
+target triple = "x86_64-unknown-linux-gnu"
+
+define i32 @f(i32 %v, i1 %c1, i1 %c2) {
+entry:
+  br i1 %c1, label %if.then1, label %if.else2
+
+if.then1:                                         ; preds = %entry
+  br label %if.merge3
+
+if.else2:                                         ; preds = %entry
+  br i1 %c2, label %if.then4, label %if.else5
+
+if.merge3:                                        ; preds = %if.merge6, %if.then1
+  %"1" = phi i32 [ %v, %if.then1 ], [ %"0", %if.merge6 ]
+  ret i32 %"1"
+
+if.then4:                                         ; preds = %if.else2
+  br label %if.merge6
+
+if.else5:                                         ; preds = %if.else2
+  br label %if.merge6
+
+if.merge6:                                        ; preds = %if.else5, %if.then4
+  %"0" = phi i32 [ 10, %if.then4 ], [ 20, %if.else5 ]
+  br label %if.merge3
+}

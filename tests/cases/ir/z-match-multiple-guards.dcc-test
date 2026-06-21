@@ -15,7 +15,7 @@ i32@_DC0F1.4.test19.guarded_fallthrough1i32si32s(i32) {
 %entry(i32 %v):
   br label %match.arm0.test3
 %match.merge1:
-  %4 = phi i32 [ i32 #10, label %match.arm0.body4 ],  [ i32 #20, label %match.arm1.body6 ],  [ i32 #99, label %match.arm2.body8 ]
+  %4 = phi i32 [ i32 #10, label %match.guard0.pass9 ],  [ i32 #20, label %match.guard1.pass10 ],  [ i32 #99, label %match.arm2.body8 ]
   ret i32 %4
 %match.fail2:
   unreachable

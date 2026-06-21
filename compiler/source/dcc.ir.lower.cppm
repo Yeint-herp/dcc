@@ -3469,6 +3469,7 @@ export namespace dcc::ir::lower
                 pop_scope();
             }
             bool then_terminated = current_block_terminated();
+            IrBasicBlock* then_exit = then_terminated ? nullptr : m_current_block;
 
             if (!then_terminated)
                 emit_br(merge_bb);
@@ -3504,6 +3505,7 @@ export namespace dcc::ir::lower
                 }
             }
             bool else_terminated = current_block_terminated();
+            IrBasicBlock* else_exit = else_terminated ? nullptr : m_current_block;
 
             if (!else_terminated)
                 emit_br(merge_bb);
@@ -3527,8 +3529,10 @@ export namespace dcc::ir::lower
             }
 
             auto* phi = emit_phi(ir_result_ty);
-            add_phi_incoming(phi, then_val ? then_val : m_ctx.int_const(ir_result_ty, 0), then_bb);
-            add_phi_incoming(phi, else_val ? else_val : m_ctx.int_const(ir_result_ty, 0), else_bb);
+            add_phi_incoming(phi, then_val ? then_val : m_ctx.int_const(ir_result_ty, 0),
+                             then_exit ? then_exit : then_bb);
+            add_phi_incoming(phi, else_val ? else_val : m_ctx.int_const(ir_result_ty, 0),
+                             else_exit ? else_exit : else_bb);
             return phi;
         }
 
@@ -3693,6 +3697,7 @@ export namespace dcc::ir::lower
             {
                 IrBasicBlock* test{};
                 IrBasicBlock* body_start{};
+                IrBasicBlock* exit_block{};
                 IrValue* result{};
                 bool terminated{};
             };
@@ -4029,7 +4034,10 @@ export namespace dcc::ir::lower
                     arm_blocks[i].terminated = current_block_terminated();
 
                     if (!arm_blocks[i].terminated)
+                    {
+                        arm_blocks[i].exit_block = m_current_block;
                         emit_br(merge_bb);
+                    }
 
                     pop_scope();
                 }
@@ -4074,7 +4082,10 @@ export namespace dcc::ir::lower
                     arm_blocks[i].terminated = current_block_terminated();
 
                     if (!arm_blocks[i].terminated)
+                    {
+                        arm_blocks[i].exit_block = m_current_block;
                         emit_br(merge_bb);
+                    }
 
                     pop_scope();
                 }
@@ -4107,7 +4118,8 @@ export namespace dcc::ir::lower
             auto* phi = emit_phi(ir_result_ty);
             for (std::size_t i = 0; i < arm_count; ++i)
                 if (!arm_blocks[i].terminated)
-                    add_phi_incoming(phi, arm_blocks[i].result ? arm_blocks[i].result : m_ctx.int_const(ir_result_ty, 0), arm_blocks[i].body_start);
+                    add_phi_incoming(phi, arm_blocks[i].result ? arm_blocks[i].result : m_ctx.int_const(ir_result_ty, 0),
+                                     arm_blocks[i].exit_block ? arm_blocks[i].exit_block : arm_blocks[i].body_start);
 
             return phi;
         }

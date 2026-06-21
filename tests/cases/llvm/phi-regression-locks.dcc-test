@@ -1,0 +1,41 @@
+=== FILE: test.dc ===
+module test;
+
+public enum Opt1(T) { Some1(T), None1, }
+
+public void sink(i32 x) {}
+
+@nomangle
+public void match_stmt_no_phi(Opt1(i32) x) {
+    match x {
+        Opt1::Some1(v) => sink(v),
+        Opt1::None1 => {},
+    };
+}
+
+@nomangle
+public i32 const_arm_expr(Opt1(i32) x) {
+    return match x {
+        Opt1::Some1(_) => 42,
+        Opt1::None1 => 0,
+    };
+}
+
+@nomangle
+public i32 bool_match_expr(bool v) {
+    return match v {
+        true => 10,
+        false => 20,
+    };
+}
+
+@nomangle
+public i32 int_match_expr(i32 v) {
+    return match v {
+        1 => 100,
+        2 => 200,
+        _ => 0,
+    };
+}
+
+=== EXPECT-LLVM FLAGS: -verify ===

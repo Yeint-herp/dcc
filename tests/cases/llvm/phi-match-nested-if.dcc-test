@@ -1,0 +1,50 @@
+=== FILE: test.dc ===
+module test;
+
+@nomangle
+public i32 f(i32 v) {
+    return match v {
+        1 => if true { 10 } else { 20 },
+        _ => 99,
+    };
+}
+
+=== EXPECT-LLVM FLAGS: -verify ===
+; ModuleID = 'test'
+source_filename = "test"
+target triple = "x86_64-unknown-linux-gnu"
+
+define i32 @f(i32 %v) {
+entry:
+  br label %match.arm0.test3
+
+match.merge1:                                     ; preds = %if.merge9, %match.arm1.body6
+  %"2" = phi i32 [ %"1", %if.merge9 ], [ 99, %match.arm1.body6 ]
+  ret i32 %"2"
+
+match.fail2:                                      ; No predecessors!
+  unreachable
+
+match.arm0.test3:                                 ; preds = %entry
+  %"0" = icmp eq i32 %v, 1
+  br i1 %"0", label %match.arm0.body4, label %match.arm1.test5
+
+match.arm0.body4:                                 ; preds = %match.arm0.test3
+  br i1 true, label %if.then7, label %if.else8
+
+match.arm1.test5:                                 ; preds = %match.arm0.test3
+  br label %match.arm1.body6
+
+match.arm1.body6:                                 ; preds = %match.arm1.test5
+  br label %match.merge1
+
+if.then7:                                         ; preds = %match.arm0.body4
+  br label %if.merge9
+
+if.else8:                                         ; preds = %match.arm0.body4
+  br label %if.merge9
+
+if.merge9:                                        ; preds = %if.else8, %if.then7
+  %"1" = phi i32 [ 10, %if.then7 ], [ 20, %if.else8 ]
+  br label %match.merge1
+}
