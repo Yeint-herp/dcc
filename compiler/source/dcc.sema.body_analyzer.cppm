@@ -10569,6 +10569,165 @@ export namespace dcc::sema
         return bindings->substitute(ty);
     }
 
+    void complete_templated_union(types::TypeContext& types, std::pmr::polymorphic_allocator<> alloc, types::UnionType const* ut);
+
+    void complete_templated_struct(types::TypeContext& types, std::pmr::polymorphic_allocator<> alloc, types::StructType const* st)
+    {
+        if (!st || st->is_complete || st->template_args.empty())
+            return;
+
+        static thread_local std::vector<types::StructType const*> s_struct_stack;
+        if (std::find(s_struct_stack.begin(), s_struct_stack.end(), st) != s_struct_stack.end())
+            return;
+        s_struct_stack.push_back(st);
+        struct Guard
+        {
+            ~Guard() { s_struct_stack.pop_back(); }
+        } guard;
+
+        auto* sd = reinterpret_cast<ast::StructDecl const*>(st->decl);
+        if (!sd || sd->template_params.empty())
+            return;
+
+        auto bindings = make_bindings(types, st);
+        if (!bindings)
+            return;
+
+        std::uint64_t size = 0;
+        std::uint32_t align = 1;
+        bool ok = true;
+
+        for (auto const& f : sd->fields)
+        {
+            if (!f.type || !f.type->sema.canonical)
+            {
+                ok = false;
+                break;
+            }
+
+            auto* ft = get_canonical(f.type->sema);
+            auto concrete_ft = bindings->substitute(ft);
+            if (!concrete_ft)
+            {
+                ok = false;
+                break;
+            }
+
+            if (!concrete_ft->is_complete)
+            {
+                if (auto* ft_et = types::type_cast<types::EnumType>(concrete_ft))
+                {
+                    if (!ft_et->tagged_layout && !ft_et->template_args.empty())
+                        ensure_tagged_enum_complete(types, alloc, concrete_ft);
+                }
+                else if (auto* ft_st = types::type_cast<types::StructType>(concrete_ft))
+                    complete_templated_struct(types, alloc, ft_st);
+                else if (auto* ft_ut = types::type_cast<types::UnionType>(concrete_ft))
+                    complete_templated_union(types, alloc, ft_ut);
+            }
+
+            if (!concrete_ft->is_complete)
+            {
+                ok = false;
+                break;
+            }
+
+            auto field_align = concrete_ft->byte_align;
+            if (field_align > align)
+                align = field_align;
+            size = align_up_enum(size, field_align);
+            size += concrete_ft->byte_size;
+        }
+
+        if (ok)
+        {
+            size = align_up_enum(size, align);
+            auto* mut_st = const_cast<types::StructType*>(st);
+            mut_st->byte_size = size;
+            mut_st->byte_align = align;
+            mut_st->is_zero_sized = (size == 0);
+            mut_st->is_complete = true;
+        }
+    }
+
+    void complete_templated_union(types::TypeContext& types, std::pmr::polymorphic_allocator<> alloc, types::UnionType const* ut)
+    {
+        if (!ut || ut->is_complete || ut->template_args.empty())
+            return;
+
+        static thread_local std::vector<types::UnionType const*> s_union_stack;
+        if (std::find(s_union_stack.begin(), s_union_stack.end(), ut) != s_union_stack.end())
+            return;
+        s_union_stack.push_back(ut);
+        struct Guard
+        {
+            ~Guard() { s_union_stack.pop_back(); }
+        } guard;
+
+        auto* ud = reinterpret_cast<ast::UnionDecl const*>(ut->decl);
+        if (!ud)
+            return;
+
+        auto bindings = make_bindings(types, ut);
+        if (!bindings)
+            return;
+
+        std::uint64_t max_field_size = 0;
+        std::uint32_t max_field_align = 1;
+        bool ok = true;
+
+        for (auto const& f : ud->fields)
+        {
+            if (!f.type || !f.type->sema.canonical)
+            {
+                ok = false;
+                break;
+            }
+
+            auto* ft = get_canonical(f.type->sema);
+            auto concrete_ft = bindings->substitute(ft);
+            if (!concrete_ft)
+            {
+                ok = false;
+                break;
+            }
+
+            if (!concrete_ft->is_complete)
+            {
+                if (auto* ft_et = types::type_cast<types::EnumType>(concrete_ft))
+                {
+                    if (!ft_et->tagged_layout && !ft_et->template_args.empty())
+                        ensure_tagged_enum_complete(types, alloc, concrete_ft);
+                }
+                else if (auto* ft_st = types::type_cast<types::StructType>(concrete_ft))
+                    complete_templated_struct(types, alloc, ft_st);
+                else if (auto* ft_ut = types::type_cast<types::UnionType>(concrete_ft))
+                    complete_templated_union(types, alloc, ft_ut);
+            }
+
+            if (!concrete_ft->is_complete)
+            {
+                ok = false;
+                break;
+            }
+
+            if (concrete_ft->byte_align > max_field_align)
+                max_field_align = concrete_ft->byte_align;
+            if (concrete_ft->byte_size > max_field_size)
+                max_field_size = concrete_ft->byte_size;
+        }
+
+        if (ok)
+        {
+            max_field_size = align_up_enum(max_field_size, max_field_align);
+            auto* mut_ut = const_cast<types::UnionType*>(ut);
+            mut_ut->byte_size = max_field_size;
+            mut_ut->byte_align = max_field_align;
+            mut_ut->is_zero_sized = (max_field_size == 0);
+            mut_ut->is_complete = true;
+        }
+    }
+
     void ensure_tagged_enum_complete(types::TypeContext& types, std::pmr::polymorphic_allocator<> alloc, types::TypePtr ty)
     {
         auto* et = const_cast<types::EnumType*>(types::type_cast<types::EnumType>(ty));
@@ -10587,9 +10746,7 @@ export namespace dcc::sema
 
         auto* ed = const_cast<ast::EnumDecl*>(reinterpret_cast<ast::EnumDecl const*>(et->decl));
         if (!ed || !ed->is_tagged || ed->template_params.empty())
-        {
             return;
-        }
 
         et->is_tagged = true;
 
@@ -10615,11 +10772,8 @@ export namespace dcc::sema
                 if (mag > max_negative_magnitude)
                     max_negative_magnitude = mag;
             }
-            else
-            {
-                if (mag > max_positive)
-                    max_positive = mag;
-            }
+            else if (mag > max_positive)
+                max_positive = mag;
         }
 
         bool needs_signed = has_negative_disc;
@@ -10728,6 +10882,10 @@ export namespace dcc::sema
                                 ensure_tagged_enum_complete(types, alloc, payload_type);
                         }
                     }
+                    else if (auto* payload_st = types::type_cast<types::StructType>(payload_type))
+                        complete_templated_struct(types, alloc, payload_st);
+                    else if (auto* payload_ut = types::type_cast<types::UnionType>(payload_type))
+                        complete_templated_union(types, alloc, payload_ut);
                 }
 
                 if (payload_type && payload_type->is_complete)

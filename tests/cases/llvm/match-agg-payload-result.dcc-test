@@ -1,0 +1,73 @@
+=== FILE: test.dc ===
+module test;
+
+public struct Box(T) {
+    T value;
+}
+
+public enum Result(T, E) { Ok(T), Err(E), }
+
+@nomangle
+public i64 f(Result(Box(i32), Box(i64)) x) {
+    return match x {
+        Result::Ok(b) => b.value as i64,
+        Result::Err(b) => b.value,
+    };
+}
+
+=== EXPECT-LLVM FLAGS: -verify ===
+; ModuleID = 'test'
+source_filename = "test"
+target triple = "x86_64-unknown-linux-gnu"
+
+%0 = type { i8, [7 x i8], [8 x i8] }
+%1 = type { i32 }
+%2 = type { i64 }
+
+define i64 @f(%0 %x) {
+entry:
+  %"0" = alloca %0, align 8
+  store %0 %x, ptr %"0", align 1
+  %"1" = load %0, ptr %"0", align 1
+  br label %match.arm0.test3
+
+match.merge1:                                     ; preds = %match.arm1.body6, %match.arm0.body4
+  %"21" = phi i64 [ %"11", %match.arm0.body4 ], [ %"20", %match.arm1.body6 ]
+  ret i64 %"21"
+
+match.fail2:                                      ; preds = %match.arm1.test5
+  unreachable
+
+match.arm0.test3:                                 ; preds = %entry
+  %"2" = extractvalue %0 %"1", 0
+  %"3" = icmp eq i8 %"2", 0
+  br i1 %"3", label %match.arm0.body4, label %match.arm1.test5
+
+match.arm0.body4:                                 ; preds = %match.arm0.test3
+  %"4" = extractvalue %0 %"1", 2
+  %"6" = alloca [8 x i8], align 1
+  store [8 x i8] %"4", ptr %"6", align 1
+  %"7" = load %1, ptr %"6", align 4
+  %"8" = alloca %1, align 8
+  store %1 %"7", ptr %"8", align 4
+  %"9" = load %1, ptr %"8", align 4
+  %"10" = extractvalue %1 %"9", 0
+  %"11" = sext i32 %"10" to i64
+  br label %match.merge1
+
+match.arm1.test5:                                 ; preds = %match.arm0.test3
+  %"12" = extractvalue %0 %"1", 0
+  %"13" = icmp eq i8 %"12", 1
+  br i1 %"13", label %match.arm1.body6, label %match.fail2
+
+match.arm1.body6:                                 ; preds = %match.arm1.test5
+  %"14" = extractvalue %0 %"1", 2
+  %"16" = alloca [8 x i8], align 1
+  store [8 x i8] %"14", ptr %"16", align 1
+  %"17" = load %2, ptr %"16", align 4
+  %"18" = alloca %2, align 8
+  store %2 %"17", ptr %"18", align 4
+  %"19" = load %2, ptr %"18", align 4
+  %"20" = extractvalue %2 %"19", 0
+  br label %match.merge1
+}

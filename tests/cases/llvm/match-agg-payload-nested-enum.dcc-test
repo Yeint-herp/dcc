@@ -1,0 +1,88 @@
+=== FILE: test.dc ===
+module test;
+
+public enum Option(T) { Some(T), None, }
+
+@nomangle
+public i32 f(Option(Option(i32)) x) {
+    return match x {
+        Option::Some(inner) => match inner {
+            Option::Some(v) => v,
+            Option::None => -1,
+        },
+        Option::None => -2,
+    };
+}
+
+=== EXPECT-LLVM FLAGS: -verify ===
+; ModuleID = 'test'
+source_filename = "test"
+target triple = "x86_64-unknown-linux-gnu"
+
+%0 = type { i8, [3 x i8], [8 x i8] }
+%1 = type { i8, [3 x i8], [4 x i8] }
+
+define i32 @f(%0 %x) {
+entry:
+  %"0" = alloca %0, align 8
+  store %0 %x, ptr %"0", align 1
+  %"1" = load %0, ptr %"0", align 1
+  br label %match.arm0.test3
+
+match.merge1:                                     ; preds = %match.merge7, %match.arm1.body6
+  %"23" = phi i32 [ %"19", %match.merge7 ], [ -2, %match.arm1.body6 ]
+  ret i32 %"23"
+
+match.fail2:                                      ; preds = %match.arm1.test5
+  unreachable
+
+match.arm0.test3:                                 ; preds = %entry
+  %"2" = extractvalue %0 %"1", 0
+  %"3" = icmp eq i8 %"2", 0
+  br i1 %"3", label %match.arm0.body4, label %match.arm1.test5
+
+match.arm0.body4:                                 ; preds = %match.arm0.test3
+  %"4" = extractvalue %0 %"1", 2
+  %"6" = alloca [8 x i8], align 1
+  store [8 x i8] %"4", ptr %"6", align 1
+  %"7" = load %1, ptr %"6", align 1
+  %"8" = alloca %1, align 8
+  store %1 %"7", ptr %"8", align 1
+  %"9" = load %1, ptr %"8", align 1
+  br label %match.arm0.test9
+
+match.arm1.test5:                                 ; preds = %match.arm0.test3
+  %"20" = extractvalue %0 %"1", 0
+  %"21" = icmp eq i8 %"20", 1
+  br i1 %"21", label %match.arm1.body6, label %match.fail2
+
+match.arm1.body6:                                 ; preds = %match.arm1.test5
+  br label %match.merge1
+
+match.merge7:                                     ; preds = %match.arm1.body12, %match.arm0.body10
+  %"19" = phi i32 [ %"15", %match.arm0.body10 ], [ -1, %match.arm1.body12 ]
+  br label %match.merge1
+
+match.fail8:                                      ; preds = %match.arm1.test11
+  unreachable
+
+match.arm0.test9:                                 ; preds = %match.arm0.body4
+  %"10" = extractvalue %1 %"9", 0
+  %"11" = icmp eq i8 %"10", 0
+  br i1 %"11", label %match.arm0.body10, label %match.arm1.test11
+
+match.arm0.body10:                                ; preds = %match.arm0.test9
+  %"12" = extractvalue %1 %"9", 2
+  %"14" = alloca [4 x i8], align 1
+  store [4 x i8] %"12", ptr %"14", align 1
+  %"15" = load i32, ptr %"14", align 4
+  br label %match.merge7
+
+match.arm1.test11:                                ; preds = %match.arm0.test9
+  %"16" = extractvalue %1 %"9", 0
+  %"17" = icmp eq i8 %"16", 1
+  br i1 %"17", label %match.arm1.body12, label %match.fail8
+
+match.arm1.body12:                                ; preds = %match.arm1.test11
+  br label %match.merge7
+}

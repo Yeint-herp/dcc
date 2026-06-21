@@ -3990,12 +3990,12 @@ export namespace dcc::ir::lower
                                             auto payload_ptr_name = ident_name();
                                             payload_ptr->name = m_name_pool.back();
                                             append_inst(payload_ptr);
-                                            auto* ptr_sema_ty = make_ptr_sema_type(payload_sema_type, dcc::types::Qual::None);
+                                            auto* ptr_sema_ty = make_ptr_sema_type(payload_sema_canon, dcc::types::Qual::None);
                                             m_named_values[bp.name] = MapEntry{payload_ptr, false, ptr_sema_ty, false};
                                         }
                                         else
                                         {
-                                            auto* ptr_sema_ty = make_ptr_sema_type(payload_sema_type, dcc::types::Qual::None);
+                                            auto* ptr_sema_ty = make_ptr_sema_type(payload_sema_canon, dcc::types::Qual::None);
                                             m_named_values[bp.name] = MapEntry{payload_buf, false, ptr_sema_ty, false};
                                         }
                                     }
@@ -4007,10 +4007,10 @@ export namespace dcc::ir::lower
                                         sub_alloca->name = m_name_pool.back();
                                         append_inst(sub_alloca);
                                         append_inst(m_ctx.store(payload_val, sub_alloca));
-                                        m_named_values[bp.name] = MapEntry{sub_alloca, true, payload_sema_type, false};
+                                        m_named_values[bp.name] = MapEntry{sub_alloca, true, payload_sema_canon, false};
                                     }
                                     else
-                                        m_named_values[bp.name] = MapEntry{payload_val, false, payload_sema_type, false};
+                                        m_named_values[bp.name] = MapEntry{payload_val, false, payload_sema_canon, false};
                                 }
                             }
                         }
@@ -4360,7 +4360,7 @@ export namespace dcc::ir::lower
                                 payload_val->name = m_name_pool.back();
                                 append_inst(payload_val);
 
-                                return {payload_val, ir_payload_type, payload_sema_type, payload_buf};
+                                return {payload_val, ir_payload_type, payload_sema_canon, payload_buf};
                             };
 
                             for (std::size_t pi = 0; pi < ep.payload.size(); ++pi)
