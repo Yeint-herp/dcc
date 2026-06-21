@@ -1,0 +1,16 @@
+=== FILE: test.dc ===
+module test;
+
+public enum Result(T, E) { Ok(T), Err(E), }
+
+public void use_i32(i32 x) {}
+public void use_f32(f32 x) {}
+
+public void f(Result(i32, f32) x) {
+    match x {
+        Result::Ok(v) => use_i32(v),
+        Result::Err(e) => use_f32(e),
+    };
+}
+
+=== EXPECT-LLVM FLAGS: -verify ===

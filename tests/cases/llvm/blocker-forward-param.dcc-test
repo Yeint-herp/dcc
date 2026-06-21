@@ -1,0 +1,9 @@
+=== FILE: test.dc ===
+module test;
+
+public enum Option(T) { Some(T), None, }
+
+public void sink(Option(i32) x) {}
+public void f(Option(i32) x) { sink(x); }
+
+=== EXPECT-LLVM FLAGS: -verify ===

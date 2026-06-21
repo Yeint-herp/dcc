@@ -1,0 +1,28 @@
+=== FILE: test.dc ===
+module test;
+
+enum Inner(T) {
+    Some(T),
+    None,
+}
+
+enum Outer(T) {
+    Wrap(Inner(T)),
+    Empty,
+}
+
+public usize outer_size() { return sizeof(Outer(i32)); }
+
+=== EXPECT-BODY ===
+Module test
+  Func outer_size diverging=true
+    Body
+      Return
+        Sizeof [type=usize const=12 constant]
+
+=== EXPECT-IR ===
+module "test"
+usize@_DC0F1.4.test10.outer_size0Iu() {
+%entry:
+  ret usize #12
+}

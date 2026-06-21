@@ -1,0 +1,13 @@
+=== FILE: test.dc ===
+module test;
+
+public enum Option(T) { Some(T), None, }
+
+public usize f() { return sizeof(Option(i32)); }
+
+=== EXPECT-IR ===
+module "test"
+usize@_DC0F1.4.test1.f0Iu() {
+%entry:
+  ret usize #8
+}

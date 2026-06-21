@@ -16,16 +16,18 @@ public i32 test() {
 
 === EXPECT-IR ===
 module "test"
-void@_DC0F1.4.test7.consume1D1.4.test6.Result1.i32sv(i32) {
-%entry(i32 %r):
+void@_DC0F1.4.test7.consume1D1.4.test6.Result1.i32sv({@0 u8, @4 [4 x u8]}) {
+%entry({@0 u8, @4 [4 x u8]} %r):
+  %0 = alloca {@0 u8, @4 [4 x u8]}
+  store {@0 u8, @4 [4 x u8]} %r, ptr<{@0 u8, @4 [4 x u8]}> %0
   ret void
 }
 
 i32@_DC0F1.4.test4.test0i32s() {
 %entry:
-  %0 = alloca i32
-  store i32 #42, ptr<i32> %0
-  %1 = load i32, ptr<i32> %0
-  call fn(@_DC0F1.4.test7.consume1D1.4.test6.Result1.i32sv)(i32 %1)
+  %0 = alloca {@0 u8, @4 [4 x u8]}
+  store i32 #42, ptr<{@0 u8, @4 [4 x u8]}> %0
+  %1 = load {@0 u8, @4 [4 x u8]}, ptr<{@0 u8, @4 [4 x u8]}> %0
+  call fn(@_DC0F1.4.test7.consume1D1.4.test6.Result1.i32sv)({@0 u8, @4 [4 x u8]} %1)
   ret i32 #0
 }

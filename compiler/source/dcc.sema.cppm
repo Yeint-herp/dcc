@@ -63,6 +63,8 @@ export namespace dcc::sema
             validate_public_signatures(m_graph.all(), m_diag);
             analyze_bodies(m_graph.all(), m_diag, m_ast_ctx, m_types, m_alloc, m_spec_registry);
 
+            complete_all_templated_tagged_enums(m_types, m_alloc);
+
             return root;
         }
 

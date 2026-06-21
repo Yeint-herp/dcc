@@ -620,6 +620,8 @@ export namespace dcc::types
             return t;
         }
 
+        [[nodiscard]] std::vector<EnumType const*> const& enums() const noexcept { return m_enums; }
+
         template <typename T, typename... Args> [[nodiscard]] T* make(Args&&... args)
         {
             void* p = m_buffer.allocate(sizeof(T), alignof(T));

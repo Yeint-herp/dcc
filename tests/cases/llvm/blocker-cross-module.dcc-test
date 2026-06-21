@@ -1,0 +1,21 @@
+=== FILE: a.dc ===
+module a;
+
+public enum Option(T) { Some(T), None, }
+
+=== FILE: b.dc ===
+module b;
+import a;
+
+void use_i32(i32 x) {}
+
+void f(a::Option(i32) x) {
+    match x {
+        a::Option::Some(v) => use_i32(v),
+        a::Option::None => {},
+    };
+}
+
+=== ENTRY: b.dc ===
+
+=== EXPECT-LLVM FLAGS: -verify ===

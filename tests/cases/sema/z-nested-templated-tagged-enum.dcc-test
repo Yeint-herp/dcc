@@ -1,0 +1,28 @@
+=== FILE: main.dc ===
+module m;
+
+enum Inner(T) {
+    Some(T),
+    None,
+}
+
+enum Outer(T) {
+    Wrap(Inner(T)),
+    Empty,
+}
+
+void f() {
+    sizeof(Inner(i32));
+    alignof(Inner(i32));
+    sizeof(Outer(i32));
+    alignof(Outer(i32));
+}
+
+=== EXPECT-BODY ===
+Module m
+  Func f diverging=false
+    Body
+      Sizeof [type=usize const=8 constant]
+      Alignof [type=usize const=4 constant]
+      Sizeof [type=usize const=12 constant]
+      Alignof [type=usize const=4 constant]

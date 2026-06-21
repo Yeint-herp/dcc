@@ -22,6 +22,11 @@ export namespace dcc::sema
     void analyze_bodies(std::span<std::unique_ptr<ModuleInfo> const> modules, diag::DiagnosticEngine& diag, ast::AstContext& ast_ctx,
                         types::TypeContext& type_ctx, std::pmr::polymorphic_allocator<> alloc, SpecializationRegistry& reg);
 
+    [[nodiscard]] std::optional<infer::TemplateBindings> make_bindings(types::TypeContext& types, types::TypePtr ty);
+    [[nodiscard]] types::TypePtr substitute_in_nominal_context(types::TypeContext& types, types::TypePtr ty, types::TypePtr context);
+    void ensure_tagged_enum_complete(types::TypeContext& types, std::pmr::polymorphic_allocator<> alloc, types::TypePtr ty);
+    void complete_all_templated_tagged_enums(types::TypeContext& types, std::pmr::polymorphic_allocator<> alloc);
+
     class BodyDumper
     {
     public:
@@ -1027,184 +1032,7 @@ export namespace dcc::sema
             return rem ? (n + (align - rem)) : n;
         }
 
-        void ensure_tagged_enum_complete(types::TypePtr ty)
-        {
-            auto* et = const_cast<types::EnumType*>(types::type_cast<types::EnumType>(ty));
-            if (!et || et->tagged_layout || et->template_args.empty())
-                return;
-
-            auto* ed = const_cast<ast::EnumDecl*>(reinterpret_cast<ast::EnumDecl const*>(et->decl));
-            if (!ed || !ed->is_tagged || ed->template_params.empty())
-                return;
-
-            et->is_tagged = true;
-
-            auto variant_count = ed->variants.size();
-
-            auto disc_magnitude = [](std::int64_t stored_val, bool is_negative) -> std::uint64_t {
-                if (!is_negative)
-                    return static_cast<std::uint64_t>(stored_val);
-                if (stored_val == std::numeric_limits<std::int64_t>::min())
-                    return static_cast<std::uint64_t>(std::numeric_limits<std::int64_t>::max()) + 1;
-                return static_cast<std::uint64_t>(-stored_val);
-            };
-
-            std::uint64_t max_positive = 0;
-            std::uint64_t max_negative_magnitude = 0;
-            bool has_negative_disc = false;
-            for (auto& v : ed->variants)
-            {
-                auto mag = disc_magnitude(v.discriminant, v.discriminant_is_negative);
-                if (v.discriminant_is_negative)
-                {
-                    has_negative_disc = true;
-                    if (mag > max_negative_magnitude)
-                        max_negative_magnitude = mag;
-                }
-                else
-                {
-                    if (mag > max_positive)
-                        max_positive = mag;
-                }
-            }
-
-            bool needs_signed = has_negative_disc;
-            types::IntType const* disc_type = nullptr;
-            std::uint64_t disc_size = 0;
-
-            auto signed_fits = [&](std::uint8_t bits) -> bool {
-                if (bits >= 64)
-                {
-                    if (max_positive > static_cast<std::uint64_t>(std::numeric_limits<std::int64_t>::max()))
-                        return false;
-                }
-                else
-                {
-                    std::int64_t pos_max = (std::int64_t(1) << (bits - 1)) - 1;
-                    if (static_cast<std::int64_t>(max_positive) > pos_max)
-                        return false;
-                }
-
-                if (bits >= 64)
-                    return max_negative_magnitude <= static_cast<std::uint64_t>(std::numeric_limits<std::int64_t>::max()) + 1;
-                else
-                {
-                    std::uint64_t neg_max_mag = std::uint64_t(1) << (bits - 1);
-                    return max_negative_magnitude <= neg_max_mag;
-                }
-            };
-
-            if (needs_signed)
-            {
-                if (signed_fits(8))
-                {
-                    disc_type = static_cast<types::IntType const*>(m_types.int_t(8, true));
-                    disc_size = 1;
-                }
-                else if (signed_fits(16))
-                {
-                    disc_type = static_cast<types::IntType const*>(m_types.int_t(16, true));
-                    disc_size = 2;
-                }
-                else if (signed_fits(32))
-                {
-                    disc_type = static_cast<types::IntType const*>(m_types.int_t(32, true));
-                    disc_size = 4;
-                }
-                else
-                {
-                    disc_type = static_cast<types::IntType const*>(m_types.int_t(64, true));
-                    disc_size = 8;
-                }
-            }
-            else
-            {
-                std::uint64_t needed =
-                    max_positive > static_cast<std::uint64_t>(variant_count) - 1 ? max_positive : static_cast<std::uint64_t>(variant_count) - 1;
-
-                if (needed <= 255)
-                {
-                    disc_type = static_cast<types::IntType const*>(m_types.int_t(8, false));
-                    disc_size = 1;
-                }
-                else if (needed <= 65535)
-                {
-                    disc_type = static_cast<types::IntType const*>(m_types.int_t(16, false));
-                    disc_size = 2;
-                }
-                else if (needed <= 4294967295)
-                {
-                    disc_type = static_cast<types::IntType const*>(m_types.int_t(32, false));
-                    disc_size = 4;
-                }
-                else
-                {
-                    disc_type = static_cast<types::IntType const*>(m_types.int_t(64, false));
-                    disc_size = 8;
-                }
-            }
-
-            std::uint32_t disc_align = static_cast<std::uint32_t>(disc_size);
-            std::uint32_t max_payload_align = 1;
-            std::uint64_t max_payload_size = 0;
-
-            auto* variant_layouts = static_cast<types::TaggedEnumVariantLayout*>(
-                m_alloc.resource()->allocate(sizeof(types::TaggedEnumVariantLayout) * variant_count, alignof(types::TaggedEnumVariantLayout)));
-
-            for (std::size_t i = 0; i < variant_count; ++i)
-            {
-                auto& v = ed->variants[i];
-                types::TypePtr payload_type = nullptr;
-                if (v.payload.size() == 1)
-                {
-                    auto const& ts = v.payload[0]->sema;
-                    payload_type = get_canonical(ts);
-
-                    auto concrete = substitute_in_nominal_context(payload_type, ty);
-                    if (concrete && concrete != payload_type)
-                        payload_type = concrete;
-
-                    if (payload_type && payload_type->is_complete)
-                    {
-                        if (payload_type->byte_align > max_payload_align)
-                            max_payload_align = payload_type->byte_align;
-                        if (payload_type->byte_size > max_payload_size)
-                            max_payload_size = payload_type->byte_size;
-                    }
-                }
-
-                ::new (&variant_layouts[i]) types::TaggedEnumVariantLayout{v.name, payload_type, v.discriminant};
-            }
-
-            std::uint64_t disc_offset = 0;
-            std::uint64_t payload_offset = align_up(disc_size, max_payload_align);
-            std::uint64_t total_size_raw = payload_offset + max_payload_size;
-
-            std::uint32_t total_align = disc_align > max_payload_align ? disc_align : max_payload_align;
-            if (total_align < 1)
-                total_align = 1;
-
-            std::uint64_t total_size = align_up(total_size_raw, total_align);
-
-            void* p = m_alloc.resource()->allocate(sizeof(types::TaggedEnumLayout), alignof(types::TaggedEnumLayout));
-            auto* layout = ::new (p) types::TaggedEnumLayout{
-                .discriminant_offset = disc_offset,
-                .discriminant_size = disc_size,
-                .discriminant_type = disc_type,
-                .payload_offset = payload_offset,
-                .payload_size = max_payload_size,
-                .total_size = total_size,
-                .total_align = total_align,
-                .variants = variant_layouts,
-                .variant_count = variant_count,
-            };
-
-            et->tagged_layout = layout;
-            et->byte_size = total_size;
-            et->byte_align = total_align;
-            et->is_zero_sized = (total_size == 0);
-            et->is_complete = true;
-        }
+        void complete_tagged_enum(types::TypePtr ty) { ensure_tagged_enum_complete(m_types, m_alloc, ty); }
 
         [[nodiscard]] std::uint32_t allocate_frame_slot(std::uint32_t& next_off, types::TypePtr type)
         {
@@ -4409,6 +4237,9 @@ export namespace dcc::sema
 
             if (ty->kind == types::TypeKind::Enum)
             {
+                auto* et_mut = const_cast<types::EnumType*>(static_cast<types::EnumType const*>(ty));
+                ensure_tagged_enum_complete(m_types, m_alloc, et_mut);
+
                 auto const* et = static_cast<types::EnumType const*>(ty);
                 auto const* ed = reinterpret_cast<ast::EnumDecl const*>(et->decl);
                 auto backing = ed->backing_type ? get_canonical(ed->backing_type->sema) : nullptr;
@@ -5910,7 +5741,7 @@ export namespace dcc::sema
             if (!et || !et->is_tagged || !et->tagged_layout)
                 return nullptr;
 
-            ensure_tagged_enum_complete(enum_type);
+            complete_tagged_enum(enum_type);
             et = types::type_cast<types::EnumType>(enum_type);
             if (!et || !et->tagged_layout)
                 return nullptr;
@@ -6461,7 +6292,7 @@ export namespace dcc::sema
                         }
                     }
 
-                    ensure_tagged_enum_complete(out.type);
+                    complete_tagged_enum(out.type);
 
                     if (out.type && variant->payload.empty())
                     {
@@ -6576,7 +6407,7 @@ export namespace dcc::sema
                         }
                     }
 
-                    ensure_tagged_enum_complete(out.type);
+                    complete_tagged_enum(out.type);
 
                     if (out.type && variant->payload.empty())
                     {
@@ -7817,7 +7648,7 @@ export namespace dcc::sema
                     return detail::ExprResult{m_types.m_errort()};
                 }
 
-                ensure_tagged_enum_complete(target);
+                complete_tagged_enum(target);
 
                 if (chosen->type)
                 {
@@ -8754,7 +8585,7 @@ export namespace dcc::sema
                         out.construction_kind = ConstructionKind::Enum;
                         out.constructed_variant = variant;
 
-                        ensure_tagged_enum_complete(out.type);
+                        complete_tagged_enum(out.type);
 
                         if (out.type)
                         {
@@ -10503,6 +10334,301 @@ export namespace dcc::sema
         static SpecializationRegistry reg;
         reg = SpecializationRegistry{};
         BodyAnalyzer{empty_span, diag, ast_ctx, type_ctx, alloc, reg}.analyze_single_function(mod, fn);
+    }
+
+    [[nodiscard]] std::uint64_t align_up_enum(std::uint64_t n, std::uint64_t align)
+    {
+        if (align <= 1)
+            return n;
+
+        auto rem = n % align;
+        return rem ? (n + (align - rem)) : n;
+    }
+
+    [[nodiscard]] std::optional<infer::TemplateBindings> make_bindings(types::TypeContext& types, types::TypePtr ty)
+    {
+        if (!ty)
+            return std::nullopt;
+
+        std::vector<types::TypePtr> args;
+        std::vector<ast::TemplateParam const*> template_params;
+
+        if (ty->kind == types::TypeKind::Nominal)
+            ty = static_cast<types::NominalType const*>(ty)->underlying;
+
+        switch (ty->kind)
+        {
+            case types::TypeKind::Struct: {
+                auto const* st = static_cast<types::StructType const*>(ty);
+                auto const* decl = reinterpret_cast<ast::StructDecl const*>(st->decl);
+                template_params.reserve(decl->template_params.size());
+                for (auto const& tp : decl->template_params)
+                    template_params.push_back(&tp);
+
+                args.assign(st->template_args.begin(), st->template_args.end());
+                break;
+            }
+            case types::TypeKind::Enum: {
+                auto const* et = static_cast<types::EnumType const*>(ty);
+                auto const* decl = reinterpret_cast<ast::EnumDecl const*>(et->decl);
+                template_params.reserve(decl->template_params.size());
+                for (auto const& tp : decl->template_params)
+                    template_params.push_back(&tp);
+
+                args.assign(et->template_args.begin(), et->template_args.end());
+                break;
+            }
+            default:
+                return std::nullopt;
+        }
+
+        if (template_params.empty())
+            return std::nullopt;
+        if (template_params.size() != args.size())
+            return std::nullopt;
+
+        std::optional<infer::TemplateBindings> bindings;
+        bindings.emplace(types);
+        for (std::size_t i = 0; i < template_params.size(); ++i)
+        {
+            auto const& tp = *template_params[i];
+            auto param_ty = types.template_param_t(const_cast<ast::TemplateParam*>(std::addressof(tp)), tp.name, static_cast<std::uint32_t>(i));
+            if (auto r = bindings->deduce(param_ty, args[i]); !r)
+                return std::nullopt;
+        }
+
+        return bindings;
+    }
+
+    [[nodiscard]] types::TypePtr substitute_in_nominal_context(types::TypeContext& types, types::TypePtr ty, types::TypePtr context)
+    {
+        if (!context)
+            return ty;
+
+        auto bindings = make_bindings(types, context);
+        if (!bindings)
+            return ty;
+
+        return bindings->substitute(ty);
+    }
+
+    void ensure_tagged_enum_complete(types::TypeContext& types, std::pmr::polymorphic_allocator<> alloc, types::TypePtr ty)
+    {
+        auto* et = const_cast<types::EnumType*>(types::type_cast<types::EnumType>(ty));
+        if (!et || et->tagged_layout || et->template_args.empty())
+            return;
+
+        static thread_local std::vector<void const*> s_completing_stack;
+        if (std::find(s_completing_stack.begin(), s_completing_stack.end(), et) != s_completing_stack.end())
+            return;
+        s_completing_stack.push_back(et);
+        struct CompletingGuard
+        {
+            std::vector<void const*>& stack;
+            ~CompletingGuard() { stack.pop_back(); }
+        } guard{s_completing_stack};
+
+        auto* ed = const_cast<ast::EnumDecl*>(reinterpret_cast<ast::EnumDecl const*>(et->decl));
+        if (!ed || !ed->is_tagged || ed->template_params.empty())
+        {
+            return;
+        }
+
+        et->is_tagged = true;
+
+        auto variant_count = ed->variants.size();
+
+        auto disc_magnitude = [](std::int64_t stored_val, bool is_negative) -> std::uint64_t {
+            if (!is_negative)
+                return static_cast<std::uint64_t>(stored_val);
+            if (stored_val == std::numeric_limits<std::int64_t>::min())
+                return static_cast<std::uint64_t>(std::numeric_limits<std::int64_t>::max()) + 1;
+            return static_cast<std::uint64_t>(-stored_val);
+        };
+
+        std::uint64_t max_positive = 0;
+        std::uint64_t max_negative_magnitude = 0;
+        bool has_negative_disc = false;
+        for (auto& v : ed->variants)
+        {
+            auto mag = disc_magnitude(v.discriminant, v.discriminant_is_negative);
+            if (v.discriminant_is_negative)
+            {
+                has_negative_disc = true;
+                if (mag > max_negative_magnitude)
+                    max_negative_magnitude = mag;
+            }
+            else
+            {
+                if (mag > max_positive)
+                    max_positive = mag;
+            }
+        }
+
+        bool needs_signed = has_negative_disc;
+        types::IntType const* disc_type = nullptr;
+        std::uint64_t disc_size = 0;
+
+        auto signed_fits = [&](std::uint8_t bits) -> bool {
+            if (bits >= 64)
+            {
+                if (max_positive > static_cast<std::uint64_t>(std::numeric_limits<std::int64_t>::max()))
+                    return false;
+            }
+            else
+            {
+                std::int64_t pos_max = (std::int64_t(1) << (bits - 1)) - 1;
+                if (static_cast<std::int64_t>(max_positive) > pos_max)
+                    return false;
+            }
+
+            if (bits >= 64)
+                return max_negative_magnitude <= static_cast<std::uint64_t>(std::numeric_limits<std::int64_t>::max()) + 1;
+            else
+            {
+                std::uint64_t neg_max_mag = std::uint64_t(1) << (bits - 1);
+                return max_negative_magnitude <= neg_max_mag;
+            }
+        };
+
+        if (needs_signed)
+        {
+            if (signed_fits(8))
+            {
+                disc_type = static_cast<types::IntType const*>(types.int_t(8, true));
+                disc_size = 1;
+            }
+            else if (signed_fits(16))
+            {
+                disc_type = static_cast<types::IntType const*>(types.int_t(16, true));
+                disc_size = 2;
+            }
+            else if (signed_fits(32))
+            {
+                disc_type = static_cast<types::IntType const*>(types.int_t(32, true));
+                disc_size = 4;
+            }
+            else
+            {
+                disc_type = static_cast<types::IntType const*>(types.int_t(64, true));
+                disc_size = 8;
+            }
+        }
+        else
+        {
+            std::uint64_t needed = max_positive > static_cast<std::uint64_t>(variant_count) - 1 ? max_positive : static_cast<std::uint64_t>(variant_count) - 1;
+
+            if (needed <= 255)
+            {
+                disc_type = static_cast<types::IntType const*>(types.int_t(8, false));
+                disc_size = 1;
+            }
+            else if (needed <= 65535)
+            {
+                disc_type = static_cast<types::IntType const*>(types.int_t(16, false));
+                disc_size = 2;
+            }
+            else if (needed <= 4294967295)
+            {
+                disc_type = static_cast<types::IntType const*>(types.int_t(32, false));
+                disc_size = 4;
+            }
+            else
+            {
+                disc_type = static_cast<types::IntType const*>(types.int_t(64, false));
+                disc_size = 8;
+            }
+        }
+
+        std::uint32_t disc_align = static_cast<std::uint32_t>(disc_size);
+        std::uint32_t max_payload_align = 1;
+        std::uint64_t max_payload_size = 0;
+
+        auto* variant_layouts = static_cast<types::TaggedEnumVariantLayout*>(
+            alloc.resource()->allocate(sizeof(types::TaggedEnumVariantLayout) * variant_count, alignof(types::TaggedEnumVariantLayout)));
+
+        for (std::size_t i = 0; i < variant_count; ++i)
+        {
+            auto& v = ed->variants[i];
+            types::TypePtr payload_type = nullptr;
+            if (v.payload.size() == 1)
+            {
+                auto const& ts = v.payload[0]->sema;
+                payload_type = get_canonical(ts);
+
+                auto concrete = substitute_in_nominal_context(types, payload_type, ty);
+                if (concrete && concrete != payload_type)
+                    payload_type = concrete;
+
+                if (payload_type && !payload_type->is_complete)
+                {
+                    if (auto* payload_et = types::type_cast<types::EnumType>(payload_type))
+                    {
+                        if (!payload_et->tagged_layout && !payload_et->template_args.empty())
+                        {
+                            auto* payload_ed = reinterpret_cast<ast::EnumDecl const*>(payload_et->decl);
+                            if (payload_ed && payload_ed->is_tagged && !payload_ed->template_params.empty())
+                                ensure_tagged_enum_complete(types, alloc, payload_type);
+                        }
+                    }
+                }
+
+                if (payload_type && payload_type->is_complete)
+                {
+                    if (payload_type->byte_align > max_payload_align)
+                        max_payload_align = payload_type->byte_align;
+                    if (payload_type->byte_size > max_payload_size)
+                        max_payload_size = payload_type->byte_size;
+                }
+            }
+
+            ::new (&variant_layouts[i]) types::TaggedEnumVariantLayout{v.name, payload_type, v.discriminant};
+        }
+
+        std::uint64_t disc_offset = 0;
+        std::uint64_t payload_offset = align_up_enum(disc_size, max_payload_align);
+        std::uint64_t total_size_raw = payload_offset + max_payload_size;
+
+        std::uint32_t total_align = disc_align > max_payload_align ? disc_align : max_payload_align;
+        if (total_align < 1)
+            total_align = 1;
+
+        std::uint64_t total_size = align_up_enum(total_size_raw, total_align);
+
+        void* p = alloc.resource()->allocate(sizeof(types::TaggedEnumLayout), alignof(types::TaggedEnumLayout));
+        auto* layout = ::new (p) types::TaggedEnumLayout{
+            .discriminant_offset = disc_offset,
+            .discriminant_size = disc_size,
+            .discriminant_type = disc_type,
+            .payload_offset = payload_offset,
+            .payload_size = max_payload_size,
+            .total_size = total_size,
+            .total_align = total_align,
+            .variants = variant_layouts,
+            .variant_count = variant_count,
+        };
+
+        et->tagged_layout = layout;
+        et->byte_size = total_size;
+        et->byte_align = total_align;
+        et->is_zero_sized = (total_size == 0);
+        et->is_complete = true;
+    }
+
+    void complete_all_templated_tagged_enums(types::TypeContext& types, std::pmr::polymorphic_allocator<> alloc)
+    {
+        for (std::size_t i = 0; i < types.enums().size(); ++i)
+        {
+            auto* et = const_cast<types::EnumType*>(types.enums()[i]);
+            if (!et || et->tagged_layout || et->template_args.empty())
+                continue;
+
+            auto* ed = reinterpret_cast<ast::EnumDecl const*>(et->decl);
+            if (!ed || !ed->is_tagged || ed->template_params.empty())
+                continue;
+
+            ensure_tagged_enum_complete(types, alloc, et);
+        }
     }
 
 } // namespace dcc::sema

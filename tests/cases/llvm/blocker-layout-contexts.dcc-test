@@ -1,0 +1,19 @@
+=== FILE: test.dc ===
+module test;
+
+public enum Option(T) { Some(T), None, }
+
+public Option(i32) g;
+
+public struct Wrap {
+    Option(i32) x;
+}
+
+public void test(Option(i32) p) {
+    Option(i32) loc = p;
+    Wrap w = {x = p};
+    Option(i32)[2] arr = {p, p};
+    Option(i32) sl_elem = arr[0];
+}
+
+=== EXPECT-LLVM FLAGS: -verify ===

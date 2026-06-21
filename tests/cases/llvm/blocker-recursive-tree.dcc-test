@@ -1,0 +1,15 @@
+=== FILE: test.dc ===
+module test;
+
+public enum Tree(T) { Leaf(T), Node(Tree(T)*), }
+
+public void use_i32(i32 x) {}
+
+public void f(Tree(i32) t) {
+    match t {
+        Tree::Leaf(v) => use_i32(v),
+        Tree::Node(c) => {},
+    };
+}
+
+=== EXPECT-LLVM FLAGS: -verify ===

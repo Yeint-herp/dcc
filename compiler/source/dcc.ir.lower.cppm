@@ -5698,6 +5698,13 @@ export namespace dcc::ir::lower
                     return ir_agg;
                 }
 
+                if (!et->template_args.empty())
+                {
+                    auto const* ed = reinterpret_cast<ast::EnumDecl const*>(et->decl);
+                    if (ed && ed->is_tagged)
+                        lower_panic(std::format("templated tagged enum `{}` reached lowering without completed layout", ed->name));
+                }
+
                 return m_ctx.int_t(32, true);
             }
 
