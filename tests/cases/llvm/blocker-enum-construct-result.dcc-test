@@ -1,0 +1,49 @@
+=== FILE: test.dc ===
+module test;
+
+public enum Result(T, E) { Ok(T), Err(E), }
+
+public void handle(Result(i32, i32) r) {}
+
+public Result(i32, i32) make_ok_lit() {
+    return Result::Ok(42);
+}
+
+public Result(i32, i32) make_err_lit() {
+    return Result::Err(1);
+}
+
+public void test_local_init_ok() {
+    Result(i32, i32) r = Result::Ok(42);
+}
+
+public void test_local_init_err() {
+    Result(i32, i32) r = Result::Err(1);
+}
+
+public void test_assign_ok() {
+    Result(i32, i32) r;
+    r = Result::Ok(42);
+}
+
+public void test_assign_err() {
+    Result(i32, i32) r;
+    r = Result::Err(1);
+}
+
+public void test_call_arg_ok() {
+    handle(Result::Ok(42));
+}
+
+public void test_call_arg_err() {
+    handle(Result::Err(1));
+}
+
+public void test_param_match_ok(Result(i32, i32) x) {
+    match x {
+        Result::Ok(v) => {},
+        Result::Err(e) => {},
+    };
+}
+
+=== EXPECT-LLVM FLAGS: -verify ===

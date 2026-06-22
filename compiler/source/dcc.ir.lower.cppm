@@ -1065,6 +1065,13 @@ export namespace dcc::ir::lower
             if (dcc::types::type_cast<dcc::types::RangeType>(type) || dcc::types::type_cast<dcc::types::RangeInclusiveType>(type))
                 lower_panic("RangeType/RangeInclusiveType must not reach IR type lowering");
 
+            if (type->kind == dcc::types::TypeKind::TemplateParam)
+            {
+                auto* tp = static_cast<dcc::types::TemplateParamType const*>(type);
+                std::string msg = std::format("TemplateParam '{}' (index {}) reached lower_type: sema failed to substitute (see enum construction)", tp->name, tp->index);
+                lower_panic(msg);
+            }
+
             std::string reason = std::format("unsupported type kind: {}", static_cast<int>(type->kind));
             lower_panic(reason);
         }
@@ -5878,6 +5885,13 @@ export namespace dcc::ir::lower
                 auto* variant = expr->sema.constructed_variant;
                 auto* ir_enum_ty = lower_type(enum_type);
 
+                if (ast::node_cast<ast::CallExpr>(expr))
+                {
+                    auto* fallback_val = fallback_lower();
+                    if (fallback_val && fallback_val->type == ir_enum_ty && fallback_val->kind == IrNodeKind::Aggregate)
+                        return fallback_val;
+                }
+
                 bool needs_payload_lowering =
                     ast::node_cast<ast::StringLiteralExpr>(expr) || ast::node_cast<ast::U16StringLiteralExpr>(expr) || expr->sema.const_value;
 
@@ -5901,6 +5915,21 @@ export namespace dcc::ir::lower
                             payload_args.push_back(nullptr);
 
                         continue;
+                    }
+
+                    if (et->tagged_layout)
+                    {
+                        auto const* ed = reinterpret_cast<ast::EnumDecl const*>(et->decl);
+                        if (ed)
+                        {
+                            auto variant_index = static_cast<std::size_t>(variant - ed->variants.data());
+                            if (variant_index < et->tagged_layout->variant_count)
+                            {
+                                auto* concrete_pt = et->tagged_layout->variants[variant_index].variant_payload_type_or_null;
+                                if (concrete_pt)
+                                    payload_canon = concrete_pt;
+                            }
+                        }
                     }
 
                     IrValue* payload_val = nullptr;

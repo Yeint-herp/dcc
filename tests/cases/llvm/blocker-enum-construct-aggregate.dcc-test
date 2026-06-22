@@ -1,0 +1,26 @@
+=== FILE: test.dc ===
+module test;
+
+public enum Option(T) { Some(T), None, }
+
+@nomangle
+public Option(i32) returnsome_lit() {
+    return Option::Some(42);
+}
+
+=== EXPECT-LLVM ===
+; ModuleID = 'test'
+source_filename = "test"
+target triple = "x86_64-unknown-linux-gnu"
+
+%0 = type { i8, [3 x i8], [4 x i8] }
+
+define %0 @returnsome_lit() {
+entry:
+  %"1" = alloca [4 x i8], align 1
+  store [4 x i8] zeroinitializer, ptr %"1", align 1
+  store i32 42, ptr %"1", align 4
+  %"2" = load [4 x i8], ptr %"1", align 1
+  %"3" = insertvalue %0 { i8 0, [3 x i8] undef, [4 x i8] undef }, [4 x i8] %"2", 2
+  ret %0 %"3"
+}

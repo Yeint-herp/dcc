@@ -1,0 +1,52 @@
+=== FILE: test.dc ===
+module test;
+
+public enum Option(T) { Some(T), None, }
+
+public void use_i32(i32 x) {}
+
+public void takes_option(Option(i32) x) {}
+
+public i32 get42() { return 42; }
+
+public Option(i32) returnsome_lit() {
+    return Option::Some(42);
+}
+
+public void test_local_init() {
+    Option(i32) o = Option::Some(42);
+}
+
+public void test_assign() {
+    Option(i32) o;
+    o = Option::Some(42);
+}
+
+public void test_call_arg() {
+    takes_option(Option::Some(42));
+}
+
+public void test_var_arg(i32 v) {
+    takes_option(Option::Some(v));
+}
+
+public void test_call_result() {
+    takes_option(Option::Some(get42()));
+}
+
+public void test_ptr_deref(i32* p) {
+    takes_option(Option::Some(*p));
+}
+
+public void test_param_match(Option(i32) x) {
+    match x {
+        Option::Some(v) => use_i32(v),
+        Option::None => {},
+    };
+}
+
+public void test_none_literal() {
+    Option(i32) o = Option::None;
+}
+
+=== EXPECT-LLVM FLAGS: -verify ===
