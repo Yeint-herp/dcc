@@ -248,3 +248,127 @@ TEST_CASE("occurs check rejects recursive binding")
     CHECK(!r);
     CHECK_EQ(r.error, infer::DeductionError::OccursCheck);
 }
+
+SECTION("infer: pointer pointee qualifiers");
+
+TEST_CASE("deduces volatile ptr pointee qualifier match")
+{
+    types::TypeContext ctx;
+    infer::TemplateBindings ib{ctx};
+    int tag{};
+
+    auto T = tparam(ctx, tag, "T", 0);
+    auto i32 = ctx.int_t(32, true);
+
+    auto pattern = ptr(ctx, T, types::Qual::Volatile);
+    auto actual = ptr(ctx, i32, types::Qual::Volatile);
+
+    REQUIRE(ib.deduce(pattern, actual));
+    CHECK_EQ(ib.lookup(static_cast<types::TemplateParamType const*>(T)), i32);
+    CHECK_EQ(ib.substitute(pattern), actual);
+}
+
+TEST_CASE("deduces const ptr pointee qualifier match")
+{
+    types::TypeContext ctx;
+    infer::TemplateBindings ib{ctx};
+    int tag{};
+
+    auto T = tparam(ctx, tag, "T", 0);
+    auto i32 = ctx.int_t(32, true);
+
+    auto pattern = ptr(ctx, T, types::Qual::Const);
+    auto actual = ptr(ctx, i32, types::Qual::Const);
+
+    REQUIRE(ib.deduce(pattern, actual));
+    CHECK_EQ(ib.lookup(static_cast<types::TemplateParamType const*>(T)), i32);
+}
+
+TEST_CASE("deduces const-volatile ptr pointee qualifier match")
+{
+    types::TypeContext ctx;
+    infer::TemplateBindings ib{ctx};
+    int tag{};
+
+    auto T = tparam(ctx, tag, "T", 0);
+    auto i32 = ctx.int_t(32, true);
+
+    auto pattern = ptr(ctx, T, types::Qual::Const | types::Qual::Volatile);
+    auto actual = ptr(ctx, i32, types::Qual::Const | types::Qual::Volatile);
+
+    REQUIRE(ib.deduce(pattern, actual));
+    CHECK_EQ(ib.lookup(static_cast<types::TemplateParamType const*>(T)), i32);
+}
+
+TEST_CASE("deduces ptr actual extra qualifiers ok")
+{
+    types::TypeContext ctx;
+    infer::TemplateBindings ib{ctx};
+    int tag{};
+
+    auto T = tparam(ctx, tag, "T", 0);
+    auto i32 = ctx.int_t(32, true);
+
+    auto pattern = ptr(ctx, T, types::Qual::None);
+    auto actual = ptr(ctx, i32, types::Qual::Volatile);
+
+    REQUIRE(ib.deduce(pattern, actual));
+
+    auto bound = ib.lookup(static_cast<types::TemplateParamType const*>(T));
+    REQUIRE(bound);
+    CHECK_EQ(bound->kind, types::TypeKind::Int);
+    auto const* int_t = static_cast<types::IntType const*>(bound);
+    CHECK_EQ(int_t->bits, 32);
+    CHECK(int_t->is_signed);
+}
+
+TEST_CASE("volatile ptr pattern vs non-volatile actual fails")
+{
+    types::TypeContext ctx;
+    infer::TemplateBindings ib{ctx};
+    int tag{};
+
+    auto T = tparam(ctx, tag, "T", 0);
+    auto i32 = ctx.int_t(32, true);
+
+    auto pattern = ptr(ctx, T, types::Qual::Volatile);
+    auto actual = ptr(ctx, i32, types::Qual::None);
+
+    auto r = ib.deduce(pattern, actual);
+    CHECK(!r);
+    CHECK_EQ(r.error, infer::DeductionError::Conflict);
+}
+
+TEST_CASE("const-volatile ptr pattern vs const-only actual fails")
+{
+    types::TypeContext ctx;
+    infer::TemplateBindings ib{ctx};
+    int tag{};
+
+    auto T = tparam(ctx, tag, "T", 0);
+    auto i32 = ctx.int_t(32, true);
+
+    auto pattern = ptr(ctx, T, types::Qual::Const | types::Qual::Volatile);
+    auto actual = ptr(ctx, i32, types::Qual::Const);
+
+    auto r = ib.deduce(pattern, actual);
+    CHECK(!r);
+    CHECK_EQ(r.error, infer::DeductionError::Conflict);
+}
+
+TEST_CASE("ptr qualifier same, pointee deduces template param")
+{
+    types::TypeContext ctx;
+    infer::TemplateBindings ib{ctx};
+    int tag{};
+
+    auto T = tparam(ctx, tag, "T", 0);
+    auto boolean = ctx.m_boolt();
+
+    auto pattern = ptr(ctx, T, types::Qual::Volatile);
+    auto actual = ptr(ctx, boolean, types::Qual::Volatile);
+
+    REQUIRE(ib.deduce(pattern, actual));
+    auto bound = ib.lookup(static_cast<types::TemplateParamType const*>(T));
+    CHECK(bound == boolean);
+}

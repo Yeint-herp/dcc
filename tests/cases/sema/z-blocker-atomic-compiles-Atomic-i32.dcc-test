@@ -1,0 +1,16 @@
+=== FILE: main.dc ===
+module m;
+
+import core::atomic;
+
+using AtomicLoadable(T) = compiles(core::atomic::Atomic(T)* p) {
+    core::atomic::atomic_load(p, core::atomic::MemoryOrder::Relaxed);
+};
+
+void accept(T)(core::atomic::Atomic(T)* p) if AtomicLoadable(T) {}
+
+void test() {
+    core::atomic::Atomic(i32) cell;
+    core::atomic::Atomic(i32)* p = &cell;
+    accept(p);
+}

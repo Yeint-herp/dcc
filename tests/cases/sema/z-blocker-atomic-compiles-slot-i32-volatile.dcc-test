@@ -1,0 +1,19 @@
+=== FILE: main.dc ===
+module m;
+
+import core::atomic;
+
+struct Slot(T) {
+    core::atomic::Atomic(T) cell;
+}
+
+using VolatileLoadable(T) = compiles(volatile T* p) {
+    core::atomic::atomic_load(p, core::atomic::MemoryOrder::Relaxed);
+};
+
+void accept_if(T)(Slot(T)* p) if VolatileLoadable(T) {}
+
+void test() {
+    Slot(i32) s;
+    accept_if(&s);
+}

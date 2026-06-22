@@ -534,6 +534,9 @@ export namespace dcc::infer
                 case types::TypeKind::Pointer: {
                     auto const* a = static_cast<types::PointerType const*>(lhs);
                     auto const* b = static_cast<types::PointerType const*>(rhs);
+                    if ((std::to_underlying(a->pointee_quals) & std::to_underlying(b->pointee_quals)) !=
+                        std::to_underlying(a->pointee_quals))
+                        return fail(DeductionError::Conflict, "pointer pointee qualifier mismatch");
                     return deduce(a->pointee, b->pointee);
                 }
 

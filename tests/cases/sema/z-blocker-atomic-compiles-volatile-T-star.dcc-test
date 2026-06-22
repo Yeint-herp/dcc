@@ -1,0 +1,14 @@
+=== FILE: main.dc ===
+module m;
+
+import core::atomic;
+
+using VolatileLoadable(T) = compiles(volatile T* p) {
+    core::atomic::atomic_load(p, core::atomic::MemoryOrder::Relaxed);
+};
+
+void accept(T)(volatile T* p) if VolatileLoadable(T) {}
+
+void test_call(volatile i32* p) {
+    accept(p);
+}

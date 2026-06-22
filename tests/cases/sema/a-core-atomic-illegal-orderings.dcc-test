@@ -2,22 +2,20 @@
 module main;
 import core::atomic;
 
-volatile i32 g;
-
-void test_illegal_load_order_2() {
-    core::atomic::atomic_load(&g, core::atomic::MemoryOrder::Release);
+void test_illegal_load_order_2(volatile i32* p) {
+    core::atomic::atomic_load(p, core::atomic::MemoryOrder::Release);
 }
 
-void test_illegal_load_order_3() {
-    core::atomic::atomic_load(&g, core::atomic::MemoryOrder::AcqRel);
+void test_illegal_load_order_3(volatile i32* p) {
+    core::atomic::atomic_load(p, core::atomic::MemoryOrder::AcqRel);
 }
 
-void test_illegal_store_order_1() {
-    core::atomic::atomic_store(&g, 42, core::atomic::MemoryOrder::Acquire);
+void test_illegal_store_order_1(volatile i32* p) {
+    core::atomic::atomic_store(p, 42, core::atomic::MemoryOrder::Acquire);
 }
 
-void test_illegal_store_order_3() {
-    core::atomic::atomic_store(&g, 42, core::atomic::MemoryOrder::AcqRel);
+void test_illegal_store_order_3(volatile i32* p) {
+    core::atomic::atomic_store(p, 42, core::atomic::MemoryOrder::AcqRel);
 }
 
 void test_illegal_fence_order_0() {
@@ -25,8 +23,8 @@ void test_illegal_fence_order_0() {
 }
 
 === EXPECT-ERRORS ===
-main.dc:7: atomic_load allows MemoryOrder Relaxed(0), Acquire(1), or SeqCst(4); got 2
-main.dc:11: atomic_load allows MemoryOrder Relaxed(0), Acquire(1), or SeqCst(4); got 3
-main.dc:15: atomic_store allows MemoryOrder Relaxed(0), Release(2), or SeqCst(4); got 1
-main.dc:19: atomic_store allows MemoryOrder Relaxed(0), Release(2), or SeqCst(4); got 3
-main.dc:23: atomic_fence allows MemoryOrder Acquire(1), Release(2), AcqRel(3), or SeqCst(4); got 0
+main.dc:5: atomic_load allows MemoryOrder Relaxed(0), Acquire(1), or SeqCst(4); got 2
+main.dc:9: atomic_load allows MemoryOrder Relaxed(0), Acquire(1), or SeqCst(4); got 3
+main.dc:13: atomic_store allows MemoryOrder Relaxed(0), Release(2), or SeqCst(4); got 1
+main.dc:17: atomic_store allows MemoryOrder Relaxed(0), Release(2), or SeqCst(4); got 3
+main.dc:21: atomic_fence allows MemoryOrder Acquire(1), Release(2), AcqRel(3), or SeqCst(4); got 0

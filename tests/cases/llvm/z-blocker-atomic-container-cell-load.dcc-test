@@ -1,0 +1,34 @@
+=== FILE: test.dc ===
+module test;
+
+import core::atomic;
+
+using AtomicLoadable(T) = compiles(core::atomic::Atomic(T)* p) {
+    core::atomic::atomic_load(p, core::atomic::MemoryOrder::Relaxed);
+};
+
+struct Slot(T) if AtomicLoadable(T) {
+    core::atomic::Atomic(T) cell;
+}
+
+i32 load_cell() {
+    Slot(i32) s;
+    return core::atomic::atomic_load(&s.cell, core::atomic::MemoryOrder::Relaxed);
+}
+
+=== EXPECT-LLVM ===
+; ModuleID = 'test'
+source_filename = "test"
+target triple = "x86_64-unknown-linux-gnu"
+
+%0 = type { %1 }
+%1 = type { i32 }
+
+define i32 @_DC0F1.4.test9.load_cell0i32s() {
+entry:
+  %"0" = alloca %0, align 8
+  %"1" = getelementptr %0, ptr %"0", i32 0, i32 0
+  %"2" = getelementptr %1, ptr %"1", i32 0, i32 0
+  %"3" = load atomic i32, ptr %"2" monotonic, align 4
+  ret i32 %"3"
+}

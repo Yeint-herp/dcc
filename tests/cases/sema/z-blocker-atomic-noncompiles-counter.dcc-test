@@ -1,0 +1,21 @@
+=== FILE: main.dc ===
+module m;
+
+import core::atomic;
+
+using AtomicLoadable(T) = compiles(core::atomic::Atomic(T)* p) {
+    core::atomic::atomic_load(p, core::atomic::MemoryOrder::Relaxed);
+};
+
+T load_it(T)(T* p) if AtomicLoadable(T) {
+    return *p;
+}
+
+void use() {
+    f32 x = 0;
+    f32* p = &x;
+    f32 result = load_it(p);
+}
+
+=== EXPECT-ERRORS ===
+main.dc:16: template constraint not satisfied for `load_it`

@@ -1,0 +1,17 @@
+=== FILE: main.dc ===
+module m;
+
+import core::atomic;
+
+using BadAtomicLoadable(T) = compiles(core::atomic::Atomic(T)* p) {
+    core::atomic::atomic_load(p, 999);
+};
+
+void test(T)() if BadAtomicLoadable(T) {}
+
+void use() {
+    test!i32();
+}
+
+=== EXPECT-ERRORS ===
+main.dc:12: template constraint not satisfied for `test`
