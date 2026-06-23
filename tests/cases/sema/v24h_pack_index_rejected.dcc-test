@@ -3,12 +3,12 @@ module m;
 
 void fn(i32 x) {}
 
-void runtime_index(T...)(T args, u64 i) {
-    fn(args[i]);
+void bracket_index(T...)(T args) {
+    fn(args[0]);
 }
 
 void caller() {
-    runtime_index!(i32, f64)(0, 1.0, 0);
+    bracket_index!(i32, f64)(0, 1.0);
 }
 
 === EXPECT-ERRORS ===
