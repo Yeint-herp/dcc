@@ -6979,6 +6979,34 @@ export namespace dcc::ir::lower
                 return wrap_lvalue(gep);
             }
 
+            if (fa->object->kind == ast::ExprKind::FieldAccess)
+            {
+                auto* inner_ptr = lower_field_lvalue(static_cast<ast::FieldAccessExpr const*>(fa->object));
+                auto* elem_ptr_type = m_ctx.pointer_to(lower_type(field_sema_ty));
+                auto* gep = m_ctx.gep(elem_ptr_type, inner_ptr);
+                gep->indices.push_back({IrGepInst::IndexKind::Field, nullptr, field_idx});
+                auto gep_name = ident_name();
+                gep->name = m_name_pool.back();
+                append_inst(gep);
+                return wrap_lvalue(gep);
+            }
+
+            if (fa->object->kind == ast::ExprKind::Unary)
+            {
+                auto* ue = static_cast<ast::UnaryExpr const*>(fa->object);
+                if (ue->op == dcc::lex::TokenKind::Star)
+                {
+                    auto* ptr = lower_expr(ue->operand);
+                    auto* elem_ptr_type = m_ctx.pointer_to(lower_type(field_sema_ty));
+                    auto* gep = m_ctx.gep(elem_ptr_type, ptr);
+                    gep->indices.push_back({IrGepInst::IndexKind::Field, nullptr, field_idx});
+                    auto gep_name = ident_name();
+                    gep->name = m_name_pool.back();
+                    append_inst(gep);
+                    return wrap_lvalue(gep);
+                }
+            }
+
             auto* obj_val = lower_expr(fa->object);
 
             if (obj_sema_type && obj_sema_type->kind == types::TypeKind::Pointer)

@@ -1,0 +1,87 @@
+=== FILE: test.dc ===
+module test;
+
+struct Point {
+    i64 x;
+    i64 y;
+}
+
+@nomangle
+i64* addr_of_deref_field(Point* p) {
+    return &(*p).x;
+}
+
+@nomangle
+void write_deref_field(Point* p, i64 v) {
+    (*p).x = v;
+}
+
+@nomangle
+i64 read_deref_field(Point* p) {
+    return (*p).x;
+}
+
+struct Wrapper {
+    Point inner;
+    i64 extra;
+}
+
+@nomangle
+i64* addr_of_nested_deref_field(Wrapper* w) {
+    return &(*w).inner.x;
+}
+
+@nomangle
+void test_local_regression() {
+    Point s;
+    i64* ptr = &s.x;
+    i64 val = s.x;
+}
+
+=== EXPECT-LLVM FLAGS: -verify ===
+; ModuleID = 'test'
+source_filename = "test"
+target triple = "x86_64-unknown-linux-gnu"
+
+%0 = type { i64, i64 }
+%1 = type { %0, i64 }
+
+define ptr @addr_of_deref_field(ptr %p) {
+entry:
+  %"0" = getelementptr %0, ptr %p, i32 0, i32 0
+  ret ptr %"0"
+}
+
+define void @write_deref_field(ptr %p, i64 %v) {
+entry:
+  %"0" = getelementptr %0, ptr %p, i32 0, i32 0
+  store i64 %v, ptr %"0", align 4
+  ret void
+}
+
+define i64 @read_deref_field(ptr %p) {
+entry:
+  %"0" = load %0, ptr %p, align 4
+  %"1" = extractvalue %0 %"0", 0
+  ret i64 %"1"
+}
+
+define ptr @addr_of_nested_deref_field(ptr %w) {
+entry:
+  %"0" = getelementptr %1, ptr %w, i32 0, i32 0
+  %"1" = getelementptr %0, ptr %"0", i32 0, i32 0
+  ret ptr %"1"
+}
+
+define void @test_local_regression() {
+entry:
+  %"0" = alloca %0, align 8
+  %"1" = alloca ptr, align 8
+  %"2" = getelementptr %0, ptr %"0", i32 0, i32 0
+  store ptr %"2", ptr %"1", align 8
+  %"3" = alloca i64, align 8
+  %"4" = getelementptr %0, ptr %"0", i32 0, i32 0
+  %"5" = load i64, ptr %"4", align 4
+  store i64 %"5", ptr %"3", align 4
+  ret void
+}

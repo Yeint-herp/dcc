@@ -1,0 +1,46 @@
+=== FILE: test.dc ===
+module test;
+
+import core::atomic;
+
+using AtomicLoadable(T) = compiles(core::atomic::Atomic(T)* p) {
+    core::atomic::atomic_load(p, core::atomic::MemoryOrder::Relaxed);
+};
+
+struct Slot(T) if AtomicLoadable(T) {
+    core::atomic::Atomic(T) cell;
+}
+
+@nomangle
+i32 load_cell_via_deref(Slot(i32)* p) {
+    return core::atomic::atomic_load(&(*p).cell, core::atomic::MemoryOrder::Relaxed);
+}
+
+@nomangle
+void store_cell_via_deref(Slot(i32)* p, i32 v) {
+    core::atomic::atomic_store(&(*p).cell, v, core::atomic::MemoryOrder::Relaxed);
+}
+
+=== EXPECT-LLVM ===
+; ModuleID = 'test'
+source_filename = "test"
+target triple = "x86_64-unknown-linux-gnu"
+
+%0 = type { %1 }
+%1 = type { i32 }
+
+define i32 @load_cell_via_deref(ptr %p) {
+entry:
+  %"0" = getelementptr %0, ptr %p, i32 0, i32 0
+  %"1" = getelementptr %1, ptr %"0", i32 0, i32 0
+  %"2" = load atomic i32, ptr %"1" monotonic, align 4
+  ret i32 %"2"
+}
+
+define void @store_cell_via_deref(ptr %p, i32 %v) {
+entry:
+  %"0" = getelementptr %0, ptr %p, i32 0, i32 0
+  %"1" = getelementptr %1, ptr %"0", i32 0, i32 0
+  store atomic i32 %v, ptr %"1" monotonic, align 4
+  ret void
+}
